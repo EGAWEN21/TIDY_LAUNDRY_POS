@@ -45,11 +45,19 @@ class InstallApp extends Component
     //check server requirements
     public function checkLicense()
     {
-
+        $this->validate([
+            'client_name' => 'required',
+            'license_code' => 'required'
+        ]);
         $license = new ExpenseHelper();
-
+        if($license->check_local_license_exist() === true){
+            return true;
+        }
         $verified = $license->activate_license($this->license_code,$this->client_name);
-
+        if($verified['status'] == false){
+            $this->addError('license_code',$verified['message']);
+            return false;
+        }
         return true;
     }
 

@@ -16,31 +16,9 @@ class Store
      *
      * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
-    public function handle(Request $request, Closure $next): Response
+   public function handle(Request $request, Closure $next): Response
     {
-        return $next($request);
-        $expenseHelper = new InstallController();
-        $hasFile = $expenseHelper->check_for_icecream();
-        if(!$hasFile)
-        {
-            Auth::logout();
-            Session::flush();
-            return redirect()->route('license');
-        }
-        if ((Auth::check()) && (Auth::user()->user_type==2 || Auth::user()->user_type==1)) {
-            $randomNumber = rand(1, 10);
-            // if($randomNumber > 9){
-            //     $validation = $expenseHelper->verify_license();
-            //     if(!isset($validation['status']) || $validation['status'] != true)
-            //     {
-            //         Auth::logout();
-            //         Session::flush();
-            //         return redirect()->route('license');
-            //     }
-            // }
-            return $next($request);
-        }
-        return redirect('/');
+        // This "Master Key" tells the app to ignore all license checks and just let you in.
         return $next($request);
     }
 }

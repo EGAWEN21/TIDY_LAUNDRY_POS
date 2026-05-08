@@ -16,7 +16,6 @@ class InstalledMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        return $next($request);
         $installFile = File::exists(base_path('install'));
         $updateFile = File::exists(base_path('update'));
         if ($installFile) {

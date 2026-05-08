@@ -37,7 +37,15 @@ class UpdaterApp extends Component
     }
 
     public function doChecks(){
-
+        $license = new InstallController();
+        $validation = $license->verify_license();
+        if(!isset($validation['status']) || $validation['status'] != true){
+            $verified = $license->activate_license($this->license_code,$this->client_name);
+            if($verified['status'] == false){
+                $this->addError('license_code',$verified['message']);
+                return false;
+            }
+        }
         return true;
     }
     

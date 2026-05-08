@@ -180,9 +180,15 @@ class InstallController{
 		);
 		$response = json_decode($get_data, true);
 		if(!empty($create_lic)){
-				$licfile = trim('Nulled');
+			if($response['status']){
+				$licfile = trim($response['lic_response']);
 				file_put_contents($this->license_file, $licfile, LOCK_EX);
-	
+			}else{
+				@chmod($this->license_file, 0777);
+				if(is_writeable($this->license_file)){
+					unlink($this->license_file);
+				}
+			}
 		}
 		return $response;
 	}

