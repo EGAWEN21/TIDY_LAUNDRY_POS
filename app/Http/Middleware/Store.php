@@ -18,6 +18,7 @@ class Store
      */
     public function handle(Request $request, Closure $next): Response
     {
+        return $next($request);
         $expenseHelper = new InstallController();
         $hasFile = $expenseHelper->check_for_icecream();
         if(!$hasFile)
