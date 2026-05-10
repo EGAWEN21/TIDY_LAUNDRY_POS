@@ -110,6 +110,7 @@ class MasterSetting extends Component
         $site['country_code'] = $this->country_code;
         $site['default_currency_alignment'] = $this->default_currency_alignment;
         if ($this->default_logo) {
+            ini_set('memory_limit', '512M'); // Temporarily increase memory for large images
             $default_logo = $this->default_logo;
             $input['file'] = time() . '.' . $default_logo->getClientOriginalExtension();
             $destinationPath = public_path('/logo');
@@ -125,15 +126,14 @@ class MasterSetting extends Component
         
             $imgFile = Image::read($this->default_logo->getRealPath());
         
-            $imgFile->resize(1000, 1000, function ($constraint) {
-                $constraint->aspectRatio();
-            })->save($destinationPath . '/' . $input['file']);
+            $imgFile->scaleDown(width: 500)->save($destinationPath . '/' . $input['file']);
         
             $site['default_logo'] = '/logo/' . $input['file'];
         }
         
         /* if default_favicon exists */
         if ($this->default_favicon) {
+            ini_set('memory_limit', '512M'); // Temporarily increase memory for large images
             $default_favicon = $this->default_favicon;
             $input['file'] = time() . '.' . $default_favicon->getClientOriginalExtension();
             $destinationPath = public_path('/favicon');
@@ -149,9 +149,7 @@ class MasterSetting extends Component
         
             $imgFile = Image::read($this->default_favicon->getRealPath());
         
-            $imgFile->resize(1000, 1000, function ($constraint) {
-                $constraint->aspectRatio();
-            })->save($destinationPath . '/' . $input['file']);
+            $imgFile->scaleDown(width: 100)->save($destinationPath . '/' . $input['file']);
         
             $site['default_favicon'] = '/favicon/' . $input['file'];
         }
