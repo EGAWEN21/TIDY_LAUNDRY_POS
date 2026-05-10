@@ -34,10 +34,13 @@
     @push('js')
         @if ($no_financial_year)
             <script>
-                var myModal = new bootstrap.Modal(document.getElementById('check-financial-year'))
-                myModal.show()
-
-                console.log('hey there')
+                document.addEventListener('DOMContentLoaded', function () {
+                    var modalEl = document.getElementById('check-financial-year');
+                    document.body.appendChild(modalEl);
+                    var myModal = new bootstrap.Modal(modalEl);
+                    myModal.show();
+                    console.log('hey there');
+                });
             </script>
         @endif
     @endpush
