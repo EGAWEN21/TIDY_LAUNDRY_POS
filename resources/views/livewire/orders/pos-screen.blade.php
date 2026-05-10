@@ -1,4 +1,4 @@
-<div class="tw-overflow-x-clip" x-data="posFunction">
+<div x-data="posFunction" class="tw-w-full">
     <div class="tw-w-full tw-bg-white tw-flex tw-justify-between tw-items-center ">
         <div class="tw-flex tw-gap-2 tw-px-3 tw-py-2">
             <a href="{{ route('orders') }}" class="no-underline">
@@ -150,7 +150,7 @@
                         @endif
                     </div>
                     @can('customer_create')
-                        <button type="button" data-bs-toggle="modal" data-bs-target="#addcustomer"
+                        <button type="button" onclick="$('#addcustomer').modal('show')"
                             class="tw-px-4 tw-py-3 bg-primary-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
                                 class="bi bi-person-fill-add" viewBox="0 0 16 16">
@@ -443,7 +443,7 @@
 
 
     <div class="modal fade " id="servicetype" tabindex="-1" role="dialog" aria-labelledby="servicetype"
-        aria-hidden="true" wire:ignore.self>
+        aria-hidden="true" wire:ignore.self wire:key="modal-servicetype">
         <div class="modal-dialog modal-md modal-dialog modal-dialog-centered" role="document">
             <div class="modal-content radius-16 bg-base">
                 <div class="modal-header py-16 px-24 border border-top-0 border-start-0 border-end-0">
@@ -486,7 +486,7 @@
         </div>
     </div>
     <div class="modal fade" id="notesModal" tabindex="-1" role="dialog" aria-labelledby="notesModal"
-        aria-hidden="true" wire:ignore.self>
+        aria-hidden="true" wire:ignore.self wire:key="modal-notesModal">
         <div class="modal-dialog modal-dialog-centered" role="document">
             <div class="modal-content radius-16 bg-base">
                 <div class="modal-header py-16 px-24 border border-top-0 border-start-0 border-end-0">
@@ -515,7 +515,7 @@
     </div>
 
     <div class="modal fade " id="discount" tabindex="-1" role="dialog" aria-labelledby="discount"
-        aria-hidden="true" wire:ignore.self>
+        aria-hidden="true" wire:ignore.self wire:key="modal-discount">
         <div class="modal-dialog modal-dialog-centered" role="document">
             <div class="modal-content radius-16 bg-base">
                 <div class="modal-header py-16 px-24 border border-top-0 border-start-0 border-end-0">
@@ -544,7 +544,7 @@
 
 
     <div class="modal fade " id="addons" tabindex="-1" role="dialog" aria-labelledby="discount"
-        aria-hidden="true" wire:ignore.self>
+        aria-hidden="true" wire:ignore.self wire:key="modal-addons">
         <div class="modal-dialog modal-dialog-centered" role="document">
             <div class="modal-content radius-16 bg-base">
                 <div class="modal-header py-16 px-24 border border-top-0 border-start-0 border-end-0">
@@ -584,7 +584,7 @@
     </div>
 
     <div class="modal fade " id="payment" tabindex="-1" role="dialog" aria-labelledby="payment"
-        aria-hidden="true" wire:ignore.self>
+        aria-hidden="true" wire:ignore.self wire:key="payment-modal">
         <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
             <div class="modal-content modal-content-lg radius-16 bg-base">
                 <div class="modal-header py-16 px-24 border border-top-0 border-start-0 border-end-0">
@@ -719,81 +719,83 @@
             </div>
         </div>
 
-        <div class="modal fade " id="addcustomer" tabindex="-1" role="dialog" aria-labelledby="addcustomer"
-            aria-hidden="true" wire:ignore.self>
-            <div class="modal-dialog" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="modal-title fw-600" id="addcustomer">
-                            {{ $lang->data['add_customer'] ?? 'Add Customer' }}
-                        </h6>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
-                    </div>
-                    <form>
-                        <div class="modal-body">
-                            <div class="row g-2 align-items-center">
-                                <div class="col-md-12 mb-1">
-                                    <label class="form-label">{{ $lang->data['customer_name'] ?? 'Customer Name' }}
-                                        <span class="text-danger">*</span></label>
-                                    <input type="text" required class="form-control"
-                                        placeholder="{{ $lang->data['enter_customer_name'] ?? 'Enter Customer Name' }}"
-                                        wire:model="customer_name">
-                                    @error('customer_name')
-                                        <span class="text-danger">{{ $message }}</span>
-                                    @enderror
-                                </div>
-                                <div class="col-md-12 mb-1">
-                                    <label class="form-label">{{ $lang->data['phone_number'] ?? 'Phone Number' }}
-                                        <span class="text-danger">*</span></label>
-                                    <input type="text" required class="form-control"
-                                        placeholder="{{ $lang->data['enter_phone_number'] ?? 'Enter Phone Number' }}"
-                                        wire:model="customer_phone">
-                                    @error('customer_phone')
-                                        <span class="text-danger">{{ $message }}</span>
-                                    @enderror
-                                </div>
-                                <div class="col-md-12 mb-1">
-                                    <label class="form-label">{{ $lang->data['email'] ?? 'Email' }}</label>
-                                    <input type="text" class="form-control"
-                                        placeholder="{{ $lang->data['enter_email'] ?? 'Enter Email' }}"
-                                        wire:model="email">
-                                    @error('email')
-                                        <span class="text-danger">{{ $message }}</span>
-                                    @enderror
-                                </div>
-                                <div class="col-md-12 mb-1">
-                                    <label class="form-label">{{ $lang->data['tax_number'] ?? 'Tax Number' }}</label>
-                                    <input type="text" class="form-control"
-                                        placeholder="{{ $lang->data['enter_tax_number'] ?? 'Enter Tax Number' }}"
-                                        wire:model="tax_no">
-                                </div>
-                                <div class="col-md-12 mb-3">
-                                    <label class="form-label">{{ $lang->data['address'] ?? 'Address' }}</label>
-                                    <textarea type="text" class="form-control" placeholder="{{ $lang->data['enter_address'] ?? 'Enter Address' }}"
-                                        wire:model="address"></textarea>
-                                </div>
-                                <div class="col-md-12 mb-1">
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="employee" checked
-                                            wire:model="is_active">
-                                        <label class="form-check-label"
-                                            for="employee">{{ $lang->data['is_active'] ?? 'Is Active' }} ?</label>
+        <template x-teleport="body">
+            <div class="modal " id="addcustomer" tabindex="-1" role="dialog" aria-labelledby="addcustomer-title"
+                aria-hidden="true" wire:ignore.self wire:key="addcustomer-modal">
+                <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h6 class="modal-title fw-600" id="addcustomer-title">
+                                {{ $lang->data['add_customer'] ?? 'Add Customer' }}
+                            </h6>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <form>
+                            <div class="modal-body">
+                                <div class="row g-2 align-items-center">
+                                    <div class="col-md-12 mb-1">
+                                        <label class="form-label">{{ $lang->data['customer_name'] ?? 'Customer Name' }}
+                                            <span class="text-danger">*</span></label>
+                                        <input type="text" required class="form-control"
+                                            placeholder="{{ $lang->data['enter_customer_name'] ?? 'Enter Customer Name' }}"
+                                            wire:model="customer_name">
+                                        @error('customer_name')
+                                            <span class="text-danger">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                    <div class="col-md-12 mb-1">
+                                        <label class="form-label">{{ $lang->data['phone_number'] ?? 'Phone Number' }}
+                                            <span class="text-danger">*</span></label>
+                                        <input type="text" required class="form-control"
+                                            placeholder="{{ $lang->data['enter_phone_number'] ?? 'Enter Phone Number' }}"
+                                            wire:model="customer_phone">
+                                        @error('customer_phone')
+                                            <span class="text-danger">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                    <div class="col-md-12 mb-1">
+                                        <label class="form-label">{{ $lang->data['email'] ?? 'Email' }}</label>
+                                        <input type="text" class="form-control"
+                                            placeholder="{{ $lang->data['enter_email'] ?? 'Enter Email' }}"
+                                            wire:model="email">
+                                        @error('email')
+                                            <span class="text-danger">{{ $message }}</span>
+                                        @enderror
+                                    </div>
+                                    <div class="col-md-12 mb-1">
+                                        <label class="form-label">{{ $lang->data['tax_number'] ?? 'Tax Number' }}</label>
+                                        <input type="text" class="form-control"
+                                            placeholder="{{ $lang->data['enter_tax_number'] ?? 'Enter Tax Number' }}"
+                                            wire:model="tax_no">
+                                    </div>
+                                    <div class="col-md-12 mb-3">
+                                        <label class="form-label">{{ $lang->data['address'] ?? 'Address' }}</label>
+                                        <textarea type="text" class="form-control" placeholder="{{ $lang->data['enter_address'] ?? 'Enter Address' }}"
+                                            wire:model="address"></textarea>
+                                    </div>
+                                    <div class="col-md-12 mb-1">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="employee" checked
+                                                wire:model="is_active">
+                                            <label class="form-check-label"
+                                                for="employee">{{ $lang->data['is_active'] ?? 'Is Active' }} ?</label>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary"
-                                data-bs-dismiss="modal">{{ $lang->data['cancel'] ?? 'Cancel' }}</button>
-                            <button type="button" class="btn btn-primary"
-                                wire:click.prevent="createCustomer()">{{ $lang->data['save'] ?? 'Save' }}</button>
-                        </div>
-                    </form>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary"
+                                    data-bs-dismiss="modal">{{ $lang->data['cancel'] ?? 'Cancel' }}</button>
+                                <button type="button" class="btn btn-primary"
+                                    wire:click.prevent="createCustomer()">{{ $lang->data['save'] ?? 'Save' }}</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
-        </div>
+        </template>
         <script wire:ignore>
             function posFunction() {
                 return {
