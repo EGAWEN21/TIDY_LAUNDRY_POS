@@ -10,13 +10,14 @@ use Livewire\Component;
 class HomePage extends Component
 {
     #[Title('Dashboard')]
-    public $pending_count,$processing_count,$ready_count,$delivered_count,$orders,$array,$search_query,$order_filter,$lang;
+    public $pending_count,$processing_count,$ready_count,$delivered_count,$returned_count,$orders,$array,$search_query,$order_filter,$lang;
     public function render()
     {
         $this->pending_count = Order::where('status',0)->count();
         $this->processing_count = Order::where('status',1)->count();
         $this->ready_count = Order::where('status',2)->count();
         $this->delivered_count = Order::where('status',3)->count();
+        $this->returned_count = Order::where('status',4)->count();
         return view('livewire.home-page');
     }
 
@@ -27,7 +28,7 @@ class HomePage extends Component
         $this->processing_count = Order::where('status',1)->count();
         $this->ready_count = Order::where('status',2)->count();
         $this->delivered_count = Order::where('status',3)->count();
-        $returned_count =  Order::where('status',4)->count();
+        $this->returned_count =  Order::where('status',4)->count();
         $this->orders = Order::whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())->get();
         if(session()->has('selected_language'))
         {
@@ -38,7 +39,7 @@ class HomePage extends Component
             /* if the session has no selected language */
             $this->lang = Translation::where('default',1)->first();
         }
-        $this->array = json_encode(array($this->pending_count,$this->processing_count,$this->ready_count,$this->delivered_count,$returned_count));
+        $this->array = json_encode(array($this->pending_count,$this->processing_count,$this->ready_count,$this->delivered_count,$this->returned_count));
     }
     /* process while update the element */
     public function updated($name,$value)

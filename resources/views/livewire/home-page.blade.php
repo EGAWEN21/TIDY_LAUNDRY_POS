@@ -1,5 +1,5 @@
 <div class="dashboard-main-body">
-    <div class="tw-grid 2xl:tw-grid-cols-4 tw-gap-4 lg:tw-grid-cols-2 tw-grid-cols-1 gy-4">
+    <div class="tw-grid 2xl:tw-grid-cols-5 tw-gap-4 lg:tw-grid-cols-3 md:tw-grid-cols-2 tw-grid-cols-1 gy-4">
         <div class="col">
             <div class="card shadow-none border bg-gradient-start-1 h-100">
                 <div class="card-body p-20">
@@ -65,6 +65,23 @@
                         <div
                             class="w-50-px h-50-px bg-success-main rounded-circle d-flex justify-content-center align-items-center">
                             <iconify-icon icon="mdi:check-bold" class="text-white text-2xl mb-0"></iconify-icon>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card shadow-none border bg-gradient-start-5 h-100">
+                <div class="card-body p-20">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                        <div>
+                            <p class="fw-medium text-primary-light mb-1">
+                                {{ $lang->data['returned_orders'] ?? 'Returned Orders' }}</p>
+                            <h6 class="mb-0">{{ $returned_count }}</h6>
+                        </div>
+                        <div
+                            class="w-50-px h-50-px bg-danger-main rounded-circle d-flex justify-content-center align-items-center">
+                            <iconify-icon icon="mdi:keyboard-return" class="text-white text-2xl mb-0"></iconify-icon>
                         </div>
                     </div>
                 </div>
@@ -155,7 +172,7 @@
                     <div class="d-flex align-items-center flex-wrap gap-2 justify-content-between">
                         <h6 class="mb-2 fw-bold text-lg">{{$lang->data['overview'] ?? 'Overview'}}</h6>
                     </div>
-                    <div id="userOverviewDonutChart"></div>
+                    <div id="userOverviewDonutChart" wire:ignore x-data="{ show: false }" x-init="setTimeout(() => show = true, 50)" :style="show ? 'opacity: 1; transition: opacity 0.3s ease-in;' : 'opacity: 0;'"></div>
                     <ul class="d-flex flex-wrap align-items-center justify-content-between mt-3 gap-3">
                         <li class="d-flex align-items-center gap-2">
                             <span class="w-12-px h-12-px radius-2 tw-bg-[#8392ab]"></span>
@@ -209,6 +226,19 @@
                 chart: {
                     type: 'donut',
                     height: 270,
+                    animations: {
+                        enabled: true,
+                        easing: 'easeinout',
+                        speed: 500,
+                        animateGradually: {
+                            enabled: true,
+                            delay: 150
+                        },
+                        dynamicAnimation: {
+                            enabled: true,
+                            speed: 350
+                        }
+                    },
                     sparkline: {
                         enabled: true // Remove whitespace
                     },
@@ -227,7 +257,8 @@
 
                 },
                 stroke: {
-                    width: 0,
+                    width: 1,
+                    colors: ['transparent']
                 },
                 dataLabels: {
                     enabled: false
