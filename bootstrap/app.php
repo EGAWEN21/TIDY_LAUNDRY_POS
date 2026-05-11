@@ -17,6 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\Admin::class,
             'store' => \App\Http\Middleware\Store::class,
         ]);
+        $middleware->validateCsrfTokens(except: [
+            'whatsapp/webhook',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

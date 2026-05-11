@@ -198,6 +198,12 @@
                                 class="ri-circle-fill circle-icon text-primary-600 w-auto"></i>{{$lang->data['sms_settings'] ?? 'SMS Settings'}} </a>
                     </li>
                     @endcan
+                    @can('setting_master')
+                    <li>
+                        <a href="{{ route('settings.whatsapp') }}"><i
+                                class="ri-circle-fill circle-icon text-primary-600 w-auto"></i>{{$lang->data['whatsapp_settings'] ?? 'WhatsApp Settings'}} </a>
+                    </li>
+                    @endcan
                     @can('role_list')
                     <li>
                         <a href="{{ route('settings.roles') }}"><i

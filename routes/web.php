@@ -9,6 +9,8 @@ Route::get('/install', \App\Livewire\Installer\InstallApp::class)->name('install
 Route::get('/update', \App\Livewire\Installer\UpdaterApp::class)->name('update');
 Route::get('/reset-password/{token}',\App\Livewire\Auth\ForgotPassword::class);
 
+Route::get('/whatsapp/webhook', [\App\Http\Controllers\WhatsAppWebhookController::class, 'handleVerify']);
+Route::post('/whatsapp/webhook', [\App\Http\Controllers\WhatsAppWebhookController::class, 'handleMessage']);
 Route::group(['middleware' => [\App\Http\Middleware\InstalledMiddleware::class]], function () {
     Route::get('/', \App\Livewire\Auth\Login::class)->name('login');
     Route::group(['prefix' => 'admin', 'middleware' => [Store::class]], function () {
@@ -70,6 +72,7 @@ Route::group(['middleware' => [\App\Http\Middleware\InstalledMiddleware::class]]
             Route::get('/mail', \App\Livewire\Settings\MailSettings::class)->name('settings.mail-settings');
             Route::get('/financial-year', \App\Livewire\Settings\FinancialYearSettings::class)->name('settings.financial-year');
             Route::get('/sms', \App\Livewire\Settings\SmsSettings::class)->name('settings.sms');
+            Route::get('/whatsapp', \App\Livewire\Settings\WhatsappSettings::class)->name('settings.whatsapp');
             Route::get('/theme', \App\Livewire\Settings\ThemeSettings::class)->name('settings.theme');
             Route::get('/file', \App\Livewire\Settings\FileTools::class)->name('settings.file');
             Route::group(['prefix' => 'translations/'], function () {
