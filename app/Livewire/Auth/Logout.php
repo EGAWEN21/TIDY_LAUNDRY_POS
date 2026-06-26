@@ -17,6 +17,12 @@ class Logout extends Component
      //Perform Logout
      public function mount()
      {
+         // Clear the stored session ID before logging out
+         if (Auth::check()) {
+             $user = Auth::user();
+             $user->current_session_id = null;
+             $user->save();
+         }
          Auth::logout();
          Session::flush();
          return redirect('/');

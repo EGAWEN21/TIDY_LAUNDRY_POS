@@ -13,7 +13,7 @@ Route::get('/whatsapp/webhook', [\App\Http\Controllers\WhatsAppWebhookController
 Route::post('/whatsapp/webhook', [\App\Http\Controllers\WhatsAppWebhookController::class, 'handleMessage']);
 Route::group(['middleware' => [\App\Http\Middleware\InstalledMiddleware::class]], function () {
     Route::get('/', \App\Livewire\Auth\Login::class)->name('login');
-    Route::group(['prefix' => 'admin', 'middleware' => [Store::class]], function () {
+    Route::group(['prefix' => 'admin', 'middleware' => [Store::class, 'single.session']], function () {
         Route::get('/dashboard', \App\Livewire\HomePage::class)->name('admin.dashboard');
         Route::get('/pos', \App\Livewire\Orders\PosScreen::class)->name('orders.pos');
         Route::get('/pos/edit/{id}', \App\Livewire\Orders\PosScreen::class)->name('orders.pos.edit');
