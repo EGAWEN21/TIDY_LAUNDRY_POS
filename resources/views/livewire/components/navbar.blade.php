@@ -14,12 +14,12 @@
             </div>
         </div>
         <div class="col-auto">
-            <div class="d-flex flex-wrap align-items-center gap-3" wire:ignore>
+            <div class="d-flex flex-wrap align-items-center tw-gap-2 sm:tw-gap-3" wire:ignore>
                 @can('order_create')
                 <button type="button" data-theme-toggle
                     class="w-40-px h-40-px bg-neutral-200 rounded-circle  justify-content-center align-items-center tw-hidden"></button>
                 <a href="{{route('orders.pos')}}" type="button" 
-                    class="w-40-px h-40-px btn-primary-600 text-white rounded-circle d-flex justify-content-center align-items-center tw-relative tw-group"
+                    class="tw-w-8 tw-h-8 sm:tw-w-10 sm:tw-h-10 btn-primary-600 text-white rounded-circle d-flex justify-content-center align-items-center tw-relative tw-group"
                   
                     title="">
                     <iconify-icon icon="tabler:plus" class="icon text-xl"></iconify-icon>
@@ -30,7 +30,7 @@
                 @endcan
                 @can('service_create')
                 <a href="{{route('service')}}"
-                    class="w-40-px h-40-px btn-primary-600 text-white rounded-circle d-flex justify-content-center align-items-center tw-relative tw-group">
+                    class="tw-w-8 tw-h-8 sm:tw-w-10 sm:tw-h-10 btn-primary-600 text-white rounded-circle d-flex justify-content-center align-items-center tw-relative tw-group">
                     <iconify-icon icon="mdi:tag" class="icon text-xl"></iconify-icon>
                     <div class="group-hover:tw-flex tw-hidden tw-bg-black hover:tw-bg-neutral-300 tw-rounded-lg tw-px-2 tw-py-1 tw-text-xs tw-absolute tw-text-white tw-min-w-max  -tw-bottom-8">
                       {{ $lang->data['manage_services'] ?? 'Manage Services' }}
@@ -39,7 +39,7 @@
                 @endcan
                 @can('customer_create')
                 <a href="{{route('customers')}}"
-                    class="w-40-px h-40-px btn-primary-600 text-white rounded-circle d-flex justify-content-center align-items-center tw-relative tw-group hover:tw-bg-neutral-300">
+                    class="tw-w-8 tw-h-8 sm:tw-w-10 sm:tw-h-10 btn-primary-600 text-white rounded-circle d-flex justify-content-center align-items-center tw-relative tw-group hover:tw-bg-neutral-300">
                     <iconify-icon icon="ion:people" class="icon text-xl"></iconify-icon>
                     <div class="group-hover:tw-flex tw-hidden tw-bg-black  tw-rounded-lg tw-px-2 tw-py-1 tw-text-xs tw-absolute tw-min-w-max  tw-text-white -tw-bottom-8">
                       {{ $lang->data['manage_customers'] ?? 'Manage Customers' }}
@@ -51,7 +51,7 @@
                     <button class="tw-flex justify-content-center align-items-center rounded-circle lg:tw-hidden" type="button"
                         data-bs-toggle="dropdown">
                         <div alt="image"
-                            class="w-40-px h-40-px tw-flex tw-items-center tw-justify-center btn-primary-600 text-white tw-rounded-full">
+                            class="tw-w-8 tw-h-8 sm:tw-w-10 sm:tw-h-10 tw-flex tw-items-center tw-justify-center btn-primary-600 text-white tw-rounded-full">
                             <iconify-icon icon="heroicons:language-16-solid" class="icon text-xl"></iconify-icon>
                           </div>
                     </button>
@@ -69,7 +69,7 @@
                     <button class="d-flex justify-content-center align-items-center rounded-circle" type="button"
                         data-bs-toggle="dropdown">
                         <div alt="image"
-                            class="w-40-px h-40-px tw-flex tw-items-center tw-justify-center btn-primary-600 text-white tw-rounded-full">
+                            class="tw-w-8 tw-h-8 sm:tw-w-10 sm:tw-h-10 tw-flex tw-items-center tw-justify-center btn-primary-600 text-white tw-rounded-full">
                             <iconify-icon icon="material-symbols:person" class="icon text-xl"></iconify-icon>
                           </div>
                     </button>
