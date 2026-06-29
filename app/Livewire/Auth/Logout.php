@@ -17,11 +17,14 @@ class Logout extends Component
      //Perform Logout
      public function mount()
      {
-         // Clear the stored session ID before logging out
+         // Clear the stored role session ID before logging out
          if (Auth::check()) {
              $user = Auth::user();
-             $user->current_session_id = null;
-             $user->save();
+             if ($user->user_type == 1) {
+                 \Illuminate\Support\Facades\Cache::forget('role_session_admin');
+             } else {
+                 \Illuminate\Support\Facades\Cache::forget('role_session_role_' . $user->role_id);
+             }
          }
          Auth::logout();
          Session::flush();

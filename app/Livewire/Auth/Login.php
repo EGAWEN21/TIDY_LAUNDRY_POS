@@ -9,6 +9,7 @@ use Auth;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Cache;
 use Str;
 use App\Models\User;
 use App\Models\MasterSettings;
@@ -40,19 +41,16 @@ class Login extends Component
         if (Auth::attempt(['email' => $this->email, 'password' => $this->password, 'user_type' => '1'])) {
             /* user type admin and login is successful */
             DB::table('password_resets')->where('email',$this->email)->delete();
-            // Store session ID for single-session enforcement
-            $user = Auth::user();
-            $user->current_session_id = session()->getId();
-            $user->save();
+            // Store session ID for single-session per role enforcement
+            Cache::forever('role_session_admin', session()->getId());
             return redirect('admin/dashboard');
         }  
         if (Auth::attempt(['email' => $this->email, 'password' => $this->password, 'user_type' => '2'])) {
             /* user type staff and login is successful */
             DB::table('password_resets')->where('email',$this->email)->delete();
-            // Store session ID for single-session enforcement
+            // Store session ID for single-session per role enforcement
             $user = Auth::user();
-            $user->current_session_id = session()->getId();
-            $user->save();
+            Cache::forever('role_session_role_' . $user->role_id, session()->getId());
             return redirect('admin/dashboard');
         }  
         else {

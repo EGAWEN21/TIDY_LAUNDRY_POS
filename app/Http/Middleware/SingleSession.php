@@ -11,9 +11,7 @@ use Illuminate\Support\Facades\Session;
 class SingleSession
 {
     /**
-     * Enforce single-session login.
-     * If the user's stored session ID doesn't match the current session,
-     * it means they logged in from another device/browser — so log this session out.
+     * Enforce single-session login per role.
      */
     public function handle(Request $request, Closure $next): Response
     {
@@ -21,15 +19,21 @@ class SingleSession
             $user = Auth::user();
             $currentSessionId = Session::getId();
 
-            // If the user's stored session doesn't match this one,
-            // someone else logged in with this account — force logout here
-            if ($user->current_session_id && $user->current_session_id !== $currentSessionId) {
+            if ($user->user_type == 1) {
+                $roleSessionId = \Illuminate\Support\Facades\Cache::get('role_session_admin');
+            } else {
+                $roleSessionId = \Illuminate\Support\Facades\Cache::get('role_session_role_' . $user->role_id);
+            }
+
+            // If the role's stored session doesn't match this one,
+            // someone else logged in with this role — force logout here
+            if ($roleSessionId && $roleSessionId !== $currentSessionId) {
                 Auth::logout();
                 Session::invalidate();
                 Session::regenerateToken();
 
                 return redirect()->route('login')->withErrors([
-                    'login_error' => 'Your account was logged in from another device. You have been logged out.',
+                    'login_error' => 'Another user with your role has logged in from another device. You have been logged out.',
                 ]);
             }
         }
