@@ -256,16 +256,36 @@
                                                         [{{ $servicetypeinline->service_type_name }}]</div>
                                                 </div>
                                             </td>
-                                            <td class="tw-py-2 tw-px-1 lg:tw-w-[15%] tw-w-[10rem]  tw-text-center ">
-                                                <div
-                                                    class="tw-h-full tw-w-full tw-flex tw-items-center tw-justify-center">
-                                                    <input type="color" name=""
-                                                        pattern="^#+([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$"
-                                                        class="tw-w-10 tw-h-6"
-                                                        wire:model.live="colors.{{ $key }}"
-                                                        wire:change="changeColor({{ $key }})">
-                                                </div>
-                                            </td>
+                                              <td class="tw-py-2 tw-px-1 lg:tw-w-[15%] tw-w-[10rem]  tw-text-center " x-data="quickSwatches()">
+                                                  <div class="tw-flex tw-flex-col tw-items-center tw-gap-1">
+                                                      <div class="tw-flex tw-items-center tw-gap-2">
+                                                          <input type="color" id="color-{{$key}}"
+                                                              pattern="^#+([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$"
+                                                              class="tw-w-10 tw-h-6 tw-p-0 tw-border-0"
+                                                              wire:model.live="colors.{{ $key }}"
+                                                              wire:change="changeColor({{ $key }})">
+                                                          <button type="button" @click="addSwatch(document.getElementById('color-{{$key}}').value)" class="tw-text-xs tw-bg-gray-200 hover:tw-bg-gray-300 tw-px-1.5 tw-py-0.5 tw-rounded tw-border tw-border-gray-300 tw-text-gray-700" title="Save color">+</button>
+                                                      </div>
+                                                      <div class="tw-flex tw-flex-wrap tw-justify-center tw-gap-1 tw-max-w-[80px]">
+                                                          <template x-for="(swatch, index) in swatches" :key="index">
+                                                              <div class="tw-relative tw-group">
+                                                                  <button type="button" 
+                                                                      @click="$wire.set('colors.{{ $key }}', swatch); $wire.changeColor({{ $key }})" 
+                                                                      class="tw-w-3.5 tw-h-3.5 tw-rounded-full tw-border tw-border-gray-300 tw-cursor-pointer tw-p-0"
+                                                                      :style="`background-color: ${swatch}`"
+                                                                      :title="swatch"
+                                                                  ></button>
+                                                                  <button type="button" 
+                                                                      @click.stop="removeSwatch(index)" 
+                                                                      class="tw-absolute tw--top-1 tw--right-1 tw-hidden group-hover:tw-flex tw-w-3 tw-h-3 tw-bg-red-500 tw-text-white tw-rounded-full tw-items-center tw-justify-center tw-text-[8px] tw-leading-none tw-p-0 tw-border-0"
+                                                                      title="Remove">
+                                                                      &times;
+                                                                  </button>
+                                                              </div>
+                                                          </template>
+                                                      </div>
+                                                  </div>
+                                              </td>
                                             <td class="tw-py-2 tw-px-1 lg:tw-w-[15%] tw-w-[10rem]  tw-text-center">
                                                 <div
                                                     class="tw-h-full tw-w-full tw-flex tw-items-center tw-justify-center">
@@ -861,3 +881,33 @@
         <livewire:components.check-financial-year-component />
     </div>
 </div>
+
+@push('js')
+<script>
+function quickSwatches() {
+    return {
+        swatches: [],
+        defaultSwatches: ['#ff0000', '#000000', '#008000', '#0000ff', '#ffa500', '#ffffff', '#808080', '#800080'],
+        init() {
+            let saved = localStorage.getItem('pos-quick-swatches');
+            if (saved) {
+                this.swatches = JSON.parse(saved);
+            } else {
+                this.swatches = [...this.defaultSwatches];
+            }
+            this.$watch('swatches', value => {
+                localStorage.setItem('pos-quick-swatches', JSON.stringify(value));
+            });
+        },
+        addSwatch(color) {
+            if (!this.swatches.includes(color) && color) {
+                this.swatches.push(color);
+            }
+        },
+        removeSwatch(index) {
+            this.swatches.splice(index, 1);
+        }
+    }
+}
+</script>
+@endpush
