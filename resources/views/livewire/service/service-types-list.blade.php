@@ -1,4 +1,5 @@
 <div class="dashboard-main-body">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <div class="card h-100 p-0 radius-12">
         <div class="tw-py-1.5 tw-px-3 bg-base d-flex align-items-center flex-wrap gap-3 justify-content-between">
             <div class="d-flex align-items-center flex-wrap gap-3">
@@ -25,7 +26,27 @@
                             <th scope="col" class="text-center">{{ $lang->data['action'] ?? 'Action' }}</th>
                         </tr>
                     </thead>
-                    <tbody id="sortable-service-types" wire:ignore.self>
+                    <tbody id="sortable-service-types" wire:ignore.self
+                        x-data="{
+                            initSortable() {
+                                if (typeof Sortable !== 'undefined') {
+                                    new Sortable(this.$el, {
+                                        handle: '.drag-handle',
+                                        animation: 150,
+                                        onEnd: (evt) => {
+                                            let order = [];
+                                            this.$el.querySelectorAll('tr').forEach((row) => {
+                                                if(row.getAttribute('data-id')) {
+                                                    order.push(row.getAttribute('data-id'));
+                                                }
+                                            });
+                                            $wire.updateOrder(order);
+                                        }
+                                    });
+                                }
+                            }
+                        }"
+                        x-init="initSortable">
                         @if(count($service_types)>0)
                         @foreach ($service_types as $item)
                         <tr data-id="{{ $item->id }}">
@@ -161,27 +182,4 @@
         </div>
     </div>
 
-    @script
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-    <script>
-        document.addEventListener('livewire:initialized', () => {
-            let el = document.getElementById('sortable-service-types');
-            if(el) {
-                new Sortable(el, {
-                    handle: '.drag-handle',
-                    animation: 150,
-                    onEnd: function (evt) {
-                        let order = [];
-                        el.querySelectorAll('tr').forEach((row) => {
-                            if(row.getAttribute('data-id')) {
-                                order.push(row.getAttribute('data-id'));
-                            }
-                        });
-                        $wire.updateOrder(order);
-                    }
-                });
-            }
-        });
-    </script>
-    @endscript
 </div>
