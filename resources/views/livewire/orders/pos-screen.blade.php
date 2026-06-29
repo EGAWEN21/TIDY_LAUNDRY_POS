@@ -256,7 +256,30 @@
                                                         [{{ $servicetypeinline->service_type_name }}]</div>
                                                 </div>
                                             </td>
-                                              <td class="tw-py-2 tw-px-1 lg:tw-w-[15%] tw-w-[10rem]  tw-text-center " x-data="quickSwatches()">
+                                              <td class="tw-py-2 tw-px-1 lg:tw-w-[15%] tw-w-[10rem]  tw-text-center " 
+                                                  x-data="{
+                                                      swatches: [],
+                                                      defaultSwatches: ['#ff0000', '#000000', '#008000', '#0000ff', '#ffa500', '#ffffff', '#808080', '#800080'],
+                                                      init() {
+                                                          let saved = localStorage.getItem('pos-quick-swatches');
+                                                          if (saved) {
+                                                              try { this.swatches = JSON.parse(saved); } catch(e) { this.swatches = [...this.defaultSwatches]; }
+                                                          } else {
+                                                              this.swatches = [...this.defaultSwatches];
+                                                          }
+                                                          this.$watch('swatches', value => {
+                                                              localStorage.setItem('pos-quick-swatches', JSON.stringify(value));
+                                                          });
+                                                      },
+                                                      addSwatch(color) {
+                                                          if (!this.swatches.includes(color) && color) {
+                                                              this.swatches.push(color);
+                                                          }
+                                                      },
+                                                      removeSwatch(index) {
+                                                          this.swatches.splice(index, 1);
+                                                      }
+                                                  }">
                                                   <div class="tw-flex tw-flex-col tw-items-center tw-gap-1">
                                                       <div class="tw-flex tw-items-center tw-gap-2">
                                                           <input type="color" id="color-{{$key}}"
@@ -266,7 +289,7 @@
                                                               wire:change="changeColor({{ $key }})">
                                                           <button type="button" @click="addSwatch(document.getElementById('color-{{$key}}').value)" class="tw-text-xs tw-bg-gray-200 hover:tw-bg-gray-300 tw-px-1.5 tw-py-0.5 tw-rounded tw-border tw-border-gray-300 tw-text-gray-700" title="Save color">+</button>
                                                       </div>
-                                                      <div class="tw-flex tw-flex-wrap tw-justify-center tw-gap-1 tw-max-w-[80px]">
+                                                      <div class="tw-flex tw-flex-wrap tw-justify-center tw-gap-1 tw-max-w-[80px]" wire:ignore>
                                                           <template x-for="(swatch, index) in swatches" :key="index">
                                                               <div class="tw-relative tw-group">
                                                                   <button type="button" 
@@ -882,32 +905,3 @@
     </div>
 </div>
 
-@push('js')
-<script>
-function quickSwatches() {
-    return {
-        swatches: [],
-        defaultSwatches: ['#ff0000', '#000000', '#008000', '#0000ff', '#ffa500', '#ffffff', '#808080', '#800080'],
-        init() {
-            let saved = localStorage.getItem('pos-quick-swatches');
-            if (saved) {
-                this.swatches = JSON.parse(saved);
-            } else {
-                this.swatches = [...this.defaultSwatches];
-            }
-            this.$watch('swatches', value => {
-                localStorage.setItem('pos-quick-swatches', JSON.stringify(value));
-            });
-        },
-        addSwatch(color) {
-            if (!this.swatches.includes(color) && color) {
-                this.swatches.push(color);
-            }
-        },
-        removeSwatch(index) {
-            this.swatches.splice(index, 1);
-        }
-    }
-}
-</script>
-@endpush
