@@ -44,7 +44,7 @@
     </div>
 
     <div class="tw-w-[100%] tw-h-full tw-flex lg:tw-flex-row tw-flex-col  tw-relative tw-mt-0.5">
-        <div class="tw-lg:w-1/2 tw-w-full tw-flex-col tw-h-[calc(100vh-4.0rem)]  tw-p-2 tw-bg-white p-16">
+        <div class="lg:tw-w-1/2 tw-w-full tw-flex-col tw-h-[calc(100vh-4.0rem)]  tw-p-2 tw-bg-white p-16">
             <div class="tw-flex tw-flex-col">
                 <div class="icon-field has-validation">
                     <span class="icon tw-translate-y-[2px]">
@@ -166,7 +166,7 @@
             <div
                 class="tw-w-full   tw-flex tw-flex-col tw-mt-4 tw-rounded-lg tw-overflow-clip tw-border @error('error') tw-border-red-500 @else tw-border-neutral-200 dark:tw-border-[#1b2431] @enderror tw-border-solid">
                 <div class="tw-flex tw-flex-col lg:tw-w-full tw-overflow-x-auto">
-                    <div class="tw-flex tw-flex-col lg:tw-w-full tw-w-[100rem] ">
+                    <div class="tw-flex tw-flex-col lg:tw-w-full tw-w-full tw-min-w-[60rem]">
                         <div class="tw-flex tw-flex-col  tw-overflow-x-auto tw-w-full tw-shrink-0">
                             <table class="tw-w-full tw-text-xs tw-shrink-0 tw-h-fit ">
                                 <thead class="tw-bg-[#e9ecef] dark:tw-bg-[#1b2431]">
