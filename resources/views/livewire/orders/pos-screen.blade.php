@@ -259,41 +259,47 @@
                                               <td class="tw-py-2 tw-px-1 lg:tw-w-[15%] tw-w-[10rem]  tw-text-center " 
                                                   x-data="{
                                                       swatches: [],
-                                                      defaultSwatches: ['#ff0000', '#000000', '#008000', '#0000ff', '#ffa500', '#ffffff', '#808080', '#800080'],
-                                                      init() {
+                                                      initSwatches() {
                                                           let saved = localStorage.getItem('pos-quick-swatches');
                                                           if (saved) {
-                                                              try { this.swatches = JSON.parse(saved); } catch(e) { this.swatches = [...this.defaultSwatches]; }
+                                                              try { this.swatches = JSON.parse(saved); } catch(e) { this.swatches = ['#ff0000', '#000000', '#008000', '#0000ff', '#ffa500', '#ffffff', '#808080', '#800080']; }
                                                           } else {
-                                                              this.swatches = [...this.defaultSwatches];
+                                                              this.swatches = ['#ff0000', '#000000', '#008000', '#0000ff', '#ffa500', '#ffffff', '#808080', '#800080'];
                                                           }
                                                           this.$watch('swatches', value => {
                                                               localStorage.setItem('pos-quick-swatches', JSON.stringify(value));
                                                           });
                                                       },
-                                                      addSwatch(color) {
+                                                      addSwatch() {
+                                                          let color = this.$refs.colorPicker.value;
                                                           if (!this.swatches.includes(color) && color) {
                                                               this.swatches.push(color);
                                                           }
                                                       },
+                                                      applySwatch(color) {
+                                                          this.$refs.colorPicker.value = color;
+                                                          this.$refs.colorPicker.dispatchEvent(new Event('input', { bubbles: true }));
+                                                          this.$refs.colorPicker.dispatchEvent(new Event('change', { bubbles: true }));
+                                                      },
                                                       removeSwatch(index) {
                                                           this.swatches.splice(index, 1);
                                                       }
-                                                  }">
+                                                  }"
+                                                  x-init="initSwatches()">
                                                   <div class="tw-flex tw-flex-col tw-items-center tw-gap-1">
                                                       <div class="tw-flex tw-items-center tw-gap-2">
-                                                          <input type="color" id="color-{{$key}}"
+                                                          <input type="color" x-ref="colorPicker"
                                                               pattern="^#+([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$"
                                                               class="tw-w-10 tw-h-6 tw-p-0 tw-border-0"
                                                               wire:model.live="colors.{{ $key }}"
                                                               wire:change="changeColor({{ $key }})">
-                                                          <button type="button" @click="addSwatch(document.getElementById('color-{{$key}}').value)" class="tw-text-xs tw-bg-gray-200 hover:tw-bg-gray-300 tw-px-1.5 tw-py-0.5 tw-rounded tw-border tw-border-gray-300 tw-text-gray-700" title="Save color">+</button>
+                                                          <button type="button" @click="addSwatch()" class="tw-text-xs tw-bg-gray-200 hover:tw-bg-gray-300 tw-px-1.5 tw-py-0.5 tw-rounded tw-border tw-border-gray-300 tw-text-gray-700" title="Save color">+</button>
                                                       </div>
-                                                      <div class="tw-flex tw-flex-wrap tw-justify-center tw-gap-1 tw-max-w-[80px]" wire:ignore>
+                                                      <div class="tw-flex tw-flex-wrap tw-justify-center tw-gap-1 tw-max-w-[80px]">
                                                           <template x-for="(swatch, index) in swatches" :key="index">
                                                               <div class="tw-relative tw-group">
                                                                   <button type="button" 
-                                                                      @click="$wire.set('colors.{{ $key }}', swatch); $wire.changeColor({{ $key }})" 
+                                                                      @click="applySwatch(swatch)" 
                                                                       class="tw-w-3.5 tw-h-3.5 tw-rounded-full tw-border tw-border-gray-300 tw-cursor-pointer tw-p-0"
                                                                       :style="`background-color: ${swatch}`"
                                                                       :title="swatch"
