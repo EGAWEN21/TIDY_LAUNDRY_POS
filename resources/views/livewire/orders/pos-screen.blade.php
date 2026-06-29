@@ -275,6 +275,9 @@
                                                       addSwatch() {
                                                           let color = this.$refs.colorPicker.value;
                                                           if (!this.swatches.includes(color) && color) {
+                                                              if (this.swatches.length >= 15) {
+                                                                  this.swatches.shift();
+                                                              }
                                                               this.swatches.push(color);
                                                           }
                                                       },
@@ -310,25 +313,29 @@
                                                                x-transition:leave="tw-transition tw-ease-in tw-duration-75"
                                                                x-transition:leave-start="tw-transform tw-opacity-100 tw-scale-100"
                                                                x-transition:leave-end="tw-transform tw-opacity-0 tw-scale-95"
-                                                               class="tw-absolute tw-z-50 tw-top-8 tw-left-0 tw-w-48 tw-bg-white tw-rounded-xl tw-shadow-lg tw-border tw-border-gray-200 tw-p-3"
-                                                               style="display: none;">
+                                                               class="tw-absolute tw-z-50 tw-bg-white tw-shadow-lg tw-border tw-border-gray-200"
+                                                               style="display: none; top: 32px; left: 0px; width: 170px; border-radius: 12px; padding: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.15);">
                                                               
-                                                              <div class="tw-flex tw-justify-between tw-items-center tw-mb-2">
-                                                                  <span class="tw-text-xs tw-font-semibold tw-text-gray-600 tw-uppercase tw-tracking-wider">Quick Colors</span>
+                                                              <div class="tw-flex tw-justify-between tw-items-center" style="margin-bottom: 10px;">
+                                                                  <span class="tw-text-xs tw-font-semibold tw-uppercase tw-tracking-wider" style="font-size: 10px; color: #4b5563;">Quick Colors</span>
                                                               </div>
 
-                                                              <div class="tw-grid tw-grid-cols-5 tw-gap-2">
+                                                              <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                                                                   <template x-for="(swatch, index) in swatches" :key="index">
-                                                                      <div class="tw-relative tw-group tw-flex tw-items-center tw-justify-center">
+                                                                      <div class="tw-relative" style="display: flex; align-items: center; justify-content: center; position: relative;"
+                                                                           @mouseenter="$el.querySelector('.remove-btn').style.display = 'flex'"
+                                                                           @mouseleave="$el.querySelector('.remove-btn').style.display = 'none'">
                                                                           <button type="button" 
                                                                                   @click="applySwatch(swatch)" 
-                                                                                  class="tw-rounded-full tw-border tw-border-gray-200 tw-shadow-sm hover:tw-scale-110 tw-transition-transform"
+                                                                                  class="tw-rounded-full tw-shadow-sm"
+                                                                                  style="cursor: pointer; padding: 0; transition: transform 0.1s; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px rgba(0,0,0,0.05);"
+                                                                                  onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'"
                                                                                   :style="`background-color: ${swatch}; width: 22px; height: 22px;`"
                                                                                   :title="swatch"></button>
                                                                           <button type="button" 
                                                                                   @click.stop="removeSwatch(index)" 
-                                                                                  class="tw-absolute tw-hidden group-hover:tw-flex tw-bg-red-500 tw-text-white tw-rounded-full tw-items-center tw-justify-center tw-text-[10px] tw-shadow"
-                                                                                  style="width: 14px; height: 14px; top: -4px; right: -4px; z-index: 10;"
+                                                                                  class="remove-btn"
+                                                                                  style="display: none; position: absolute; top: -4px; right: -4px; z-index: 10; width: 14px; height: 14px; background-color: #ef4444; color: white; border-radius: 50%; align-items: center; justify-content: center; font-size: 10px; line-height: 1; border: none; padding: 0; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.1);"
                                                                                   title="Remove">
                                                                               &times;
                                                                           </button>
