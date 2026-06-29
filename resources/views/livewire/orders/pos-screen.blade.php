@@ -259,15 +259,16 @@
                                               <td class="tw-py-2 tw-px-1 lg:tw-w-[15%] tw-w-[10rem]  tw-text-center " 
                                                   x-data="{
                                                       swatches: [],
-                                                      initSwatches() {
-                                                          let saved = localStorage.getItem('pos-quick-swatches');
+                                                      init() {
+                                                          let saved = null;
+                                                          try { saved = localStorage.getItem('pos-quick-swatches'); } catch(e) {}
                                                           if (saved) {
                                                               try { this.swatches = JSON.parse(saved); } catch(e) { this.swatches = ['#ff0000', '#000000', '#008000', '#0000ff', '#ffa500', '#ffffff', '#808080', '#800080']; }
                                                           } else {
                                                               this.swatches = ['#ff0000', '#000000', '#008000', '#0000ff', '#ffa500', '#ffffff', '#808080', '#800080'];
                                                           }
                                                           this.$watch('swatches', value => {
-                                                              localStorage.setItem('pos-quick-swatches', JSON.stringify(value));
+                                                              try { localStorage.setItem('pos-quick-swatches', JSON.stringify(value)); } catch(e) {}
                                                           });
                                                       },
                                                       addSwatch() {
@@ -284,8 +285,7 @@
                                                       removeSwatch(index) {
                                                           this.swatches.splice(index, 1);
                                                       }
-                                                  }"
-                                                  x-init="initSwatches()">
+                                                  }">
                                                   <div class="tw-flex tw-flex-col tw-items-center tw-gap-1">
                                                       <div class="tw-flex tw-items-center tw-gap-2">
                                                           <input type="color" x-ref="colorPicker"
@@ -295,18 +295,19 @@
                                                               wire:change="changeColor({{ $key }})">
                                                           <button type="button" @click="addSwatch()" class="tw-text-xs tw-bg-gray-200 hover:tw-bg-gray-300 tw-px-1.5 tw-py-0.5 tw-rounded tw-border tw-border-gray-300 tw-text-gray-700" title="Save color">+</button>
                                                       </div>
-                                                      <div class="tw-flex tw-flex-wrap tw-justify-center tw-gap-1 tw-max-w-[80px]">
+                                                      <div class="tw-flex tw-flex-wrap tw-justify-center tw-gap-1" style="max-width: 80px;">
                                                           <template x-for="(swatch, index) in swatches" :key="index">
-                                                              <div class="tw-relative tw-group">
+                                                              <div class="tw-relative tw-group" style="margin: 2px;">
                                                                   <button type="button" 
                                                                       @click="applySwatch(swatch)" 
-                                                                      class="tw-w-3.5 tw-h-3.5 tw-rounded-full tw-border tw-border-gray-300 tw-cursor-pointer tw-p-0"
-                                                                      :style="`background-color: ${swatch}`"
+                                                                      class="tw-rounded-full tw-border tw-border-gray-300 tw-cursor-pointer tw-p-0"
+                                                                      :style="`background-color: ${swatch}; width: 14px; height: 14px; display: inline-block;`"
                                                                       :title="swatch"
                                                                   ></button>
                                                                   <button type="button" 
                                                                       @click.stop="removeSwatch(index)" 
-                                                                      class="tw-absolute tw--top-1 tw--right-1 tw-hidden group-hover:tw-flex tw-w-3 tw-h-3 tw-bg-red-500 tw-text-white tw-rounded-full tw-items-center tw-justify-center tw-text-[8px] tw-leading-none tw-p-0 tw-border-0"
+                                                                      class="tw-absolute tw-hidden group-hover:tw-flex tw-bg-red-500 tw-text-white tw-rounded-full tw-items-center tw-justify-center tw-text-[8px] tw-leading-none tw-p-0 tw-border-0"
+                                                                      style="width: 12px; height: 12px; top: -4px; right: -4px;"
                                                                       title="Remove">
                                                                       &times;
                                                                   </button>
