@@ -156,13 +156,22 @@ class PosScreen extends Component
         $this->selected_type = [];
         $this->service = Service::where('id', $id)->first();
         $this->service_types = collect();
-        /* if service is not empty */
         if ($this->service) {
             $servicedetails = ServiceDetail::where('service_id', $id)->get();
-            foreach ($servicedetails as $row) {
-                $servicetype = ServiceType::where('id', $row->service_type_id)->first();
-                $servicetype['price'] = getFormattedCurrency($row->service_price);
-                $this->service_types->push($servicetype->toArray());
+            $serviceTypeIds = $servicedetails->pluck('service_type_id')->toArray();
+            
+            $serviceTypes = ServiceType::whereIn('id', $serviceTypeIds)
+                ->orderBy('position', 'ASC')
+                ->orderBy('id', 'ASC')
+                ->get();
+
+            foreach ($serviceTypes as $servicetype) {
+                $detail = $servicedetails->where('service_type_id', $servicetype->id)->first();
+                if ($detail) {
+                    $servicetypeArray = $servicetype->toArray();
+                    $servicetypeArray['price'] = getFormattedCurrency($detail->service_price);
+                    $this->service_types->push($servicetypeArray);
+                }
             }
         }
         if ($this->service_types) {

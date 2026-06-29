@@ -25,11 +25,11 @@
                             <th scope="col" class="text-center">{{ $lang->data['action'] ?? 'Action' }}</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="sortable-service-types" wire:ignore.self>
                         @if(count($service_types)>0)
                         @foreach ($service_types as $item)
-                        <tr>
-                            <td>{{$loop->index +1}}</td>
+                        <tr data-id="{{ $item->id }}">
+                            <td class="drag-handle" style="cursor: grab;"><iconify-icon icon="lucide:grip-vertical" class="text-secondary"></iconify-icon> {{$loop->index +1}}</td>
                             <td class="">{{$item->service_type_name}}</td>
                             <td class="">
                                 @if($item->is_active == 1)
@@ -160,4 +160,28 @@
             </div>
         </div>
     </div>
+
+    @script
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script>
+        document.addEventListener('livewire:initialized', () => {
+            let el = document.getElementById('sortable-service-types');
+            if(el) {
+                new Sortable(el, {
+                    handle: '.drag-handle',
+                    animation: 150,
+                    onEnd: function (evt) {
+                        let order = [];
+                        el.querySelectorAll('tr').forEach((row) => {
+                            if(row.getAttribute('data-id')) {
+                                order.push(row.getAttribute('data-id'));
+                            }
+                        });
+                        $wire.updateOrder(order);
+                    }
+                });
+            }
+        });
+    </script>
+    @endscript
 </div>

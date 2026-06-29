@@ -31,7 +31,7 @@ class ServiceTypesList extends Component
         $this->service_types = new EloquentCollection();
         $this->loadServiceTypes();
 
-        //$this->service_types = ModelsServiceType::latest()->get();
+        //$this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
         if(session()->has('selected_language'))
         {  /* if session has selected language */
             $this->lang = Translation::where('id',session()->get('selected_language'))->first();
@@ -53,11 +53,11 @@ class ServiceTypesList extends Component
         ]);
         $this->name = null;
         $this->is_active = 1;
-        $this->service_types = ModelsServiceType::latest()->get();
+        $this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
         $this->dispatch(
             'alert', ['type' => 'success',  'message' => 'Service Type has been created!']);
         $this->dispatch('closemodal');
-        $this->service_types = ModelsServiceType::latest()->get();
+        $this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
     }
     /* set content to edit */   
     public function edit($id)
@@ -66,7 +66,7 @@ class ServiceTypesList extends Component
         $this->service_type = ModelsServiceType::where('id',$id)->first();
         $this->is_active = $this->service_type->is_active;
         $this->name = $this->service_type->service_type_name;
-        $this->service_types = ModelsServiceType::latest()->get();
+        $this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
     }
     /* update the servicetype */
     public function update()
@@ -82,11 +82,11 @@ class ServiceTypesList extends Component
         }
         $this->name = null;
         $this->is_active = 1;
-        $this->service_types = ModelsServiceType::latest()->get();
+        $this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
         $this->dispatch(
             'alert', ['type' => 'success',  'message' => 'Service Type has been updated!']);
         $this->dispatch('closemodal');
-        $this->service_types = ModelsServiceType::latest()->get();
+        $this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
     }
     /* service type delete */
     public function delete($id)
@@ -107,17 +107,28 @@ class ServiceTypesList extends Component
             $this->dispatch(
                 'alert', ['type' => 'success',  'message' => 'Service Type has been deleted!']);
         }
-        $this->service_types = ModelsServiceType::latest()->get();
+        $this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
     }
-    /* process while update the element */
     public function updated($name,$value)
     {   /* if updated element is search query */
         if($name == 'search_query' && $value != '')
         {
-            $this->service_types = ModelsServiceType::where('service_type_name', 'like' , '%'.$value.'%')->get();
+            $this->service_types = ModelsServiceType::where('service_type_name', 'like' , '%'.$value.'%')->orderBy('position', 'asc')->orderBy('id', 'asc')->get();
         }
         elseif($name == 'search_query' && $value == ''){
-            $this->service_types = ModelsServiceType::latest()->get();
+            $this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
+        }
+    }
+
+    public function updateOrder($orderedIds)
+    {
+        if (is_array($orderedIds)) {
+            foreach ($orderedIds as $index => $id) {
+                ModelsServiceType::where('id', $id)->update(['position' => $index]);
+            }
+            $this->dispatch(
+                'alert', ['type' => 'success',  'message' => 'Service Types order updated!']);
+            $this->reloadOrders();
         }
     }
 
@@ -164,12 +175,14 @@ class ServiceTypesList extends Component
           if($this->search_query || $this->search_query != '')
           {
             $service_types = ModelsServiceType::where('service_type_name', 'like' , '%'.$this->search_query.'%')
-            ->latest()
+            ->orderBy('position', 'asc')
+            ->orderBy('id', 'asc')
             ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
             return $service_types;
           }
           else{
-            $service_types = ModelsServiceType::latest()
+            $service_types = ModelsServiceType::orderBy('position', 'asc')
+            ->orderBy('id', 'asc')
             ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
             return $service_types;
           }
