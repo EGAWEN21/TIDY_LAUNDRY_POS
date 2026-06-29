@@ -123,7 +123,7 @@
                                 @enderror
                             </div>
                             <div class="col-6 mb-20">
-                                <label for="name" class="form-label fw-semibold text-primary-light text-sm mb-8">{{ $lang->data['email'] ?? 'Email' }} <span class="text-danger">*</span></label>
+                                <label for="name" class="form-label fw-semibold text-primary-light text-sm mb-8">{{ $lang->data['email'] ?? 'Email' }}</label>
                                 <input type="text" class="form-control radius-8" placeholder="{{ $lang->data['enter_email'] ?? 'Enter Email' }}" wire:model="email">
                                 @error('email')
                                 <span class="error text-danger">{{ $message }}</span>
@@ -182,7 +182,7 @@
                                 @enderror
                             </div>
                             <div class="col-6 mb-20">
-                                <label for="name" class="form-label fw-semibold text-primary-light text-sm mb-8">{{ $lang->data['email'] ?? 'Email' }} <span class="text-danger">*</span></label>
+                                <label for="name" class="form-label fw-semibold text-primary-light text-sm mb-8">{{ $lang->data['email'] ?? 'Email' }}</label>
                                 <input type="text" class="form-control radius-8" placeholder="{{ $lang->data['enter_email'] ?? 'Enter Email' }}" wire:model="email">
                                 @error('email')
                                 <span class="error text-danger">{{ $message }}</span>

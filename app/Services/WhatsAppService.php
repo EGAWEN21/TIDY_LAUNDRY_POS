@@ -46,7 +46,7 @@ class WhatsAppService
         return $this->sendMessagePayload($toPhoneNumber, $messageText);
     }
 
-    protected function formatOrderMessage(Order $order)
+    public function formatOrderMessage(Order $order)
     {
         $orderDate = \Carbon\Carbon::parse($order->order_date)->format('d M Y');
         $deliveryDate = \Carbon\Carbon::parse($order->delivery_date)->format('d M Y');

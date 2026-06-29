@@ -63,7 +63,7 @@ class CustomersList extends Component
         /* rule settings */
         $this->validate([
             'name' => 'required',
-            'email' => 'required|email|unique:customers',
+            'email' => 'nullable|email|unique:customers',
             'phone' => 'required',
         ]);
 
@@ -121,7 +121,7 @@ class CustomersList extends Component
         $this->validate([
             'name' => 'required',
             'phone' => 'required',
-            'email' => 'required|unique:customers,email,' . $this->customer->id,
+            'email' => 'nullable|unique:customers,email,' . $this->customer->id,
         ]);
 
         $this->customer->name = $this->name;

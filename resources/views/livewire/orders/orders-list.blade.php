@@ -131,6 +131,18 @@
                                         <iconify-icon icon="fluent:delete-24-regular" class="menu-icon"></iconify-icon>
                                     </button>
                                     @endcan
+                                    
+                                    <div class="dropdown">
+                                        <button type="button" class="bg-primary-100 text-primary-600 bg-hover-primary-200 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle" data-bs-toggle="dropdown" aria-expanded="false" title="Send Receipt">
+                                            <iconify-icon icon="lucide:send" class="menu-icon"></iconify-icon>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item d-flex align-items-center gap-2" href="javascript:void(0)" wire:click="sendReceiptEmail({{ $item->id }})"><iconify-icon icon="lucide:mail"></iconify-icon> {{ $lang->data['send_email'] ?? 'Send Email' }}</a></li>
+                                            <li><a class="dropdown-item d-flex align-items-center gap-2" href="javascript:void(0)" wire:click="sendReceiptSMS({{ $item->id }})"><iconify-icon icon="lucide:message-square"></iconify-icon> {{ $lang->data['send_sms'] ?? 'Send SMS' }}</a></li>
+                                            <li><a class="dropdown-item d-flex align-items-center gap-2" href="javascript:void(0)" wire:click="sendReceiptWhatsApp({{ $item->id }})"><iconify-icon icon="mdi:whatsapp"></iconify-icon> {{ $lang->data['send_whatsapp'] ?? 'Send WhatsApp' }}</a></li>
+                                        </ul>
+                                    </div>
+
                                 </div>
                             </td> 
                         </tr>
@@ -273,4 +285,12 @@
             </div>
         </div>
     </div>
+    
+    @script
+    <script>
+        $wire.on('open-url', (event) => {
+            window.open(event[0].url, '_blank');
+        });
+    </script>
+    @endscript
 </div>

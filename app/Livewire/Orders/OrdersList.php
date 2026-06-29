@@ -334,6 +334,79 @@ class OrdersList extends Component
         }
     }
 
+    public function sendReceiptEmail($orderId)
+    {
+        try {
+            $order = Order::with('details.service')->find($orderId);
+            $customer = Customer::find($order->customer_id);
+
+            if (!$customer || empty($customer->email)) {
+                $this->dispatch('alert', ['type' => 'error', 'message' => 'Customer email is not provided.']);
+                return;
+            }
+
+            \Illuminate\Support\Facades\Mail::to($customer->email)->send(new \App\Mail\OrderReceiptEmail($order));
+
+            $this->dispatch('alert', ['type' => 'success', 'message' => 'Receipt sent via Email successfully.']);
+        } catch (\Exception $e) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Failed to send email. Check SMTP settings.']);
+        }
+    }
+
+    public function sendReceiptSMS($orderId)
+    {
+        try {
+            $order = Order::find($orderId);
+            if (!$order->customer_id) {
+                $this->dispatch('alert', ['type' => 'error', 'message' => 'Customer phone number is not provided.']);
+                return;
+            }
+            
+            sendOrderCreateSMS($order->id, $order->customer_id);
+            $this->dispatch('alert', ['type' => 'success', 'message' => 'Receipt sent via SMS successfully.']);
+        } catch (\Exception $e) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Failed to send SMS.']);
+        }
+    }
+
+    public function getWhatsAppReceiptUrl($orderId)
+    {
+        $order = Order::with('details.service')->find($orderId);
+        $phone = $order->phone_number;
+        if (!$phone && $order->customer_id) {
+            $customer = Customer::find($order->customer_id);
+            $phone = $customer ? $customer->phone : null;
+        }
+
+        if (!$phone) {
+            return null;
+        }
+
+        $service = app(\App\Services\WhatsAppService::class);
+        $message = $service->formatOrderMessage($order);
+        
+        $countryCode = getCountryCode();
+        $countryCode = str_replace('+', '', $countryCode);
+        $phone = ltrim($phone, '0');
+        $fullPhone = $countryCode . $phone;
+
+        return 'https://wa.me/' . $fullPhone . '?text=' . urlencode($message);
+    }
+
+    public function sendReceiptWhatsApp($orderId)
+    {
+        try {
+            $url = $this->getWhatsAppReceiptUrl($orderId);
+            if (!$url) {
+                $this->dispatch('alert', ['type' => 'error', 'message' => 'Customer phone number is not provided.']);
+                return;
+            }
+            $this->dispatch('open-url', [['url' => $url]]);
+        } catch (\Exception $e) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Failed to generate WhatsApp link.']);
+        }
+    }
+
     public function deleteOrder($order)
     {
         $order = Order::whereId($order)->first();
