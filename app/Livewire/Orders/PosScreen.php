@@ -283,11 +283,11 @@ class PosScreen extends Component
         if (isset($this->selservices[$key])) {
             $this->add($this->inputi);
             $newKey = $this->inputi;
-            $this->selservices[$newKey] = $this->selservices[$key];
-            $this->prices[$newKey] = $this->prices[$key];
-            $this->selling_price[$newKey] = $this->selling_price[$key];
-            $this->colors[$newKey] = $this->colors[$key];
-            $this->quantity[$newKey] = $this->quantity[$key];
+            $this->selservices[$newKey] = $this->selservices[$key] ?? [];
+            $this->prices[$newKey] = $this->prices[$key] ?? 0;
+            $this->selling_price[$newKey] = $this->selling_price[$key] ?? 0;
+            $this->colors[$newKey] = $this->colors[$key] ?? '';
+            $this->quantity[$newKey] = $this->quantity[$key] ?? 1;
             $this->calculateTotal();
         }
     }

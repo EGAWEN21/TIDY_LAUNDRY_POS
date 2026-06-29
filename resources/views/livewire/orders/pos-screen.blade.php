@@ -322,8 +322,8 @@
                                             </td>
                                             <td class="tw-py-2 tw-px-1 lg:tw-w-[10%] tw-w-[10rem] tw-text-center">
                                                 <div class="tw-h-full tw-w-full tw-flex tw-items-center tw-justify-center tw-gap-2">
-                                                    <button wire:click="duplicateItem({{ $key }})" title="{{ $lang->data['duplicate'] ?? 'Duplicate' }}"
-                                                        class="tw-px-2 tw-py-1 tw-bg-blue-500 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md">
+                                                    <button wire:click.prevent="duplicateItem({{ $key }})" title="{{ $lang->data['duplicate'] ?? 'Duplicate' }}"
+                                                        class="tw-px-2 tw-py-1 bg-info-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-justify-center tw-gap-1.5 tw-border-0 tw-shadow-md">
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-copy" viewBox="0 0 16 16">
                                                             <path fill-rule="evenodd" d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1z"/>
                                                         </svg>
