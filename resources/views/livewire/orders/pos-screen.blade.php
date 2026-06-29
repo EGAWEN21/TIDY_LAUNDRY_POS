@@ -259,6 +259,8 @@
                                               <td class="tw-py-2 tw-px-1 lg:tw-w-[15%] tw-w-[10rem]  tw-text-center " 
                                                   x-data="{
                                                       swatches: [],
+                                                      open: false,
+                                                      currentColor: '{{ $colors[$key] ?? '#ffffff' }}',
                                                       init() {
                                                           let saved = null;
                                                           try { saved = localStorage.getItem('pos-quick-swatches'); } catch(e) {}
@@ -278,41 +280,85 @@
                                                           }
                                                       },
                                                       applySwatch(color) {
+                                                          this.currentColor = color;
                                                           this.$refs.colorPicker.value = color;
                                                           this.$refs.colorPicker.dispatchEvent(new Event('input', { bubbles: true }));
                                                           this.$refs.colorPicker.dispatchEvent(new Event('change', { bubbles: true }));
+                                                          this.open = false;
                                                       },
                                                       removeSwatch(index) {
                                                           this.swatches.splice(index, 1);
                                                       }
                                                   }">
-                                                  <div class="tw-flex tw-flex-col tw-items-center tw-gap-1">
-                                                      <div class="tw-flex tw-items-center tw-gap-2">
-                                                          <input type="color" x-ref="colorPicker"
-                                                              pattern="^#+([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$"
-                                                              class="tw-w-10 tw-h-6 tw-p-0 tw-border-0"
-                                                              wire:model.live="colors.{{ $key }}"
-                                                              wire:change="changeColor({{ $key }})">
-                                                          <button type="button" @click="addSwatch()" class="tw-text-xs tw-bg-gray-200 hover:tw-bg-gray-300 tw-px-1.5 tw-py-0.5 tw-rounded tw-border tw-border-gray-300 tw-text-gray-700" title="Save color">+</button>
-                                                      </div>
-                                                      <div class="tw-flex tw-flex-wrap tw-justify-center tw-gap-1" style="max-width: 80px;">
-                                                          <template x-for="(swatch, index) in swatches" :key="index">
-                                                              <div class="tw-relative tw-group" style="margin: 2px;">
-                                                                  <button type="button" 
-                                                                      @click="applySwatch(swatch)" 
-                                                                      class="tw-rounded-full tw-border tw-border-gray-300 tw-cursor-pointer tw-p-0"
-                                                                      :style="`background-color: ${swatch}; width: 14px; height: 14px; display: inline-block;`"
-                                                                      :title="swatch"
-                                                                  ></button>
-                                                                  <button type="button" 
-                                                                      @click.stop="removeSwatch(index)" 
-                                                                      class="tw-absolute tw-hidden group-hover:tw-flex tw-bg-red-500 tw-text-white tw-rounded-full tw-items-center tw-justify-center tw-text-[8px] tw-leading-none tw-p-0 tw-border-0"
-                                                                      style="width: 12px; height: 12px; top: -4px; right: -4px;"
-                                                                      title="Remove">
-                                                                      &times;
+                                                  
+                                                  <div class="tw-relative tw-w-full tw-flex tw-justify-center">
+                                                      <!-- Trigger Button -->
+                                                      <button type="button" @click="open = !open" @click.away="open = false"
+                                                              class="tw-flex tw-items-center tw-justify-between tw-h-8 tw-bg-white tw-border tw-border-gray-300 tw-rounded-md tw-px-2 tw-shadow-sm hover:tw-bg-gray-50 tw-transition-colors" style="width: 60px;">
+                                                          <div class="tw-rounded-full tw-border tw-border-gray-300" 
+                                                               :style="`background-color: ${currentColor}; width: 16px; height: 16px;`"></div>
+                                                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" class="tw-text-gray-500" viewBox="0 0 16 16">
+                                                              <path d="M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z"/>
+                                                          </svg>
+                                                      </button>
+
+                                                      <!-- Dropdown Menu -->
+                                                      <div x-show="open" 
+                                                           x-transition:enter="tw-transition tw-ease-out tw-duration-100"
+                                                           x-transition:enter-start="tw-transform tw-opacity-0 tw-scale-95"
+                                                           x-transition:enter-end="tw-transform tw-opacity-100 tw-scale-100"
+                                                           x-transition:leave="tw-transition tw-ease-in tw-duration-75"
+                                                           x-transition:leave-start="tw-transform tw-opacity-100 tw-scale-100"
+                                                           x-transition:leave-end="tw-transform tw-opacity-0 tw-scale-95"
+                                                           class="tw-absolute tw-z-50 tw-top-10 tw-w-56 tw-bg-white tw-rounded-xl tw-shadow-lg tw-border tw-border-gray-200 tw-p-3"
+                                                           style="display: none; left: 50%; transform: translateX(-50%);">
+                                                          
+                                                          <div class="tw-flex tw-justify-between tw-items-center tw-mb-2">
+                                                              <span class="tw-text-xs tw-font-semibold tw-text-gray-600 tw-uppercase tw-tracking-wider">Quick Colors</span>
+                                                          </div>
+
+                                                          <!-- Swatches Grid -->
+                                                          <div class="tw-grid tw-grid-cols-6 tw-gap-2 tw-mb-3">
+                                                              <template x-for="(swatch, index) in swatches" :key="index">
+                                                                  <div class="tw-relative tw-group tw-flex tw-items-center tw-justify-center">
+                                                                      <button type="button" 
+                                                                              @click="applySwatch(swatch)" 
+                                                                              class="tw-rounded-full tw-border tw-border-gray-200 tw-shadow-sm hover:tw-scale-110 tw-transition-transform"
+                                                                              :style="`background-color: ${swatch}; width: 22px; height: 22px;`"
+                                                                              :title="swatch"></button>
+                                                                      <button type="button" 
+                                                                              @click.stop="removeSwatch(index)" 
+                                                                              class="tw-absolute tw-hidden group-hover:tw-flex tw-bg-red-500 tw-text-white tw-rounded-full tw-items-center tw-justify-center tw-text-[10px] tw-shadow"
+                                                                              style="width: 14px; height: 14px; top: -4px; right: -4px; z-index: 10;"
+                                                                              title="Remove">
+                                                                          &times;
+                                                                      </button>
+                                                                  </div>
+                                                              </template>
+                                                          </div>
+
+                                                          <div class="tw-h-px tw-bg-gray-100 tw-w-full tw-my-2"></div>
+
+                                                          <!-- Custom Color Picker -->
+                                                          <div class="tw-flex tw-flex-col tw-gap-1 tw-text-left">
+                                                              <span class="tw-text-[10px] tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">Custom Color</span>
+                                                              <div class="tw-flex tw-items-center tw-gap-2">
+                                                                  <input type="color" x-ref="colorPicker" @input="currentColor = $event.target.value"
+                                                                         pattern="^#+([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$"
+                                                                         class="tw-w-full tw-h-8 tw-rounded tw-cursor-pointer tw-border tw-border-gray-200 tw-p-0.5 tw-bg-white"
+                                                                         wire:model.live="colors.{{ $key }}"
+                                                                         wire:change="changeColor({{ $key }})">
+                                                                  <button type="button" @click="addSwatch()" 
+                                                                          class="tw-flex tw-items-center tw-justify-center tw-bg-blue-50 hover:tw-bg-blue-100 tw-text-blue-600 tw-rounded tw-border tw-border-blue-100 tw-transition-colors" 
+                                                                          style="width: 32px; height: 32px; flex-shrink: 0;"
+                                                                          title="Save custom color">
+                                                                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                                                          <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                                                                      </svg>
                                                                   </button>
                                                               </div>
-                                                          </template>
+                                                          </div>
+
                                                       </div>
                                                   </div>
                                               </td>
