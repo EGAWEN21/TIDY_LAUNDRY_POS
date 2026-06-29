@@ -288,6 +288,7 @@ class PosScreen extends Component
             $this->selling_price[$newKey] = $this->selling_price[$key] ?? 0;
             $this->colors[$newKey] = $this->colors[$key] ?? '';
             $this->quantity[$newKey] = $this->quantity[$key] ?? 1;
+            $this->service_types = collect();
             $this->calculateTotal();
         }
     }
