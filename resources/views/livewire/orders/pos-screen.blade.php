@@ -275,7 +275,7 @@
                                                       addSwatch() {
                                                           let color = this.$refs.colorPicker.value;
                                                           if (!this.swatches.includes(color) && color) {
-                                                              if (this.swatches.length >= 15) {
+                                                              if (this.swatches.length >= 10) {
                                                                   this.swatches.shift();
                                                               }
                                                               this.swatches.push(color);
