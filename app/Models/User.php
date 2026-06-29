@@ -25,6 +25,7 @@ class User extends Authenticatable
         'role_id',
         'is_active',
         'current_session_id',
+        'viewable_staff_orders',
     ];
 
     /**

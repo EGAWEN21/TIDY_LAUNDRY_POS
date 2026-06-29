@@ -13,6 +13,7 @@ class StaffList extends Component
 {
 
     public $name, $phone, $email, $password, $address, $is_active = 1, $staffs, $staff, $search = '', $lang, $is_active_edit=true,$roles,$user_role;
+    public $can_view_all_orders = false, $viewable_staff_ids = [];
     #[Title('Staff')]
     public function render()
     {
@@ -47,6 +48,8 @@ class StaffList extends Component
         $this->password = '';
         $this->address = '';
         $this->is_active = 1;
+        $this->can_view_all_orders = false;
+        $this->viewable_staff_ids = [];
         $this->staff = null;
         if(count($this->roles) > 0){
             $this->user_role = $this->roles->first()->id;
@@ -62,6 +65,13 @@ class StaffList extends Component
             'email' => 'required|unique:users|email',
             'password' => 'required'
         ]);
+        $viewable_staff_orders = null;
+        if ($this->can_view_all_orders) {
+            $viewable_staff_orders = 'all';
+        } elseif (!empty($this->viewable_staff_ids)) {
+            $viewable_staff_orders = implode(',', $this->viewable_staff_ids);
+        }
+
         User::create([
             'name'  => $this->name,
             'phone' => $this->phone,
@@ -69,7 +79,8 @@ class StaffList extends Component
             'password'  => Hash::make($this->password),
             'user_type' => 2,
             'role_id' => $this->user_role,
-            'is_active' => $this->is_active ?? 0
+            'is_active' => $this->is_active ?? 0,
+            'viewable_staff_orders' => $viewable_staff_orders
         ]);
         $this->dispatch('closemodal');
         $this->resetFields();
@@ -105,6 +116,11 @@ class StaffList extends Component
         $this->phone = $this->staff->phone;
         $this->user_role = $this->staff->role_id ?? count($this->roles) > 0 ? $this->roles->first()->id : null;
         $this->is_active_edit = $this->staff->is_active==1 ? true: false;
+        
+        $this->can_view_all_orders = $this->staff->viewable_staff_orders === 'all';
+        $this->viewable_staff_ids = ($this->staff->viewable_staff_orders && $this->staff->viewable_staff_orders !== 'all')
+            ? explode(',', $this->staff->viewable_staff_orders)
+            : [];
     }
 
     public function update()
@@ -120,6 +136,15 @@ class StaffList extends Component
         $this->staff->phone = $this->phone;
         $this->staff->role_id = $this->user_role;
         $this->staff->is_active = $this->is_active_edit ?? 0;
+        
+        $viewable_staff_orders = null;
+        if ($this->can_view_all_orders) {
+            $viewable_staff_orders = 'all';
+        } elseif (!empty($this->viewable_staff_ids)) {
+            $viewable_staff_orders = implode(',', $this->viewable_staff_ids);
+        }
+        $this->staff->viewable_staff_orders = $viewable_staff_orders;
+
         if ($this->password != '') {
             $this->staff->password = Hash::make($this->password);
         }

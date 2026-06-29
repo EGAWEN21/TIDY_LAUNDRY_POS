@@ -118,6 +118,30 @@
                                 <input type="password" class="form-control radius-8" placeholder="{{$lang->data['enter_a_password']??'Enter a Password'}}" wire:model="password">
                                 @error('password') <span class="text-danger">{{$message}}</span> @enderror
                             </div>
+                            <div class="col-12 mb-20">
+                                <hr class="my-3"/>
+                                <h6 class="text-md fw-semibold text-primary-light mb-2">Order Visibility Permissions</h6>
+                                
+                                <div class="form-switch switch-primary d-flex align-items-center gap-3 mt-3 mb-3">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="canViewAll" wire:model.live="can_view_all_orders">
+                                    <label class="form-check-label fw-semibold" for="canViewAll">Can View All Orders (Like Admin)</label>
+                                </div>
+
+                                @if(!$can_view_all_orders)
+                                <div class="mb-20 mt-3">
+                                    <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                        Or, Can View Orders Created By (Select Specific Staff):
+                                    </label>
+                                    <select class="form-select radius-8" multiple wire:model="viewable_staff_ids" style="height: 120px;">
+                                        @foreach($staffs as $staff_member)
+                                            <option value="{{ $staff_member->id }}">{{ $staff_member->name }} ({{ $staff_member->role?->name ?? 'Admin' }})</option>
+                                        @endforeach
+                                    </select>
+                                    <small class="text-muted d-block mt-1">Hold Ctrl (Windows) or Cmd (Mac) to select multiple.</small>
+                                </div>
+                                @endif
+                                <hr class="my-3"/>
+                            </div>
                             
                             <div class="col-6 ">
                                 <div class="form-switch switch-primary d-flex align-items-center gap-3">
@@ -182,6 +206,30 @@
                                     </select>
                                     @error('user_role') <span class="text-danger">{{$message}}</span> @enderror
                                 </div>
+                            <div class="col-12 mb-20">
+                                <hr class="my-3"/>
+                                <h6 class="text-md fw-semibold text-primary-light mb-2">Order Visibility Permissions</h6>
+                                
+                                <div class="form-switch switch-primary d-flex align-items-center gap-3 mt-3 mb-3">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="canViewAllEdit" wire:model.live="can_view_all_orders">
+                                    <label class="form-check-label fw-semibold" for="canViewAllEdit">Can View All Orders (Like Admin)</label>
+                                </div>
+
+                                @if(!$can_view_all_orders)
+                                <div class="mb-20 mt-3">
+                                    <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                                        Or, Can View Orders Created By (Select Specific Staff):
+                                    </label>
+                                    <select class="form-select radius-8" multiple wire:model="viewable_staff_ids" style="height: 120px;">
+                                        @foreach($staffs as $staff_member)
+                                            @if($staff && $staff_member->id == $staff->id) @continue @endif
+                                            <option value="{{ $staff_member->id }}">{{ $staff_member->name }} ({{ $staff_member->role?->name ?? 'Admin' }})</option>
+                                        @endforeach
+                                    </select>
+                                    <small class="text-muted d-block mt-1">Hold Ctrl (Windows) or Cmd (Mac) to select multiple.</small>
+                                </div>
+                                @endif
+                                <hr class="my-3"/>
                             </div>
                             <div class="col-6">
                                 <div class="form-switch switch-primary d-flex align-items-center gap-3">

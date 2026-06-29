@@ -18,12 +18,17 @@ class OrderStatusScreen extends Component
         $pending_orders = Order::where('status', 0)->latest();
         $processing_orders = Order::where('status', 1)->latest();
         $ready_orders = Order::where('status', 2)->latest();
-        if (Auth::user()->user_type == 1) {
+        if (Auth::user()->user_type == 1 || Auth::user()->viewable_staff_orders === 'all') {
            
         } else {
-            $pending_orders->where('created_by', Auth::user()->id)->where('status', 0);
-            $processing_orders->where('created_by', Auth::user()->id)->where('status', 1);
-            $ready_orders->where('created_by', Auth::user()->id)->where('status', 2);
+            $viewable_ids = [Auth::user()->id];
+            if (!empty(Auth::user()->viewable_staff_orders)) {
+                $extra_ids = explode(',', Auth::user()->viewable_staff_orders);
+                $viewable_ids = array_merge($viewable_ids, $extra_ids);
+            }
+            $pending_orders->whereIn('created_by', $viewable_ids)->where('status', 0);
+            $processing_orders->whereIn('created_by', $viewable_ids)->where('status', 1);
+            $ready_orders->whereIn('created_by', $viewable_ids)->where('status', 2);
         }
     
         switch($this->dateFilter){
