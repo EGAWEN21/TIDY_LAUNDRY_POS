@@ -9,9 +9,13 @@ use App\Models\ServiceDetail;
 use File;
 use App\Models\ServiceType;
 use App\Models\Translation;
+use Livewire\WithFileUploads;
 
 class ServiceEdit extends Component
 {
+    use WithFileUploads;
+
+    public $newIcon;
     #[Title('Service Edit')]
     public $services,$files,$imageicon,$inputs=[],$service_types,$prices = [],$servicetypes =[],$inputi=1,$service_name,$is_active=1,$service,$lang;
     /* render the page */
@@ -25,14 +29,8 @@ class ServiceEdit extends Component
         if(!\Illuminate\Support\Facades\Gate::allows('service_edit')){
             abort(404);
         }
-        $files = File::files(public_path('assets/img/service-icons'));
-        $i = 0;
         $this->service_types = ServiceType::latest()->get();
-        foreach($files as $value)
-        {
-            $i++;
-            $this->files[$i]['path'] = $value->getfilename();
-        }
+        $this->loadIcons();
         $this->service = Service::where('id',$id)->first();
         /* if service is not exist */
         if(!$this->service)
@@ -58,10 +56,70 @@ class ServiceEdit extends Component
             $this->lang = Translation::where('default',1)->first();
         }
     }
+    /* load icons */
+    public function loadIcons()
+    {
+        $this->files = [];
+        $files = File::files(public_path('assets/img/service-icons'));
+        $i = 0;
+        foreach ($files as $value) {
+            $i++;
+            $this->files[$i]['path'] = $value->getfilename();
+        }
+    }
+    
+    /* upload new Icon */
+    public function uploadIcon()
+    {
+        $this->validate([
+            'newIcon' => 'required|image|max:1024', // max 1MB
+        ]);
+
+        $fileName = time() . '_' . $this->newIcon->getClientOriginalName();
+        $path = public_path('assets/img/service-icons/' . $fileName);
+        
+        $manager = new \Intervention\Image\ImageManager(new \Intervention\Image\Drivers\Gd\Driver());
+        $image = $manager->read($this->newIcon->getRealPath());
+        $image->scaleDown(150, 150);
+        $image->save($path);
+        
+        $this->loadIcons();
+        $this->newIcon = null;
+        
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Icon uploaded and resized successfully!']);
+    }
+
+    /* delete Icon */
+    public function deleteIcon($filename)
+    {
+        // Check if icon is in use
+        if (Service::where('icon', $filename)->exists()) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Cannot delete icon because it is assigned to an existing service.']);
+            return;
+        }
+
+        $path = public_path('assets/img/service-icons/' . $filename);
+        if (File::exists($path)) {
+            File::delete($path);
+        }
+
+        $this->loadIcons();
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Icon deleted successfully!']);
+    }
+
     /* select the icon */
     public function selectIcon($data)
     {
-        $this->imageicon = $this->files[$data];
+        if (is_array($data) && isset($data['path'])) {
+            $this->imageicon = $data;
+        } else {
+            // It's from Iconify or array index
+            if (isset($this->files[$data])) {
+                $this->imageicon = $this->files[$data];
+            } else {
+                $this->imageicon = ['path' => $data];
+            }
+        }
         $this->dispatch('closemodal');
     }
     /* add the content for upcoming process */

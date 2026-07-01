@@ -66,8 +66,13 @@
                                 <div class="card bg-neutral-100">
                                     <div
                                         class="card-body tw-flex tw-items-center tw-justify-center tw-flex-col tw-rounded-md  tw-overflow-clip tw-ring-1 tw-ring-neutral-200">
-                                        <img src="{{ asset('assets/img/service-icons/' . $item->icon) }}"
-                                            class="tw-h-24 tw-w-24 tw-object-center tw-rounded-md tw-py-2">
+                                        @if(str_contains($item->icon, ':'))
+                                            <div class="tw-h-24 tw-w-24 tw-flex tw-items-center tw-justify-center tw-bg-neutral-50 tw-rounded-md tw-py-2 tw-mt-2">
+                                                <iconify-icon icon="{{ $item->icon }}" class="tw-text-5xl text-primary"></iconify-icon>
+                                            </div>
+                                        @else
+                                            <img src="{{ asset('assets/img/service-icons/' . $item->icon) }}" class="tw-h-24 tw-w-24 tw-object-center tw-rounded-md tw-py-2">
+                                        @endif
                                         <div
                                             class="tw-px-2 tw-py-1.5  tw-w-full tw-flex tw-justify-center tw-items-center">
                                             <div class="tw-text-sm tw-text-center tw-truncate tw-font-bold tw-w-[90%] ">

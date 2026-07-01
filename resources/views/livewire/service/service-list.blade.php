@@ -33,8 +33,12 @@
                             <td>{{$loop->index+1}}</td>
                             <td class="">
                                 <div class="tw-flex tw-gap-2 tw-items-center">
-                                    <div class="tw-aspect-square tw-w-10 tw-rounded-lg tw-overflow-clip">
-                                        <img src="{{asset('assets/img/service-icons/'.$item->icon)}}" alt="" class="tw-h-full tw-w-full tw-object-cover">
+                                    <div class="tw-aspect-square tw-w-10 tw-rounded-lg tw-overflow-clip d-flex align-items-center justify-content-center bg-light">
+                                        @if(str_contains($item->icon, ':'))
+                                            <iconify-icon icon="{{ $item->icon }}" class="tw-text-2xl text-primary"></iconify-icon>
+                                        @else
+                                            <img src="{{asset('assets/img/service-icons/'.$item->icon)}}" alt="" class="tw-h-full tw-w-full tw-object-cover">
+                                        @endif
                                     </div>
                                     {{$item->service_name}}
                                 </div>

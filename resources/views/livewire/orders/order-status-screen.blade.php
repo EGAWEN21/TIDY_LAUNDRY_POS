@@ -47,7 +47,13 @@
                                                 @php
                                                     $service = \App\Models\Service::where('id', $row->service_id)->first();
                                                 @endphp
-                                            <img src="{{asset('assets/img/service-icons/' . $service->icon)}}" alt="">
+                                            @if(str_contains($service->icon, ':'))
+                                                <div class="tw-flex tw-items-center tw-justify-center tw-h-full tw-w-full bg-light">
+                                                    <iconify-icon icon="{{ $service->icon }}" class="text-primary"></iconify-icon>
+                                                </div>
+                                            @else
+                                                <img src="{{asset('assets/img/service-icons/' . $service->icon)}}" alt="">
+                                            @endif
                                             @endforeach
                                         </div>
                                     </div>
@@ -101,7 +107,13 @@
                                                 @php
                                                     $service = \App\Models\Service::where('id', $row->service_id)->first();
                                                 @endphp
-                                            <img src="{{asset('assets/img/service-icons/' . $service->icon)}}" alt="">
+                                            @if(str_contains($service->icon, ':'))
+                                                <div class="tw-flex tw-items-center tw-justify-center tw-h-full tw-w-full bg-light">
+                                                    <iconify-icon icon="{{ $service->icon }}" class="text-primary"></iconify-icon>
+                                                </div>
+                                            @else
+                                                <img src="{{asset('assets/img/service-icons/' . $service->icon)}}" alt="">
+                                            @endif
                                             @endforeach
                                         </div>
                                     </div>
@@ -155,7 +167,13 @@
                                                 @php
                                                     $service = \App\Models\Service::where('id', $row->service_id)->first();
                                                 @endphp
-                                            <img src="{{asset('assets/img/service-icons/' . $service->icon)}}" alt="">
+                                            @if(str_contains($service->icon, ':'))
+                                                <div class="tw-flex tw-items-center tw-justify-center tw-h-full tw-w-full bg-light">
+                                                    <iconify-icon icon="{{ $service->icon }}" class="text-primary"></iconify-icon>
+                                                </div>
+                                            @else
+                                                <img src="{{asset('assets/img/service-icons/' . $service->icon)}}" alt="">
+                                            @endif
                                             @endforeach
                                         </div>
                                     </div>

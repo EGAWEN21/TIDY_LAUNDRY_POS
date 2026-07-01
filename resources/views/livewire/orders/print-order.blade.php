@@ -75,8 +75,12 @@
                                 </td>
                                 <td class="">
                                     <div class="tw-flex tw-gap-4">
-                                        <div class="tw-size-10">
-                                            <img src="{{ asset('assets/img/service-icons/' . $service->icon) }}" class="tw-object-contain" alt="">
+                                        <div class="tw-size-10 tw-flex tw-items-center tw-justify-center tw-bg-neutral-50 tw-rounded-md">
+                                            @if(str_contains($service->icon, ':'))
+                                                <iconify-icon icon="{{ $service->icon }}" class="tw-text-2xl text-primary"></iconify-icon>
+                                            @else
+                                                <img src="{{ asset('assets/img/service-icons/' . $service->icon) }}" class="tw-object-contain" alt="">
+                                            @endif
                                         </div>
                                         <div class="tw-flex tw-flex-col">
                                             <p>{{ $service->service_name }}</p>

@@ -31,8 +31,13 @@
                         <div class="col-md-3 text-right ">
                             <div class="avatar avatar-xl">
                                 @if ($imageicon)
-                                <img src="{{ asset('assets/img/service-icons/' . $imageicon['path']) }}"
-                                    class="rounded bg-light p-2">
+                                    @if(str_contains($imageicon['path'], ':'))
+                                        <div class="rounded bg-light p-2 d-flex align-items-center justify-content-center tw-h-24 tw-w-24">
+                                            <iconify-icon icon="{{ $imageicon['path'] }}" class="text-primary tw-text-5xl"></iconify-icon>
+                                        </div>
+                                    @else
+                                        <img src="{{ asset('assets/img/service-icons/' . $imageicon['path']) }}" class="rounded bg-light p-2">
+                                    @endif
                                 @endif
                             </div>
                         </div>
@@ -122,14 +127,57 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body" x-data="">
-                    <div class="row">
-                        @foreach ($files as $key => $value)
-                        <div class="col-1 customwidth m-2 customhover1" wire:click="selectIcon({{ $key }})">
-                            <img src="{{ asset('assets/img/service-icons/' . $value['path']) }}"
-                                class="img-fluid">
+                <div class="modal-body" x-data="{ tab: 'local', query: '', icons: [], loading: false, searchIconify() { this.loading = true; fetch('https://api.iconify.design/search?query=' + this.query + '&limit=60').then(res => res.json()).then(data => { this.icons = data.icons; this.loading = false; }) } }">
+                    <ul class="nav nav-tabs mb-4" id="iconTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" :class="{ 'active': tab === 'local' }" @click="tab = 'local'" type="button">Local Icons</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" :class="{ 'active': tab === 'online' }" @click="tab = 'online'" type="button">Search Online</button>
+                        </li>
+                    </ul>
+
+                    <!-- Local Icons -->
+                    <div x-show="tab === 'local'">
+                        <div class="mb-4 d-flex align-items-center gap-3 bg-light p-3 rounded">
+                            <input type="file" class="form-control w-auto" wire:model="newIcon" accept="image/*">
+                            <button type="button" class="btn btn-primary" wire:click="uploadIcon" wire:loading.attr="disabled" wire:target="newIcon, uploadIcon">Upload</button>
+                            <span wire:loading wire:target="newIcon, uploadIcon" class="text-primary">Processing...</span>
                         </div>
-                        @endforeach
+                        <div class="row">
+                            @foreach ($files as $key => $value)
+                            <div class="col-1 customwidth m-2 position-relative">
+                                <div class="customhover1 tw-cursor-pointer border rounded bg-light p-2 text-center" wire:click="selectIcon({{ $key }})">
+                                    <img src="{{ asset('assets/img/service-icons/' . $value['path']) }}" class="img-fluid" style="max-height: 40px; object-fit: contain;">
+                                </div>
+                                <button type="button" wire:click="deleteIcon('{{ $value['path'] }}')" class="btn btn-sm btn-danger position-absolute top-0 end-0 rounded-circle p-0 d-flex align-items-center justify-content-center" style="transform: translate(25%, -25%); width: 22px; height: 22px;" title="Delete">
+                                    <iconify-icon icon="mdi:close" class="tw-text-xs"></iconify-icon>
+                                </button>
+                            </div>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    <!-- Online Icons -->
+                    <div x-show="tab === 'online'" style="display: none;">
+                        <div class="mb-4 d-flex gap-2">
+                            <input type="text" class="form-control" x-model="query" @keydown.enter="searchIconify" placeholder="e.g. 't-shirt', 'pants', 'towel', 'socks'">
+                            <button type="button" class="btn btn-primary px-4" @click="searchIconify">Search</button>
+                        </div>
+                        <div x-show="loading" class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status"></div>
+                            <div class="mt-2">Searching icons...</div>
+                        </div>
+                        <div class="row" x-show="!loading">
+                            <template x-for="icon in icons" :key="icon">
+                                <div class="col-1 customwidth m-2 text-center tw-cursor-pointer customhover1 p-2 border rounded bg-light d-flex align-items-center justify-content-center" @click="$wire.selectIcon(icon)">
+                                    <iconify-icon :icon="icon" class="tw-text-4xl text-secondary-light"></iconify-icon>
+                                </div>
+                            </template>
+                            <div x-show="icons.length === 0 && !loading && query !== ''" class="col-12 text-center py-5 text-muted">
+                                No icons found. Try a different search term.
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
