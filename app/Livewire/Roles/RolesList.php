@@ -140,6 +140,9 @@ class RolesList extends Component
     /* process while change the content*/
     public function updated($name, $value)
     {
+        if ($name === 'selected_permissions.bypass_order_approval' && $value === true) {
+            $this->selected_permissions['bypass_approval_under_limit'] = true;
+        }
     }
     /* reset input fields */
     public function resetFields()
