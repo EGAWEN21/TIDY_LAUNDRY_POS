@@ -249,7 +249,7 @@ function getCountryCode()
     $settings = new App\Models\MasterSettings();
     $site = $settings->siteData();
     if (isset($site['country_code']) && $site['country_code'] != '') {
-        return '+'.$site['country_code'];
+        return '+'.ltrim($site['country_code'], '+');
     }
     return '+91';
 }
