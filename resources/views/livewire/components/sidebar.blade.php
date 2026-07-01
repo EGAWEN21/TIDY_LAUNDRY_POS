@@ -44,6 +44,12 @@
                 </a>
             </li>
             @endcan
+            <li>
+                <a href="{{ route('orders.requests') }}">
+                    <iconify-icon icon="lucide:clipboard-list" class="menu-icon"></iconify-icon>
+                    <span>{{ $lang->data['order_requests'] ?? 'Order Requests' }}</span>
+                </a>
+            </li>
             <li class="sidebar-menu-group-title">{{ $lang->data['application'] ?? 'Application' }}</li>
             @can('customer_list')
             <li class="@if(Request::is('admin/customers*')) active-page @endif">

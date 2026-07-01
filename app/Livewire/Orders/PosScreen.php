@@ -27,7 +27,7 @@ class PosScreen extends Component
     public $payment_notes, $service_types, $service, $inputi, $prices = [], $selling_price = [], $quantity = [], $selected_type = [], $addons, $selected_addons = [], $colors = [];
     public $customer_name, $customer_phone, $email, $tax_no, $address, $selected_customer, $customers, $customer_query, $is_active = 1;
     public $total, $sub_total, $addon_total, $tax_percent, $tax, $balance, $flag = 0, $lang,$taxamount;
-    public $taxable,$order;
+    public $taxable,$order, $request_id;
     public $payments = [],$payment_amount,$notes;
 
     #[Layout('components.layouts.pos'),Title('POS')]
@@ -54,8 +54,63 @@ class PosScreen extends Component
         $this->tax_percent = getTaxPercentage();
         $this->generateOrderID();
 
-        if($id)
-        {
+        if (request()->routeIs('orders.requests.edit') && $id) {
+            $this->request_id = $id;
+            $req = \App\Models\OrderRequest::findOrFail($id);
+            if (!Auth::user()->hasPermission('accept_reject_order') && $req->created_by != Auth::id()) {
+                abort(403);
+            }
+            $payload = $req->payload;
+            
+            if (isset($payload['payments'])) {
+                foreach($payload['payments'] as $payment){
+                    array_push($this->payments,[
+                        'payment_type' => $payment['payment_type'],
+                        'amount' => $payment['amount'],
+                        'notes' => $payment['notes']
+                    ]);
+                }
+            }
+            if (isset($payload['customer_id']) && $payload['customer_id'] != NULL) {
+                $this->selectCustomer($payload['customer_id']);
+            }
+            
+            if (isset($payload['details'])) {
+                foreach ($payload['details'] as $row) {
+                    $this->add($this->inputi);
+                    $service = Service::where('id', $row['service_id'])->first();
+                    $serviceType = ServiceType::where('service_type_name', $row['service_name'])->first();
+                    
+                    if ($service) {
+                        $this->selservices[$this->inputi]['service'] = $service->id;
+                        $this->selservices[$this->inputi]['service_type']  = $serviceType?->id;
+                        
+                        $this->selling_price[$this->inputi] = $row['service_price'];
+                        $this->colors[$this->inputi] = $row['color_code'] ?? '';
+                        
+                        if ($payload['tax_type'] == 2) {
+                            $itemtotallocal = $row['service_price'] * (100 / (100 + ($this->tax_percent ?? 0)));
+                            $this->prices[$this->inputi] = number_format($itemtotallocal, 2);
+                        } else {
+                            $this->prices[$this->inputi] = $row['service_price'];
+                        }
+                        
+                        $this->quantity[$this->inputi] = $row['service_quantity'];
+                    }
+                }
+            }
+            $this->delivery_date = Carbon::parse($payload['delivery_date'])->toDateString();
+            $this->date = Carbon::parse($payload['order_date'])->toDateString();
+            $this->order_id = $req->request_number;
+            $this->payment_notes = $payload['note'] ?? '';
+            $this->discount = $payload['discount'] ?? 0;
+            
+            if (isset($payload['addons'])) {
+                foreach ($payload['addons'] as $row) {
+                    $this->selected_addons[$row['addon_id']] = true;
+                }
+            }
+        } elseif($id) {
             $this->order = Order::whereId($id)->firstOrFail();
             $payments = Payment::where('order_id', $this->order->id)->get();
             foreach($payments as $payment){
@@ -508,103 +563,168 @@ class PosScreen extends Component
                 OrderDetail::whereOrderId($this->order->id)->delete();
                 OrderAddonDetail::whereOrderId($this->order->id)->delete();
                 Payment::whereOrderId($this->order->id)->delete();
-            }
-            else{
-                $order = Order::create([
-                    'order_number'  => $this->order_id,
-                    'customer_id'   => $this->selected_customer->id ?? null,
-                    'customer_name' => $this->selected_customer->name ?? null,
-                    'phone_number'  => $this->selected_customer->phone ?? null,
-                    'order_date'    => Carbon::parse($this->date)->toDateTimeString(),
-                    'delivery_date' => Carbon::parse($this->delivery_date)->toDateTimeString(),
-                    'sub_total' => $this->sub_total,
-                    'addon_total'   => $this->addon_total,
-                    'discount'  => $this->discount ?? 0,
-                    'tax_percentage'    => $this->tax_percent,
-                    'tax_amount'    => $this->tax,
-                    'tax_type'  => getTaxType(),
-                    'taxable_amount'    => $this->taxable,
-                    'total' => $this->total,
-                    'note'  => $this->payment_notes,
-                    'status'    => 0,
-                    'order_type'    => 1,
-                    'created_by'    => Auth::user()->id,
-                    'financial_year_id' => getFinancialYearId()
-                ]);
-            }
-
-           
-            foreach ($this->selservices as $key => $value) {
-                $service = Service::where('id', $value['service'])->first();
-                $service_type = ServiceType::where('id', $value['service_type'])->first();
-                $service_type_detail = ServiceDetail::where('service_type_id', $service_type->id)->first();
-                $amount += $this->prices[$key];
-               OrderDetail::create([
-                    'order_id'  => $order->id,
-                    'service_id'    => $service->id,
-                    'service_name'  => $service_type->service_type_name,
-                    'service_quantity'  => $this->quantity[$key],
-                    'service_detail_total'  => $this->selling_price[$key] * $this->quantity[$key],
-                    'service_price' => $this->selling_price[$key],
-                    'color_code' => $this->colors[$key],
-                ]);
-            }
-            if ($this->selected_addons) {
-                foreach ($this->selected_addons as $key => $value) {
-                    if ($value === true) {
-                        $addon = Addon::where('id', $key)->first();
-                        \App\Models\OrderAddonDetail::create([
+                
+                foreach ($this->selservices as $key => $value) {
+                    $service = Service::where('id', $value['service'])->first();
+                    $service_type = ServiceType::where('id', $value['service_type'])->first();
+                    $service_type_detail = ServiceDetail::where('service_type_id', $service_type->id)->first();
+                    $amount += $this->prices[$key];
+                    OrderDetail::create([
+                        'order_id'  => $order->id,
+                        'service_id'    => $service->id,
+                        'service_name'  => $service_type->service_type_name,
+                        'service_quantity'  => $this->quantity[$key],
+                        'service_detail_total'  => $this->selling_price[$key] * $this->quantity[$key],
+                        'service_price' => $this->selling_price[$key],
+                        'color_code' => $this->colors[$key],
+                    ]);
+                }
+                if ($this->selected_addons) {
+                    foreach ($this->selected_addons as $key => $value) {
+                        if ($value === true) {
+                            $addon = Addon::where('id', $key)->first();
+                            \App\Models\OrderAddonDetail::create([
+                                'order_id'  => $order->id,
+                                'addon_id'    => $addon->id,
+                                'addon_name'    => $addon->addon_name,
+                                'addon_price'   => $addon->addon_price,
+                            ]);
+                        }
+                    }
+                }
+                if (count($this->payments) > 0) {
+                    foreach ($this->payments as $payment) {
+                        \App\Models\Payment::create([
+                            'payment_date'  => $this->date,
+                            'customer_id'   => $this->selected_customer->id ?? null,
+                            'customer_name' => $this->selected_customer->name ?? null,
                             'order_id'  => $order->id,
-                            'addon_id'    => $addon->id,
-                            'addon_name'    => $addon->addon_name,
-                            'addon_price'   => $addon->addon_price,
+                            'payment_type'  => $payment['payment_type'],
+                            'received_amount'    => $payment['amount'],
+                            'notes'  =>  $payment['notes'] ?? "Notes",
+                            'financial_year_id' => getFinancialYearId(),
+                            'created_by'    => Auth::user()->id,
                         ]);
                     }
                 }
-            }
-            if (count($this->payments) > 0) {
-                foreach ($this->payments as $payment) {
-                    $payment = \App\Models\Payment::create([
-                        'payment_date'  => $this->date,
-                        'customer_id'   => $this->selected_customer->id ?? null,
-                        'customer_name' => $this->selected_customer->name ?? null,
-                        'order_id'  => $order->id,
-                        'payment_type'  => $payment['payment_type'],
-                        'received_amount'    => $payment['amount'],
-                        'notes'  =>  $payment['notes'] ?? "Notes",
-                        'financial_year_id' => getFinancialYearId(),
-                        'created_by'    => Auth::user()->id,
-                    ]);
+                $this->flag = 1;
+                $this->dispatch('alert', ['type' => 'success',  'message' => $order->order_number . ' Was Successfully Updated!']);
+                if(\Illuminate\Support\Facades\Gate::allows('order_print')){
+                    $this->dispatch('printPageOrder', $order->id);
                 }
-            }
-            $this->flag = 1;
-            if ($this->selected_customer) {
-                $message = sendOrderCreateSMS($order->id, $this->selected_customer->id);
-                if ($message) {
-                    $this->dispatch(
-                        'alert',
-                        ['type' => 'error',  'message' => $message, 'title' => 'SMS Error']
-                    );
-                }
-            }
-            $this->dispatch(
-                'alert',
-                ['type' => 'success',  'message' => $order->order_number . ' Was Successfully Created!']
-            );
-        }
-        if(\Illuminate\Support\Facades\Gate::allows('order_print')){
-            if($this->order){
-                $this->dispatch('printPageOrder', $order->id);
             }
             else{
-                $this->dispatch('printPage', $order->id);
-                $this->clearAll();
+                // New Order or Request
+                $payload = [
+                    'customer_id' => $this->selected_customer->id ?? null,
+                    'customer_name' => $this->selected_customer->name ?? null,
+                    'phone_number' => $this->selected_customer->phone ?? null,
+                    'order_date' => Carbon::parse($this->date)->toDateTimeString(),
+                    'delivery_date' => Carbon::parse($this->delivery_date)->toDateTimeString(),
+                    'sub_total' => $this->sub_total,
+                    'addon_total' => $this->addon_total,
+                    'discount' => $this->discount ?? 0,
+                    'tax_percentage' => $this->tax_percent,
+                    'tax_amount' => $this->tax,
+                    'tax_type' => getTaxType(),
+                    'taxable_amount' => $this->taxable,
+                    'total' => $this->total,
+                    'note' => $this->payment_notes,
+                    'details' => [],
+                    'addons' => [],
+                    'payments' => []
+                ];
+                
+                foreach ($this->selservices as $key => $value) {
+                    $service = Service::where('id', $value['service'])->first();
+                    $service_type = ServiceType::where('id', $value['service_type'])->first();
+                    $payload['details'][] = [
+                        'service_id' => $service->id,
+                        'service_name' => $service_type->service_type_name,
+                        'service_quantity' => $this->quantity[$key],
+                        'service_detail_total' => $this->selling_price[$key] * $this->quantity[$key],
+                        'service_price' => $this->selling_price[$key],
+                        'color_code' => $this->colors[$key] ?? null,
+                    ];
+                }
+                
+                if ($this->selected_addons) {
+                    foreach ($this->selected_addons as $key => $value) {
+                        if ($value === true) {
+                            $addon = Addon::where('id', $key)->first();
+                            $payload['addons'][] = [
+                                'addon_id' => $addon->id,
+                                'addon_name' => $addon->addon_name,
+                                'addon_price' => $addon->addon_price,
+                            ];
+                        }
+                    }
+                }
+                
+                if (count($this->payments) > 0) {
+                    foreach ($this->payments as $payment) {
+                        $payload['payments'][] = [
+                            'payment_type' => $payment['payment_type'],
+                            'amount' => $payment['amount'],
+                            'notes' => $payment['notes'] ?? "Notes"
+                        ];
+                    }
+                }
+
+                if (Auth::user()->hasPermission('bypass_order_approval')) {
+                    $order = \App\Services\OrderService::establishOrder($payload, Auth::id());
+                    $this->order_id = $order->order_number;
+                    
+                    if ($this->request_id) {
+                        \App\Models\OrderRequest::whereId($this->request_id)->delete();
+                    }
+                    
+                    if ($this->selected_customer) {
+                        $message = sendOrderCreateSMS($order->id, $this->selected_customer->id);
+                        if ($message) {
+                            $this->dispatch('alert', ['type' => 'error',  'message' => $message, 'title' => 'SMS Error']);
+                        }
+                    }
+                    $this->dispatch('alert', ['type' => 'success',  'message' => $order->order_number . ' Was Successfully Created!']);
+                    
+                    if(\Illuminate\Support\Facades\Gate::allows('order_print')){
+                        $this->dispatch('printPage', $order->id);
+                        $this->clearAll();
+                    } else {
+                        $this->clearAll();
+                    }
+                } else {
+                    if ($this->request_id) {
+                        \App\Models\OrderRequest::whereId($this->request_id)->update([
+                            'payload' => $payload,
+                            'status' => 0,
+                            'rejection_note' => null,
+                            'total_amount' => $this->total,
+                            'customer_id' => $this->selected_customer->id ?? null,
+                            'customer_name' => $this->selected_customer->name ?? null,
+                        ]);
+                        $this->dispatch('alert', ['type' => 'success',  'message' => 'Order Request Updated!']);
+                    } else {
+                        $reqNum = \App\Services\OrderService::generateRequestID();
+                        \App\Models\OrderRequest::create([
+                            'request_number' => $reqNum,
+                            'created_by' => Auth::id(),
+                            'customer_id' => $this->selected_customer->id ?? null,
+                            'customer_name' => $this->selected_customer->name ?? null,
+                            'total_amount' => $this->total,
+                            'payload' => $payload,
+                            'status' => 0,
+                        ]);
+                        $this->dispatch('alert', ['type' => 'success',  'message' => 'Order Request Submitted for Approval!']);
+                    }
+                    $this->clearAll();
+                }
             }
         }
         if($this->order){
         }
         else{
-            $this->clearAll();
+            // Handled inside
         }
     }
 

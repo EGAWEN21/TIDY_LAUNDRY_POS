@@ -22,6 +22,8 @@ Route::group(['middleware' => [\App\Http\Middleware\InstalledMiddleware::class]]
             Route::get('/', \App\Livewire\Orders\OrdersList::class)->name('orders');
             Route::get('/view/{id}', \App\Livewire\Orders\ViewOrder::class)->name('order.view');
             Route::get('/print/{id}', \App\Livewire\Orders\PrintOrder::class)->name('order.print');
+            Route::get('/requests', \App\Livewire\Orders\OrderRequestsList::class)->name('orders.requests');
+            Route::get('/requests/edit/{id}', \App\Livewire\Orders\PosScreen::class)->name('orders.requests.edit');
         });
         Route::group(['prefix' => 'customers/'], function () {
             Route::get('/', \App\Livewire\Customers\CustomersList::class)->name('customers');
