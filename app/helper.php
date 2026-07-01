@@ -456,3 +456,18 @@ if(!function_exists('getTaxType'))
         return 1;
     }
 }
+
+if(!function_exists('getBypassLimit'))
+{
+    function getBypassLimit()
+    {
+        $settings = new App\Models\MasterSettings();
+        $site = $settings->siteData();
+        if(isset($site['bypass_approval_limit']))
+        {
+            $limit = (($site['bypass_approval_limit']) && ($site['bypass_approval_limit'] !=""))? $site['bypass_approval_limit'] : 0;
+            return $limit;
+        }
+        return 0;
+    }
+}

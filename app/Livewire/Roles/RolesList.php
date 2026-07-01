@@ -28,6 +28,7 @@ class RolesList extends Component
         'Translation' => ['translation_list'],
         'Service Type' => ['service_type_list'],
         'Expense Category' => ['expense_category_list'],
+        'Order Approval' => ['accept_reject_order', 'bypass_order_approval', 'view_all_requests', 'edit_pending_requests', 'delete_order_requests', 'bypass_approval_under_limit'],
     ];
 
     public $roles, $role, $editRole, $search_query, $lang ,$permissions,$selected_permissions = [],$name;

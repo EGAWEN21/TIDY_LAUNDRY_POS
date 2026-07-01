@@ -30,7 +30,7 @@ class OrderRequestsList extends Component
 
     public function loadRequests()
     {
-        if (Auth::user()->hasPermission('accept_reject_order')) {
+        if (Auth::user()->hasPermission('accept_reject_order') || Auth::user()->hasPermission('view_all_requests')) {
             $this->requests = OrderRequest::latest()->get();
         } else {
             $this->requests = OrderRequest::where('created_by', Auth::id())->latest()->get();
@@ -88,7 +88,7 @@ class OrderRequestsList extends Component
     public function deleteRequest($id)
     {
         $req = OrderRequest::findOrFail($id);
-        if (!Auth::user()->hasPermission('accept_reject_order') && $req->created_by != Auth::id()) {
+        if (!Auth::user()->hasPermission('delete_order_requests') && !Auth::user()->hasPermission('accept_reject_order') && $req->created_by != Auth::id()) {
             abort(403);
         }
         $req->delete();

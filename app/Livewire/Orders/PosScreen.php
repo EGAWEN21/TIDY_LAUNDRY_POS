@@ -57,7 +57,7 @@ class PosScreen extends Component
         if (request()->routeIs('orders.requests.edit') && $id) {
             $this->request_id = $id;
             $req = \App\Models\OrderRequest::findOrFail($id);
-            if (!Auth::user()->hasPermission('accept_reject_order') && $req->created_by != Auth::id()) {
+            if (!Auth::user()->hasPermission('accept_reject_order') && !Auth::user()->hasPermission('edit_pending_requests') && $req->created_by != Auth::id()) {
                 abort(403);
             }
             $payload = $req->payload;
@@ -671,7 +671,12 @@ class PosScreen extends Component
                     }
                 }
 
-                if (Auth::user()->hasPermission('bypass_order_approval')) {
+                $canBypass = Auth::user()->hasPermission('bypass_order_approval');
+                if (!$canBypass && Auth::user()->hasPermission('bypass_approval_under_limit') && $this->total <= getBypassLimit()) {
+                    $canBypass = true;
+                }
+
+                if ($canBypass) {
                     $order = \App\Services\OrderService::establishOrder($payload, Auth::id());
                     $this->order_id = $order->order_number;
                     

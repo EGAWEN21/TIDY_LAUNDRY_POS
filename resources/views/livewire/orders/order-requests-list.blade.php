@@ -48,12 +48,16 @@
                                                     </button>
                                                 @endif
                                             @endcan
-                                            <a href="{{ route('orders.requests.edit', $item->id) }}" class="bg-info-100 text-info-600 bg-hover-info-200 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle">
-                                                <iconify-icon icon="lucide:edit" class="menu-icon"></iconify-icon>
-                                            </a>
-                                            <button type="button" class="bg-danger-100 text-danger-600 bg-hover-danger-200 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle" wire:click="deleteRequest({{ $item->id }})" onclick="confirm('Are you sure you want to delete this request?') || event.stopImmediatePropagation()">
-                                                <iconify-icon icon="lucide:trash-2" class="menu-icon"></iconify-icon>
-                                            </button>
+                                            @if(Auth::id() == $item->created_by || Auth::user()->hasPermission('edit_pending_requests'))
+                                                <a href="{{ route('orders.requests.edit', $item->id) }}" class="bg-info-100 text-info-600 bg-hover-info-200 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle">
+                                                    <iconify-icon icon="lucide:edit" class="menu-icon"></iconify-icon>
+                                                </a>
+                                            @endif
+                                            @if(Auth::id() == $item->created_by || Auth::user()->hasPermission('delete_order_requests') || Auth::user()->hasPermission('accept_reject_order'))
+                                                <button type="button" class="bg-danger-100 text-danger-600 bg-hover-danger-200 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle" wire:click="deleteRequest({{ $item->id }})" onclick="confirm('Are you sure you want to delete this request?') || event.stopImmediatePropagation()">
+                                                    <iconify-icon icon="lucide:trash-2" class="menu-icon"></iconify-icon>
+                                                </button>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>

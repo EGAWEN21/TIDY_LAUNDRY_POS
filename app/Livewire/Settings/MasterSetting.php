@@ -17,6 +17,7 @@ class MasterSetting extends Component
     public $default_currency, $default_application_name, $default_phone_number, $default_financial_year, $default_tax_percentage;
     public $default_state, $default_city, $default_district, $default_zip_code, $default_address, $user, $email, $password, $default_logo, $default_favicon, $default_currency_alignment = 1;
     public $old_favicon, $old_logo, $default_printer = 1, $lang, $country_code, $default_country, $store_tax, $store_email,$default_tax_mode;
+    public $bypass_approval_limit;
     use WithFileUploads;
     /* render the page */
     #[Title('Master Settings')]
@@ -56,6 +57,7 @@ class MasterSetting extends Component
         $this->store_email = (isset($site['store_email']) && !empty($site['store_email'])) ? $site['store_email'] : '';
         $this->default_printer = (isset($site['default_printer']) && !empty($site['default_printer'])) ? $site['default_printer'] : '';
         $this->default_currency_alignment = (isset($site['default_currency_alignment']) && !empty($site['default_currency_alignment'])) ? $site['default_currency_alignment'] : 1;
+        $this->bypass_approval_limit = (isset($site['bypass_approval_limit']) && !empty($site['bypass_approval_limit'])) ? $site['bypass_approval_limit'] : 0;
         if (session()->has('selected_language')) {   /*if session has selected language */
             $this->lang = Translation::where('id', session()->get('selected_language'))->first();
         } else {
@@ -87,7 +89,8 @@ class MasterSetting extends Component
             'email' => 'required|email|unique:users',
             'email' => ['required', 'email', Rule::unique('users')->ignore($this->user->id)],
             'default_printer' => 'required',
-            'country_code'  => 'required'
+            'country_code'  => 'required',
+            'bypass_approval_limit' => 'nullable|numeric|min:0',
         ]);
 
         $settings = new MasterSettings();
@@ -109,6 +112,7 @@ class MasterSetting extends Component
         $site['default_printer'] = $this->default_printer;
         $site['country_code'] = $this->country_code;
         $site['default_currency_alignment'] = $this->default_currency_alignment;
+        $site['bypass_approval_limit'] = $this->bypass_approval_limit;
         if ($this->default_logo) {
             ini_set('memory_limit', '512M'); // Temporarily increase memory for large images
             $default_logo = $this->default_logo;

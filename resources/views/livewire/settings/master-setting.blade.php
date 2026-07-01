@@ -277,6 +277,17 @@
                         </select>
                     </div>
                 </div>
+                <div class="col-sm-4">
+                    <div class="mb-20">
+                        <label for="bypass_limit" class="form-label fw-semibold text-primary-light text-sm mb-8">
+                            {{ $lang->data['bypass_approval_limit'] ?? 'Bypass Approval Limit' }}
+                        </label>
+                        <input type="number" class="form-control radius-8" id="bypass_limit" wire:model="bypass_approval_limit" step="0.01" min="0">
+                        @error('bypass_approval_limit')
+                        <span class="text-danger">{{ $message }}</span>
+                        @enderror
+                    </div>
+                </div>
                 <div class="d-flex align-items-center justify-content-center gap-3 mt-24">
                     <button type="reset"
                         class="border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-40 py-11 radius-8" wire:click.prevent="initialValue()">
