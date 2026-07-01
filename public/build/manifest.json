@@ -1,13 +1,29 @@
 {
+  "_index-DcNlVx-A.js": {
+    "file": "assets/index-DcNlVx-A.js",
+    "name": "index"
+  },
   "resources/css/app.css": {
-    "file": "assets/app-CBF0XyUR.css",
+    "file": "assets/app-BG7Kkh3M.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-UyRVujZY.js",
+    "file": "assets/app-CIzbZzsr.js",
     "name": "app",
     "src": "resources/js/app.js",
-    "isEntry": true
+    "isEntry": true,
+    "imports": [
+      "_index-DcNlVx-A.js"
+    ]
+  },
+  "resources/js/pos-app.js": {
+    "file": "assets/pos-app-Dq0aUcE6.js",
+    "name": "pos-app",
+    "src": "resources/js/pos-app.js",
+    "isEntry": true,
+    "imports": [
+      "_index-DcNlVx-A.js"
+    ]
   }
 }
