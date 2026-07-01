@@ -70,9 +70,9 @@ class CustomersList extends Component
         $customer = new Customer();
         $customer->name = $this->name;
         $customer->phone = $this->phone;
-        $customer->email = $this->email;
-        $customer->tax_number = $this->tax_number;
-        $customer->address = ($this->address);
+        $customer->email = empty($this->email) ? null : $this->email;
+        $customer->tax_number = empty($this->tax_number) ? null : $this->tax_number;
+        $customer->address = empty($this->address) ? null : $this->address;
         $customer->created_by = Auth::user()->id;
         $customer->is_active = ($this->is_active) ? "1" : "0";
         $customer->save();
@@ -126,9 +126,9 @@ class CustomersList extends Component
 
         $this->customer->name = $this->name;
         $this->customer->phone = $this->phone;
-        $this->customer->email = $this->email;
-        $this->customer->tax_number = $this->tax_number;
-        $this->customer->address = $this->address;
+        $this->customer->email = empty($this->email) ? null : $this->email;
+        $this->customer->tax_number = empty($this->tax_number) ? null : $this->tax_number;
+        $this->customer->address = empty($this->address) ? null : $this->address;
         $this->customer->is_active = ($this->is_active) ? "1" : "0";
         $this->customer->save();
         $this->refresh();

@@ -304,9 +304,9 @@ class PosScreen extends Component
         $customer = Customer::create([
             'name'  => $this->customer_name,
             'phone' => $this->customer_phone,
-            'email' => $this->email,
-            'tax_number'    => $this->tax_no,
-            'address'   => $this->address,
+            'email' => empty($this->email) ? null : $this->email,
+            'tax_number'    => empty($this->tax_no) ? null : $this->tax_no,
+            'address'   => empty($this->address) ? null : $this->address,
             'is_active' => $this->is_active ?? 0,
         ]);
         $this->selected_customer = $customer;
