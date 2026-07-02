@@ -15,6 +15,8 @@ use App\Models\OrderAddonDetail;
 use App\Models\Payment;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use App\Models\User;
 
 class PosApiController extends Controller
@@ -60,7 +62,15 @@ class PosApiController extends Controller
                 'tax_type' => getTaxType(),
                 'financial_year_id' => getFinancialYearId(),
                 'currency' => getCurrency()
-            ]
+            ],
+            'timestamp' => time()
+        ]);
+    }
+
+    public function checkUpdates()
+    {
+        return response()->json([
+            'timestamp' => Cache::get('pos_last_update', 0)
         ]);
     }
 

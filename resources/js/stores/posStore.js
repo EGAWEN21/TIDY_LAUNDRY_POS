@@ -18,6 +18,7 @@ export const usePosStore = defineStore('pos', {
         cartDiscountType: null,
         isOnline: navigator.onLine,
         isSyncing: false,
+        lastSyncTimestamp: 0,
     }),
     
     getters: {
@@ -96,12 +97,33 @@ export const usePosStore = defineStore('pos', {
             } else {
                 await this.loadFromLocal();
             }
+
+            // Background Auto-Updater Engine
+            setInterval(async () => {
+                if(this.isOnline && !this.isSyncing) {
+                    try {
+                        const res = await axios.get('/api/pos/check-update');
+                        if(res.data.timestamp > this.lastSyncTimestamp) {
+                            console.log('Background Sync: Updates detected. Silently updating local database...');
+                            await this.fetchFromServer();
+                        }
+                    } catch (e) {
+                        // ignore background errors
+                    }
+                }
+            }, 60000); // 60 seconds
         },
 
         updateOnlineStatus(e) {
             this.isOnline = navigator.onLine;
             if(this.isOnline) {
                 this.syncOfflineData();
+                // Also trigger an immediate check for updates when coming online
+                axios.get('/api/pos/check-update').then(res => {
+                    if(res.data.timestamp > this.lastSyncTimestamp) {
+                        this.fetchFromServer();
+                    }
+                }).catch(err => {});
             }
         },
 
@@ -109,6 +131,7 @@ export const usePosStore = defineStore('pos', {
             try {
                 const response = await axios.get('/api/pos/init');
                 const data = response.data;
+                this.lastSyncTimestamp = data.timestamp || 0;
                 
                 // Clear old data and save new
                 await db.transaction('rw', db.services, db.serviceTypes, db.serviceDetails, db.addons, db.customers, db.settings, async () => {
