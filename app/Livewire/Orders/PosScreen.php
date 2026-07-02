@@ -50,7 +50,7 @@ class PosScreen extends Component
         $this->services = Service::where('is_active', 1)->latest()->get();
         $this->date = Carbon::today()->toDateString();
         $this->addons = Addon::where('is_active', 1)->latest()->get();
-        $this->delivery_date = Carbon::today()->toDateString();
+        $this->delivery_date = Carbon::today()->addDays(2)->toDateString();
         $this->tax_percent = getTaxPercentage();
         $this->generateOrderID();
 
@@ -200,6 +200,9 @@ class PosScreen extends Component
 
         if ($name == 'discount' || strpos($name, 'selling_price') !== false || strpos($name, 'prices') !== false || strpos($name, 'quantity') !== false) {
             $this->calculateTotal();
+        }
+        if ($name == 'date' && $value != '') {
+            $this->delivery_date = Carbon::parse($value)->addDays(2)->toDateString();
         }
         $this->calculateTotal();
     }
