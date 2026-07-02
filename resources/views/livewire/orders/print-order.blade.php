@@ -1919,7 +1919,18 @@
             script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
             script.onload = function() {
                 var targetElement = document.getElementById('receipt-content') || document.body;
+                
+                // Add temporary padding for the image capture
+                var originalPadding = targetElement.style.padding;
+                var originalBoxSizing = targetElement.style.boxSizing;
+                targetElement.style.padding = '20px';
+                targetElement.style.boxSizing = 'border-box';
+                
                 html2canvas(targetElement, { useCORS: true, allowTaint: true, scale: 2, backgroundColor: '#ffffff' }).then(function(canvas) {
+                    // Restore original styles
+                    targetElement.style.padding = originalPadding;
+                    targetElement.style.boxSizing = originalBoxSizing;
+                    
                     var link = document.createElement('a');
                     link.download = 'Receipt_{{ $order->order_number ?? "Order" }}.png';
                     link.href = canvas.toDataURL("image/png");
