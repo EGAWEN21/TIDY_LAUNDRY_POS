@@ -468,6 +468,10 @@
                             <div class="tw-font-bold"> {{ getFormattedCurrency($addon_total) }}</div>
                         </div>
                         <div class="tw-flex tw-items-center tw-gap-2">
+                            <div class="">{{ $lang->data['total_items'] ?? 'Total Items' }} :</div>
+                            <div class="tw-font-bold">{{ array_sum($quantity) }}</div>
+                        </div>
+                        <div class="tw-flex tw-items-center tw-gap-2">
                             <div class="">{{ $lang->data['sub_total'] ?? 'Sub Total' }} :</div>
                             <div class="tw-font-bold">{{ getFormattedCurrency($sub_total) }}</div>
                         </div>

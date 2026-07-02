@@ -42,6 +42,7 @@
     </table>
 
     <div style="text-align: right; margin-bottom: 30px;">
+        <p><strong>Total Items:</strong> {{ $order->details ? $order->details->sum('service_quantity') : 0 }}</p>
         <p><strong>Subtotal:</strong> {{ getFormattedCurrency($order->sub_total) }}</p>
         @if($order->addon_total > 0)
         <p><strong>Addons:</strong> {{ getFormattedCurrency($order->addon_total) }}</p>

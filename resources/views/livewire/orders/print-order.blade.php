@@ -149,6 +149,14 @@
                             <div class="pb-2">{{ $lang->data['payment_details'] ?? 'Payment Details' }}</div>
                             <div class="tw-flex tw-justify-between tw-items-center tw-w-[17rem] tw-mt-2">
                                 <div class="  tw-text-sm">
+                                    {{ $lang->data['total_items'] ?? 'Total Items' }}
+                                </div>
+                                <div class=" tw-text-sm">
+                                    {{ $orderdetails->sum('service_quantity') }}
+                                </div>
+                            </div>
+                            <div class="tw-flex tw-justify-between tw-items-center tw-w-[17rem] tw-mt-2">
+                                <div class="  tw-text-sm">
                                     {{ $lang->data['sub_total'] ?? 'Sub Total' }}
                                 </div>
                                 <div class=" tw-text-sm">
@@ -653,6 +661,12 @@
                         @endif
                     </div>
                     <div class="invoice-footer mb-15">
+                        <div class="row-data">
+                            <div class="item-info">
+                                <h5 class="item-title">{{ $lang->data['total_items'] ?? 'Total Items' }}:</h5>
+                            </div>
+                            <h5 class="my-5">{{ $orderdetails->sum('service_quantity') }}</h5>
+                        </div>
                         <div class="row-data">
                             <div class="item-info">
                                 <h5 class="item-title">{{ $lang->data['sub_total'] ?? 'Sub Total' }}:</h5>
@@ -1223,6 +1237,12 @@
                         @endif
                     </div>
                     <div class="invoice-footer mb-15">
+                        <div class="row-data">
+                            <div class="item-info">
+                                <h5 class="item-title">{{ $lang->data['total_items'] ?? 'Total Items' }}:</h5>
+                            </div>
+                            <h5 class="my-5">{{ $orderdetails->sum('service_quantity') }}</h5>
+                        </div>
                         <div class="row-data">
                             <div class="item-info">
                                 <h5 class="item-title">{{ $lang->data['sub_total'] ?? 'Sub Total' }}:</h5>
@@ -1798,6 +1818,12 @@
                     </div>
                     <div class="invoice-footer mb-15">
 
+                        <div class="row-data">
+                            <div class="item-info">
+                                <h5 class="item-title">{{ $lang->data['total_items'] ?? 'Total Items' }}:</h5>
+                            </div>
+                            <h5 class="my-0">{{ $orderdetails->sum('service_quantity') }}</h5>
+                        </div>
                         <div class="row-data">
                             <div class="item-info">
                                 <h5 class="item-title">{{ $lang->data['sub_total'] ?? 'Sub Total' }}:</h5>
