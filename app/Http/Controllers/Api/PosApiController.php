@@ -43,11 +43,11 @@ class PosApiController extends Controller
     public function init()
     {
         // Serve all static data needed for offline POS
-        $services = Service::where('is_active', 1)->get();
-        $serviceTypes = ServiceType::all();
+        $services = Service::where('is_active', 1)->latest()->get();
+        $serviceTypes = ServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
         $serviceDetails = ServiceDetail::all();
-        $addons = Addon::where('is_active', 1)->get();
-        $customers = Customer::where('is_active', 1)->get();
+        $addons = Addon::where('is_active', 1)->latest()->get();
+        $customers = Customer::where('is_active', 1)->latest()->get();
         
         return response()->json([
             'services' => $services,

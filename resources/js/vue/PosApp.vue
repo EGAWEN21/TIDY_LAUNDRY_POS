@@ -133,7 +133,7 @@
                     <div class="tw-flex tw-items-center tw-gap-2">
                         <div class="tw-text-sm tw-relative">
                             Delivery Date : <span
-                                class="tw-font-bold">{{ pos.cartDeliveryDate }}</span>
+                                class="tw-font-bold">{{ delivery_date }}</span>
                             <input type="date" v-model="delivery_date" name=""
                                 class="tw-opacity-0 tw-absolute tw-pointer-events-none" >
                         </div>
@@ -875,7 +875,9 @@ const generateUUID = () => {
 const searchQuery = ref('');
 const todayDate = ref(new Date().toISOString().split('T')[0]);
 const date = ref(new Date().toISOString().split('T')[0]);
-const delivery_date = ref(new Date().toISOString().split('T')[0]);
+const todayObj = new Date();
+todayObj.setDate(todayObj.getDate() + 2);
+const delivery_date = ref(todayObj.toISOString().split('T')[0]);
 const selected_type = ref(null);
 const customer_query = ref('');
 const shown = ref(false);
@@ -1133,7 +1135,7 @@ const checkout = async (type) => {
     customer_name: pos.cartCustomer ? pos.cartCustomer.name : null,
     phone_number: pos.cartCustomer ? pos.cartCustomer.phone : null,
     order_date: today,
-    delivery_date: today,
+    delivery_date: delivery_date.value,
     sub_total: pos.cartSubTotal,
     addon_total: pos.cartAddonsTotal,
     discount: 0,
