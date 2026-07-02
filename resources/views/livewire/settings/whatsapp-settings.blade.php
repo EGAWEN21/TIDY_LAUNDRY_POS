@@ -5,10 +5,15 @@
         </div>
         <div class="card-body ">
             <div class="row">
+                <div class="col-12 mt-4">
+                    <h6 class="mb-3">1. Official Meta API (For Inbound Chatbot)</h6>
+                    <p class="text-sm text-secondary-light mb-4">This powers your inbound customer queries. It uses the official Meta Graph API.</p>
+                </div>
+
                 <div class="col-sm-12 row mb-20 tw-pl-6 ">
                     <div class="form-switch switch-primary d-flex align-items-center gap-3 col-sm-4 lg:pt-0 pt-4">
                         <input class="form-check-input" type="checkbox" role="switch" id="switch1" wire:model="whatsapp_enabled">
-                        <label class="form-check-label line-height-1 fw-medium text-secondary-light" for="switch1">{{ $lang->data['whatsapp_enabled'] ?? 'WhatsApp Chatbot Enabled' }}</label>
+                        <label class="form-check-label line-height-1 fw-medium text-secondary-light" for="switch1">{{ $lang->data['whatsapp_enabled'] ?? 'Enable Official Chatbot' }}</label>
                     </div>
                 </div>
 
@@ -49,6 +54,50 @@
                         </label>
                         <input type="text" required class="form-control radius-8" wire:model="whatsapp_webhook_verify_token">
                         @error('whatsapp_webhook_verify_token') <span class="text-danger">{{$message}}</span>  @enderror
+                    </div>
+                </div>
+
+                <div class="col-12 mt-4">
+                    <hr>
+                    <h6 class="mb-3">2. Unofficial API (For Automated Outbound Updates)</h6>
+                    <p class="text-sm text-secondary-light mb-4">This uses a third-party API (like UltraMsg) connected to a burner phone for zero-cost automated status updates.</p>
+                </div>
+
+                <div class="col-sm-12 row mb-20 tw-pl-6 ">
+                    <div class="form-switch switch-primary d-flex align-items-center gap-3 col-sm-6 lg:pt-0 pt-4">
+                        <input class="form-check-input" type="checkbox" role="switch" id="switch_auto_whatsapp" wire:model="enable_automated_whatsapp">
+                        <label class="form-check-label line-height-1 fw-medium text-secondary-light" for="switch_auto_whatsapp">{{ $lang->data['enable_automated_whatsapp'] ?? 'Enable Automated WhatsApp Updates' }}</label>
+                    </div>
+                    <small class="text-muted mt-2 tw-block">If disabled, the system will gracefully fall back to popping open a manual <code>wa.me</code> link for your staff to send.</small>
+                </div>
+
+                <div class="col-sm-6">
+                    <div class="mb-20">
+                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                            Unofficial API URL
+                        </label>
+                        <input type="text" class="form-control radius-8" wire:model="unofficial_whatsapp_url" placeholder="https://api.ultramsg.com/instance...">
+                        @error('unofficial_whatsapp_url') <span class="text-danger">{{$message}}</span>  @enderror
+                    </div>
+                </div>
+
+                <div class="col-sm-6">
+                    <div class="mb-20">
+                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                            Instance Token
+                        </label>
+                        <input type="password" class="form-control radius-8" wire:model="unofficial_whatsapp_instance_token">
+                        @error('unofficial_whatsapp_instance_token') <span class="text-danger">{{$message}}</span>  @enderror
+                    </div>
+                </div>
+
+                <div class="col-sm-6">
+                    <div class="mb-20">
+                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                            Burner Phone Number
+                        </label>
+                        <input type="text" class="form-control radius-8" wire:model="whatsapp_burner_number" placeholder="+1234567890">
+                        @error('whatsapp_burner_number') <span class="text-danger">{{$message}}</span>  @enderror
                     </div>
                 </div>
 

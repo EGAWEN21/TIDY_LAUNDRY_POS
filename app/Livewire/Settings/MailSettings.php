@@ -12,6 +12,7 @@ use App\Models\Translation;
 class MailSettings extends Component
 {
     public $mail_host,$mail_password,$mail_username,$mail_port,$enable_forget,$mail_from_address,$mail_from_name, $lang;
+    public $enable_automated_emails, $email_template_pending, $email_template_processing, $email_template_ready, $email_template_delivered, $email_template_returned;
     //Render Page
     #[Title('Mail Settings')]
     public function render()
@@ -62,6 +63,12 @@ class MailSettings extends Component
                 $this->enable_forget = 1;
             }
         }
+        $this->enable_automated_emails = (isset($site['enable_automated_emails']) && $site['enable_automated_emails'] == 1) ? 1 : null;
+        $this->email_template_pending = $site['email_template_pending'] ?? '';
+        $this->email_template_processing = $site['email_template_processing'] ?? '';
+        $this->email_template_ready = $site['email_template_ready'] ?? '';
+        $this->email_template_delivered = $site['email_template_delivered'] ?? '';
+        $this->email_template_returned = $site['email_template_returned'] ?? '';
         if (session()->has('selected_language')) {  /*if session has selected language */
             $this->lang = Translation::where('id', session()->get('selected_language'))->first();
         } else {
@@ -89,6 +96,13 @@ class MailSettings extends Component
             'MAIL_FROM_NAME' => $this->mail_from_name,
         ]);
          $site['forget_password_enable'] = $this->enable_forget ?? 0;
+         $site['enable_automated_emails'] = $this->enable_automated_emails ? 1 : 0;
+         $site['email_template_pending'] = $this->email_template_pending;
+         $site['email_template_processing'] = $this->email_template_processing;
+         $site['email_template_ready'] = $this->email_template_ready;
+         $site['email_template_delivered'] = $this->email_template_delivered;
+         $site['email_template_returned'] = $this->email_template_returned;
+
         foreach ($site as $key => $value) {
             MasterSettings::updateOrCreate(['master_title' => $key], ['master_value' => $value]);
         }

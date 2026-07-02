@@ -65,6 +65,10 @@
                     </ul>
                 </div>
                 @endif
+                
+                <!-- Notification Bell Component -->
+                <livewire:components.notification-bell />
+
                 <div class="dropdown">
                     <button class="d-flex justify-content-center align-items-center rounded-circle" type="button"
                         data-bs-toggle="dropdown">

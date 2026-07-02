@@ -385,6 +385,9 @@ class OrdersList extends Component
         $service = app(\App\Services\WhatsAppService::class);
         $message = $service->formatOrderMessage($order);
         
+        $receiptUrl = route('order.print', $order->id); 
+        $message .= "\n\n*View Secure Digital Receipt:*\n" . $receiptUrl;
+        
         $countryCode = getCountryCode();
         $countryCode = str_replace('+', '', $countryCode);
         $phone = ltrim($phone, '0');
@@ -418,6 +421,43 @@ class OrdersList extends Component
             $order->status = $status;
             $order->save();
             
+            // 1. Trigger Email Automation
+            sendOrderStatusChangeEmail($order->id, $status);
+            if (Auth::user()) {
+                $statusText = getOrderStatus($status, true);
+                Auth::user()->notify(new \App\Notifications\SystemNotification('Email Automation', "Automated Status Email triggered for Order {$order->order_number} ({$statusText})", 'info'));
+            }
+
+            // 2. Trigger WhatsApp Hybrid Automation
+            $settings = new \App\Models\MasterSettings();
+            $site = $settings->siteData();
+            
+            if (isset($site['enable_automated_whatsapp']) && $site['enable_automated_whatsapp'] == 1) {
+                // Strategy 3: Burner API (Automated)
+                $waService = new \App\Services\WhatsAppService();
+                $messagePayload = getFormatedTextSMS($order->id, ($status == 2 ? 3 : 2));
+                $waService->sendAutomatedStatusUpdate($order, $messagePayload); 
+                if (Auth::user()) {
+                    Auth::user()->notify(new \App\Notifications\SystemNotification('WhatsApp Automation', "Automated WhatsApp Message sent for Order {$order->order_number} via Burner API", 'success'));
+                }
+            } else {
+                // Strategy 1: wa.me Fallback (Manual Assist)
+                $customer = \App\Models\Customer::find($order->customer_id);
+                if ($customer && !empty($customer->phone)) {
+                    $phone = ltrim($customer->phone, '+');
+                    if (!str_starts_with($phone, ltrim(getCountryCode(), '+')) && strlen($phone) <= 10) {
+                        $phone = ltrim(getCountryCode(), '+') . $phone;
+                    }
+                    $messagePayload = getFormatedTextSMS($order->id, ($status == 2 ? 3 : 2));
+                    $url = "https://wa.me/{$phone}?text=" . urlencode($messagePayload);
+                    $this->dispatch('open-url', [['url' => $url]]);
+                    if (Auth::user()) {
+                        Auth::user()->notify(new \App\Notifications\SystemNotification('WhatsApp Fallback', "Manual wa.me link generated for Order {$order->order_number}", 'warning'));
+                    }
+                }
+            }
+
+            // 3. Trigger SMS Automation
             $message = sendOrderStatusChangeSMS($order->id, $status);
             if($message) {
                 $this->dispatch('alert', ['type' => 'error',  'message' => $message, 'title'=>'SMS Error']);

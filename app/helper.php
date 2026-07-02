@@ -471,3 +471,56 @@ if(!function_exists('getBypassLimit'))
         return 0;
     }
 }
+
+if(!function_exists('sendOrderStatusChangeEmail'))
+{
+    function sendOrderStatusChangeEmail($order_id, $status)
+    {
+        $settings = new App\Models\MasterSettings();
+        $site = $settings->siteData();
+        
+        if (!isset($site['enable_automated_emails']) || $site['enable_automated_emails'] != 1) {
+            return;
+        }
+
+        $template_key = '';
+        switch ($status) {
+            case 0: $template_key = 'email_template_pending'; break;
+            case 1: $template_key = 'email_template_processing'; break;
+            case 2: $template_key = 'email_template_ready'; break;
+            case 3: $template_key = 'email_template_delivered'; break;
+            case 4: $template_key = 'email_template_returned'; break;
+        }
+
+        if (empty($template_key) || empty($site[$template_key])) {
+            return;
+        }
+
+        $myorder = Order::find($order_id);
+        if (!$myorder) return;
+
+        $customer = Customer::find($myorder->customer_id);
+        if (!$customer || empty($customer->email)) return;
+
+        $message = $site[$template_key];
+        
+        $replacements = [
+            '{customer_name}' => $myorder->customer_name,
+            '{order_number}' => $myorder->order_number,
+            '{total_amount}' => getFormattedCurrency($myorder->total),
+            '{delivery_date}' => \Carbon\Carbon::parse($myorder->delivery_date)->format('d/m/Y')
+        ];
+
+        $message = str_replace(array_keys($replacements), array_values($replacements), $message);
+
+        try {
+            \Illuminate\Support\Facades\Mail::raw($message, function ($mail) use ($customer, $myorder, $status) {
+                $statusText = getOrderStatus($status, true);
+                $mail->to($customer->email)
+                     ->subject("Order Update: {$myorder->order_number} is now {$statusText}");
+            });
+        } catch (\Exception $e) {
+            \Log::error('Automated Email Failed: ' . $e->getMessage());
+        }
+    }
+}

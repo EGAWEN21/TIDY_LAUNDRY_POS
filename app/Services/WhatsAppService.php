@@ -99,4 +99,42 @@ class WhatsAppService
 
         return $response->successful();
     }
+
+    public function sendAutomatedStatusUpdate(Order $order, $statusMessage)
+    {
+        $settings = new MasterSettings();
+        $site = $settings->siteData();
+        
+        $isAutomatedEnabled = (isset($site['enable_automated_whatsapp']) && $site['enable_automated_whatsapp'] == 1);
+        $url = $site['unofficial_whatsapp_url'] ?? '';
+        $token = $site['unofficial_whatsapp_instance_token'] ?? '';
+        
+        if (!$isAutomatedEnabled || empty($url) || empty($token)) {
+            return false;
+        }
+
+        $customer = \App\Models\Customer::find($order->customer_id);
+        if (!$customer || empty($customer->phone)) {
+            return false;
+        }
+
+        $phone = ltrim($customer->phone, '+');
+        if (!str_starts_with($phone, ltrim(getCountryCode(), '+')) && strlen($phone) <= 10) {
+            $phone = ltrim(getCountryCode(), '+') . $phone;
+        }
+
+        try {
+            // Generic Unofficial API Payload (Matches UltraMsg & similar standards)
+            $response = Http::post($url, [
+                'token' => $token,
+                'to' => $phone,
+                'body' => $statusMessage
+            ]);
+            
+            return $response->successful();
+        } catch (\Exception $e) {
+            \Log::error('WhatsApp Automation Failed: ' . $e->getMessage());
+            return false;
+        }
+    }
 }
