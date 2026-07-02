@@ -71,7 +71,9 @@
                                                 <iconify-icon icon="{{ $item->icon }}" class="tw-text-5xl text-primary"></iconify-icon>
                                             </div>
                                         @else
-                                            <img src="{{ asset('assets/img/service-icons/' . $item->icon) }}" class="tw-h-24 tw-w-24 tw-object-center tw-rounded-md tw-py-2">
+                                            <div class="tw-h-24 tw-w-24 tw-flex tw-items-center tw-justify-center tw-bg-neutral-50 tw-rounded-md tw-p-2 tw-mt-2">
+                                                <img src="{{ asset('assets/img/service-icons/' . $item->icon) }}" class="tw-h-full tw-w-full tw-object-cover tw-rounded-md">
+                                            </div>
                                         @endif
                                         <div
                                             class="tw-px-2 tw-py-1.5  tw-w-full tw-flex tw-justify-center tw-items-center">
