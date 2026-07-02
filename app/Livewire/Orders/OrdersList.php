@@ -407,6 +407,28 @@ class OrdersList extends Component
         }
     }
 
+    public function changeOrderStatus($orderId, $status)
+    {
+        if(!\Illuminate\Support\Facades\Gate::allows('order_status_change')){
+            abort(404);
+        }
+        
+        $order = Order::find($orderId);
+        if($order) {
+            $order->status = $status;
+            $order->save();
+            
+            $message = sendOrderStatusChangeSMS($order->id, $status);
+            if($message) {
+                $this->dispatch('alert', ['type' => 'error',  'message' => $message, 'title'=>'SMS Error']);
+            } else {
+                $this->dispatch('alert', ['type' => 'success', 'message' => 'Status successfully updated!']);
+            }
+            
+            $this->reloadOrders();
+        }
+    }
+
     public function deleteOrder($order)
     {
         $order = Order::whereId($order)->first();

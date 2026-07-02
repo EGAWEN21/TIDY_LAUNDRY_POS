@@ -111,15 +111,36 @@
                             </td>
                             <td class="text-center"> 
                                 <div class="d-flex align-items-center gap-10 justify-content-center">
-                                    @can('order_view')
-                                    <a href="{{route('order.view',$item->id)}}" type="button" class="bg-success-100 text-success-600 bg-hover-success-200 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle" >
-                                        <iconify-icon icon="lucide:eye" class="menu-icon"></iconify-icon>
-                                    </a>
-                                    @endcan
-                                    @can('order_print')
-                                    <a href="{{route('order.print',$item->id)}}" target="_blank" class="bg-warning-100 text-warning-600 bg-hover-warning-200 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle" >
-                                        <iconify-icon icon="material-symbols-light:print-outline" class="menu-icon tw-text-xl"></iconify-icon>
-                                    </a>
+                                    @if(Auth::user()->can('order_view') || Auth::user()->can('order_print'))
+                                    <div class="dropdown">
+                                        <button type="button" class="bg-success-100 text-success-600 bg-hover-success-200 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle" data-bs-toggle="dropdown" aria-expanded="false" title="Document Actions">
+                                            <iconify-icon icon="lucide:file-text" class="menu-icon"></iconify-icon>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            @can('order_view')
+                                            <li><a class="dropdown-item d-flex align-items-center gap-2" href="{{route('order.view',$item->id)}}"><iconify-icon icon="lucide:eye"></iconify-icon> {{ $lang->data['view_order'] ?? 'View Order' }}</a></li>
+                                            @endcan
+                                            @can('order_print')
+                                            <li><a class="dropdown-item d-flex align-items-center gap-2" href="{{route('order.print',$item->id)}}" target="_blank"><iconify-icon icon="lucide:printer"></iconify-icon> {{ $lang->data['print_pdf'] ?? 'Print as PDF' }}</a></li>
+                                            <li><a class="dropdown-item d-flex align-items-center gap-2" href="{{route('order.print',$item->id)}}?download_image=1" target="_blank"><iconify-icon icon="lucide:image"></iconify-icon> {{ $lang->data['download_image'] ?? 'Download as Image' }}</a></li>
+                                            @endcan
+                                        </ul>
+                                    </div>
+                                    @endif
+
+                                    @can('order_status_change')
+                                    <div class="dropdown">
+                                        <button type="button" class="bg-warning-100 text-warning-600 bg-hover-warning-200 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle" data-bs-toggle="dropdown" aria-expanded="false" title="Change Status">
+                                            <iconify-icon icon="lucide:list-checks" class="menu-icon"></iconify-icon>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item d-flex align-items-center gap-2" href="javascript:void(0)" wire:click="changeOrderStatus({{ $item->id }}, 0)"><iconify-icon icon="lucide:clock"></iconify-icon> {{ $lang->data['pending'] ?? 'Pending' }}</a></li>
+                                            <li><a class="dropdown-item d-flex align-items-center gap-2" href="javascript:void(0)" wire:click="changeOrderStatus({{ $item->id }}, 1)"><iconify-icon icon="lucide:loader"></iconify-icon> {{ $lang->data['processing'] ?? 'Processing' }}</a></li>
+                                            <li><a class="dropdown-item d-flex align-items-center gap-2" href="javascript:void(0)" wire:click="changeOrderStatus({{ $item->id }}, 2)"><iconify-icon icon="lucide:check-circle"></iconify-icon> {{ $lang->data['ready_to_deliver'] ?? 'Ready To Deliver' }}</a></li>
+                                            <li><a class="dropdown-item d-flex align-items-center gap-2" href="javascript:void(0)" wire:click="changeOrderStatus({{ $item->id }}, 3)"><iconify-icon icon="lucide:truck"></iconify-icon> {{ $lang->data['delivered'] ?? 'Delivered' }}</a></li>
+                                            <li><a class="dropdown-item d-flex align-items-center gap-2" href="javascript:void(0)" wire:click="changeOrderStatus({{ $item->id }}, 4)"><iconify-icon icon="lucide:rotate-ccw"></iconify-icon> {{ $lang->data['returned'] ?? 'Returned' }}</a></li>
+                                        </ul>
+                                    </div>
                                     @endcan
                                     @can('order_edit')
                                     <a href="{{route('orders.pos.edit',$item->id)}}" class="bg-info-100 text-info-600 bg-hover-info-200 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle" >

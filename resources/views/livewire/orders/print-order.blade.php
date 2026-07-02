@@ -1913,9 +1913,25 @@
 <script type="text/javascript">
     "use strict";
     window.onload = function() {
-        window.print();
-        window.addEventListener('focus',() => {
-            window.close()
-        })
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('download_image')) {
+            var script = document.createElement('script');
+            script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+            script.onload = function() {
+                html2canvas(document.body, { useCORS: true, allowTaint: true, scale: 2 }).then(function(canvas) {
+                    var link = document.createElement('a');
+                    link.download = 'Receipt_{{ $order->order_number ?? "Order" }}.png';
+                    link.href = canvas.toDataURL("image/png");
+                    link.click();
+                    setTimeout(function() { window.close(); }, 500);
+                });
+            };
+            document.head.appendChild(script);
+        } else {
+            window.print();
+            window.addEventListener('focus',() => {
+                window.close()
+            });
+        }
     }
 </script>
