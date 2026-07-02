@@ -33,6 +33,9 @@ export const usePosStore = defineStore('pos', {
         cartSubTotal: (state) => {
             return state.cart.reduce((total, item) => total + (item.price * item.quantity), 0);
         },
+        cartTotalItems: (state) => {
+            return state.cart.reduce((total, item) => total + item.quantity, 0);
+        },
         cartAddonsTotal: (state) => {
             return state.cartAddons.reduce((total, addon) => total + addon.price, 0);
         },

@@ -96,74 +96,85 @@ class PosApiController extends Controller
         $syncedIds = [];
 
         foreach ($orders as $offlineOrder) {
-            $order_number = $this->generateOrderID();
+            \Illuminate\Support\Facades\DB::transaction(function () use ($offlineOrder, &$syncedIds) {
+                $order_number = $this->generateOrderID();
 
-            $order = Order::create([
-                'order_number' => $order_number,
-                'customer_id' => $offlineOrder['customer_id'] ?? null,
-                'customer_name' => $offlineOrder['customer_name'] ?? null,
-                'phone_number' => $offlineOrder['phone_number'] ?? null,
-                'order_date' => $offlineOrder['order_date'],
-                'delivery_date' => $offlineOrder['delivery_date'],
-                'sub_total' => $offlineOrder['sub_total'],
-                'addon_total' => $offlineOrder['addon_total'],
-                'discount' => $offlineOrder['discount'] ?? 0,
-                'tax_percentage' => $offlineOrder['tax_percentage'],
-                'tax_amount' => $offlineOrder['tax_amount'],
-                'tax_type' => $offlineOrder['tax_type'],
-                'taxable_amount' => $offlineOrder['taxable_amount'],
-                'total' => $offlineOrder['total'],
-                'note' => $offlineOrder['note'] ?? null,
-                'status' => 0,
-                'order_type' => 1,
-                'created_by' => Auth::id(),
-                'financial_year_id' => getFinancialYearId()
-            ]);
-
-            if (isset($offlineOrder['details'])) {
-                foreach ($offlineOrder['details'] as $detail) {
-                    OrderDetail::create([
-                        'order_id' => $order->id,
-                        'service_id' => $detail['service_id'],
-                        'service_name' => $detail['service_name'],
-                        'service_quantity' => $detail['service_quantity'],
-                        'service_detail_total' => $detail['service_detail_total'],
-                        'service_price' => $detail['service_price'],
-                        'color_code' => $detail['color_code'] ?? null,
-                    ]);
+                // Safely resolve the real customer ID from the database using phone number
+                $customerId = $offlineOrder['customer_id'] ?? null;
+                if (!empty($offlineOrder['phone_number'])) {
+                    $dbCustomer = Customer::where('phone', $offlineOrder['phone_number'])->first();
+                    if ($dbCustomer) {
+                        $customerId = $dbCustomer->id;
+                    }
                 }
-            }
 
-            if (isset($offlineOrder['addons'])) {
-                foreach ($offlineOrder['addons'] as $addon) {
-                    OrderAddonDetail::create([
-                        'order_id' => $order->id,
-                        'addon_id' => $addon['addon_id'],
-                        'addon_name' => $addon['addon_name'],
-                        'addon_price' => $addon['addon_price'],
-                    ]);
+                $order = Order::create([
+                    'order_number' => $order_number,
+                    'customer_id' => $customerId,
+                    'customer_name' => $offlineOrder['customer_name'] ?? null,
+                    'phone_number' => $offlineOrder['phone_number'] ?? null,
+                    'order_date' => $offlineOrder['order_date'],
+                    'delivery_date' => $offlineOrder['delivery_date'],
+                    'sub_total' => $offlineOrder['sub_total'],
+                    'addon_total' => $offlineOrder['addon_total'],
+                    'discount' => $offlineOrder['discount'] ?? 0,
+                    'tax_percentage' => $offlineOrder['tax_percentage'],
+                    'tax_amount' => $offlineOrder['tax_amount'],
+                    'tax_type' => $offlineOrder['tax_type'],
+                    'taxable_amount' => $offlineOrder['taxable_amount'],
+                    'total' => $offlineOrder['total'],
+                    'note' => $offlineOrder['note'] ?? null,
+                    'status' => 0,
+                    'order_type' => 1,
+                    'created_by' => Auth::id(),
+                    'financial_year_id' => getFinancialYearId()
+                ]);
+
+                if (isset($offlineOrder['details'])) {
+                    foreach ($offlineOrder['details'] as $detail) {
+                        OrderDetail::create([
+                            'order_id' => $order->id,
+                            'service_id' => $detail['service_id'],
+                            'service_name' => $detail['service_name'],
+                            'service_quantity' => $detail['service_quantity'],
+                            'service_detail_total' => $detail['service_detail_total'],
+                            'service_price' => $detail['service_price'],
+                            'color_code' => $detail['color_code'] ?? null,
+                        ]);
+                    }
                 }
-            }
 
-            if (isset($offlineOrder['payments'])) {
-                foreach ($offlineOrder['payments'] as $payment) {
-                    Payment::create([
-                        'payment_date' => $offlineOrder['order_date'],
-                        'customer_id' => $offlineOrder['customer_id'] ?? null,
-                        'customer_name' => $offlineOrder['customer_name'] ?? null,
-                        'order_id' => $order->id,
-                        'payment_type' => $payment['payment_type'],
-                        'received_amount' => $payment['amount'],
-                        'notes' => $payment['notes'] ?? "Notes",
-                        'financial_year_id' => getFinancialYearId(),
-                        'created_by' => Auth::id(),
-                    ]);
+                if (isset($offlineOrder['addons'])) {
+                    foreach ($offlineOrder['addons'] as $addon) {
+                        OrderAddonDetail::create([
+                            'order_id' => $order->id,
+                            'addon_id' => $addon['addon_id'],
+                            'addon_name' => $addon['addon_name'],
+                            'addon_price' => $addon['addon_price'],
+                        ]);
+                    }
                 }
-            }
 
-            if(isset($offlineOrder['uuid'])) {
-                $syncedIds[$offlineOrder['uuid']] = $order->id;
-            }
+                if (isset($offlineOrder['payments'])) {
+                    foreach ($offlineOrder['payments'] as $payment) {
+                        Payment::create([
+                            'payment_date' => $offlineOrder['order_date'],
+                            'customer_id' => $customerId,
+                            'customer_name' => $offlineOrder['customer_name'] ?? null,
+                            'order_id' => $order->id,
+                            'payment_type' => $payment['payment_type'],
+                            'received_amount' => $payment['amount'],
+                            'notes' => $payment['notes'] ?? "Notes",
+                            'financial_year_id' => getFinancialYearId(),
+                            'created_by' => Auth::id(),
+                        ]);
+                    }
+                }
+
+                if(isset($offlineOrder['uuid'])) {
+                    $syncedIds[$offlineOrder['uuid']] = $order->id;
+                }
+            });
         }
 
         return response()->json(['synced_orders' => $syncedIds]);

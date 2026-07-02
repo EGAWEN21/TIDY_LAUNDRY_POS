@@ -80,8 +80,16 @@
                                 <div class="card bg-neutral-100">
                                     <div
                                         class="card-body tw-flex tw-items-center tw-justify-center tw-flex-col tw-rounded-md  tw-overflow-clip tw-ring-1 tw-ring-neutral-200">
-                                        <img :src="'/assets/img/service-icons/' + item.icon"
-                                            class="tw-h-24 tw-w-24 tw-object-center tw-rounded-md tw-py-2">
+                                        <template v-if="item.icon && item.icon.includes(':')">
+                                            <div class="tw-h-24 tw-w-24 tw-flex tw-items-center tw-justify-center tw-bg-neutral-50 tw-rounded-md tw-py-2 tw-mt-2">
+                                                <iconify-icon :icon="item.icon" class="tw-text-5xl text-primary"></iconify-icon>
+                                            </div>
+                                        </template>
+                                        <template v-else>
+                                            <div class="tw-h-24 tw-w-24 tw-flex tw-items-center tw-justify-center tw-bg-neutral-50 tw-rounded-md tw-p-2 tw-mt-2">
+                                                <img :src="'/assets/img/service-icons/' + item.icon" class="tw-h-full tw-w-full tw-object-cover tw-rounded-md">
+                                            </div>
+                                        </template>
                                         <div
                                             class="tw-px-2 tw-py-1.5  tw-w-full tw-flex tw-justify-center tw-items-center">
                                             <div class="tw-text-sm tw-text-center tw-truncate tw-font-bold tw-w-[90%] ">
@@ -398,6 +406,10 @@
                             <div class="tw-font-bold"> {{ formatCurrency(pos.cartAddonsTotal) }}</div>
                         </div>
                         <div class="tw-flex tw-items-center tw-gap-2">
+                            <div class="">Total Items :</div>
+                            <div class="tw-font-bold">{{ pos.cartTotalItems }}</div>
+                        </div>
+                        <div class="tw-flex tw-items-center tw-gap-2">
                             <div class="">Sub Total :</div>
                             <div class="tw-font-bold">{{ formatCurrency(pos.cartSubTotal) }}</div>
                         </div>
@@ -660,7 +672,7 @@
                                             {{ key + 1 }}
                                         </td>
                                         <td class="text-primary">{{ formatCurrency(item.amount) }}</td>
-                                        <td> {{ item.payment_type }}</td>
+                                        <td> {{ item.payment_type_name }}</td>
                                         <td>
                                             <button @click="removePayment(key)" type="button" class="remove-item-button bg-danger-focus bg-hover-danger-200 text-danger-600 fw-medium tw-size-6 d-flex justify-content-center align-items-center rounded-circle"> 
                                                 <iconify-icon icon="fluent:delete-24-regular" class="menu-icon"></iconify-icon>
@@ -881,7 +893,8 @@ const add_payment = () => {
     }[payment_type.value] || 'Unknown';
 
     pos.payments.push({
-        payment_type: typeLabel,
+        payment_type: payment_type.value,
+        payment_type_name: typeLabel,
         amount: parseFloat(payment_amount.value),
         notes: notes.value
     });
@@ -1143,7 +1156,8 @@ const checkout = async (type) => {
 
   if(type === 'cash') {
     orderData.payments.push({
-      payment_type: 'Cash', // Cash
+      payment_type: 1, // 1 is Cash
+      payment_type_name: 'Cash',
       amount: orderData.total,
       notes: "Offline Cash Payment"
     });
