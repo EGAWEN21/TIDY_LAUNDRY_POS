@@ -13,7 +13,7 @@
         @vite('resources/css/app.css')
     </head>
     <body onload="">
-        <div class="card h-100 p-0 radius-12 tw-w-full">
+        <div class="card h-100 p-0 radius-12 tw-w-full" id="receipt-content">
             <div class="card-header tw-flex tw-items-center tw-justify-between border-bottom bg-base px-24 d-flex  flex-wrap gap-3 justify-content-between ">
                 <div class="tw-flex tw-flex-col  tw-text-sm">
                     <div class="text-lg tw-font-medium text-primary-light">
@@ -546,7 +546,7 @@
     </head>
     <body>
         <div class="page-wrapper" style="padding:36px">
-            <div class="invoice-card">
+            <div class="invoice-card" id="receipt-content">
                 <div class="invoice-head">
                     <img src="{{ getSiteLogo() }}" style="height:34px;max-width:80%;" alt="">
                     <h4>{{ $sitename }}</h4>
@@ -1115,7 +1115,7 @@
     </head>
     <body>
         <div class="page-wrapper" style="padding:5px">
-            <div class="invoice-card">
+            <div class="invoice-card" id="receipt-content">
                 <div class="invoice-head">
                     <img src="{{ getSiteLogo() }}" style="height:34px;max-width:80%;" alt="">
                     <h4>{{ $sitename }}</h4>
@@ -1695,7 +1695,7 @@
     </head>
     <body>
         <div class="page-wrapper" style="padding:5px">
-            <div class="invoice-card">
+            <div class="invoice-card" id="receipt-content">
                 <div class="invoice-head  ">
                     <img src="{{ getSiteLogo() }}" style="height:34px;max-width:80%;" alt="">
                     <h4 style="text-align: center " class="text-sm">{{ $sitename }}</h4>
@@ -1918,7 +1918,8 @@
             var script = document.createElement('script');
             script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
             script.onload = function() {
-                html2canvas(document.body, { useCORS: true, allowTaint: true, scale: 2 }).then(function(canvas) {
+                var targetElement = document.getElementById('receipt-content') || document.body;
+                html2canvas(targetElement, { useCORS: true, allowTaint: true, scale: 2, backgroundColor: '#ffffff' }).then(function(canvas) {
                     var link = document.createElement('a');
                     link.download = 'Receipt_{{ $order->order_number ?? "Order" }}.png';
                     link.href = canvas.toDataURL("image/png");
