@@ -11,6 +11,8 @@ Route::get('/reset-password/{token}',\App\Livewire\Auth\ForgotPassword::class);
 
 Route::get('/whatsapp/webhook', [\App\Http\Controllers\WhatsAppWebhookController::class, 'handleVerify']);
 Route::post('/whatsapp/webhook', [\App\Http\Controllers\WhatsAppWebhookController::class, 'handleMessage']);
+Route::get('/receipt/{id}', \App\Livewire\Orders\PrintOrder::class)->name('receipt.view');
+
 Route::group(['middleware' => [\App\Http\Middleware\InstalledMiddleware::class]], function () {
     Route::get('/', \App\Livewire\Auth\Login::class)->name('login');
     Route::group(['prefix' => 'admin', 'middleware' => [Store::class, 'single.session']], function () {

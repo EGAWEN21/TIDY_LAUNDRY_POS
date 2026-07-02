@@ -25,7 +25,7 @@ class PrintOrder extends Component
     /* process before render */
     public function mount($id)
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('order_print')){
+        if (!request()->hasValidSignature() && !\Illuminate\Support\Facades\Gate::allows('order_print')) {
             abort(404);
         }
         $this->order = Order::where('id', $id)->first();

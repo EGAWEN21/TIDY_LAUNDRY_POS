@@ -385,7 +385,7 @@ class OrdersList extends Component
         $service = app(\App\Services\WhatsAppService::class);
         $message = $service->formatOrderMessage($order);
         
-        $receiptUrl = route('order.print', $order->id); 
+        $receiptUrl = \Illuminate\Support\Facades\URL::signedRoute('receipt.view', ['id' => $order->id]); 
         $message .= "\n\n*View Secure Digital Receipt:*\n" . $receiptUrl;
         
         $countryCode = getCountryCode();
