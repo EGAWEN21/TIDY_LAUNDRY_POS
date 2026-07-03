@@ -9,10 +9,12 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Translation;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class LedgerReport extends Component
 {
     public $selected_customer,$customers,$customer_query,$start_date,$end_date,$first_data,$lang,$data;
+    public $ageingData = [];
     #[Title('Ledger Report')]
     public function render()
     {
@@ -30,9 +32,46 @@ class LedgerReport extends Component
         else{
             $this->lang = Translation::where('default',1)->first();
         }
-        $this->start_date = \Carbon\Carbon::today()->toDateString();
-        $this->end_date = \Carbon\Carbon::today()->toDateString();
+        $this->start_date = Carbon::now()->startOfMonth()->toDateString();
+        $this->end_date = Carbon::now()->endOfMonth()->toDateString();
         $this->data = collect();
+        $this->calculateAgeing();
+    }
+
+    public function calculateAgeing()
+    {
+        $today = Carbon::today();
+        
+        $orders = DB::table('orders')
+            ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
+            ->select('orders.id', 'orders.order_date', 'orders.total', DB::raw('COALESCE(SUM(payments.received_amount), 0) as paid'))
+            ->groupBy('orders.id', 'orders.order_date', 'orders.total')
+            ->havingRaw('orders.total > COALESCE(SUM(payments.received_amount), 0)')
+            ->get();
+            
+        $ageing = [ '0_30' => 0, '31_60' => 0, '61_90' => 0, '90_plus' => 0 ];
+        
+        foreach($orders as $o) {
+            $balance = $o->total - $o->paid;
+            $days = Carbon::parse($o->order_date)->diffInDays($today);
+            
+            if ($days <= 30) {
+                $ageing['0_30'] += $balance;
+            } else if ($days <= 60) {
+                $ageing['31_60'] += $balance;
+            } else if ($days <= 90) {
+                $ageing['61_90'] += $balance;
+            } else {
+                $ageing['90_plus'] += $balance;
+            }
+        }
+        
+        $this->ageingData = [
+            $ageing['0_30'],
+            $ageing['31_60'],
+            $ageing['61_90'],
+            $ageing['90_plus']
+        ];
     }
 
     public function updated($name,$value)

@@ -53,6 +53,8 @@ Route::group(['middleware' => [\App\Http\Middleware\InstalledMiddleware::class]]
             Route::get('/order', \App\Livewire\Reports\OrderReport::class)->name('reports.order');
             Route::get('/sales', \App\Livewire\Reports\SalesReport::class)->name('reports.sales');
             Route::get('/tax', \App\Livewire\Reports\TaxReport::class)->name('reports.tax');
+            Route::get('/customer', \App\Livewire\Reports\CustomerReport::class)->name('reports.customer');
+            Route::get('/insights', \App\Livewire\Reports\BusinessInsights::class)->name('reports.insights');
             /* print reports */
             Route::group(['prefix' => 'print-report/', 'middleware' => 'admin'], function () {
                 Route::get('expense/{from_date}/{to_date}', \App\Livewire\Reports\PrintReport\ExpenseReport::class);

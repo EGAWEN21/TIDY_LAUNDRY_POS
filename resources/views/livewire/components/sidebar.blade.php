@@ -119,7 +119,7 @@
                 </a>
             </li>
             @endcan
-            @canany(['report_daily','report_order','report_sales','report_expense','report_ledger','report_tax'])
+            @canany(['report_daily','report_order','report_sales','report_expense','report_ledger','report_tax','report_customer','report_insights'])
             <li class="dropdown">
                 <a href="javascript:void(0)">
                     <iconify-icon icon="iconoir:reports" class="menu-icon"></iconify-icon>
@@ -160,6 +160,18 @@
                     <li>
                         <a href="{{ route('reports.tax') }}"><i
                                 class="ri-circle-fill circle-icon text-primary-600 w-auto"></i>{{$lang->data['tax_report'] ?? 'Tax Report'}}</a>
+                    </li>
+                    @endcan
+                    @can('report_customer')
+                    <li>
+                        <a href="{{ route('reports.customer') }}"><i
+                                class="ri-circle-fill circle-icon text-primary-600 w-auto"></i>{{$lang->data['customer_report'] ?? 'Customer Report'}}</a>
+                    </li>
+                    @endcan
+                    @can('report_insights')
+                    <li>
+                        <a href="{{ route('reports.insights') }}"><i
+                                class="ri-circle-fill circle-icon text-primary-600 w-auto"></i>{{$lang->data['business_insights'] ?? 'Business Insights'}}</a>
                     </li>
                     @endcan
                 </ul>

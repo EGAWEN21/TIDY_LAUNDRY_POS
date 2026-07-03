@@ -6,10 +6,16 @@ use Livewire\Component;
 use Livewire\Attributes\Title;
 use App\Models\Translation;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class OrderReport extends Component
 {
     public $from_date, $to_date, $orders, $status = -1, $lang;
+    
+    // New Metrics
+    public $kpi = [];
+    public $serviceBreakdown = [];
     #[Title('Order Report')]
     public function render()
     {
@@ -21,8 +27,9 @@ class OrderReport extends Component
         if(!\Illuminate\Support\Facades\Gate::allows('report_order')){
             abort(404);
         }
-         $this->from_date = \Carbon\Carbon::today()->toDateString();
-         $this->to_date = \Carbon\Carbon::today()->toDateString();
+         $this->from_date = Carbon::now()->startOfMonth()->toDateString();
+         $this->to_date = Carbon::now()->endOfMonth()->toDateString();
+         
          if (session()->has('selected_language')) {
              $this->lang = Translation::where('id', session()->get('selected_language'))->first();
          } else {
@@ -38,11 +45,70 @@ class OrderReport extends Component
      /* report section */
      public function report()
      {
-         if ($this->status == -1) {
-             $this->orders = \App\Models\Order::whereDate('order_date', '>=', $this->from_date)->whereDate('order_date', '<=', $this->to_date)->latest()->get();
-         } else {
-             $this->orders = \App\Models\Order::whereDate('order_date', '>=', $this->from_date)->whereDate('order_date', '<=', $this->to_date)->where('status', $this->status)->latest()->get();
+         $query = \App\Models\Order::whereDate('order_date', '>=', $this->from_date)
+             ->whereDate('order_date', '<=', $this->to_date);
+             
+         if ($this->status != -1) {
+             $query->where('status', $this->status);
          }
+         
+         $this->orders = $query->latest()->get();
+         
+         // Calculate Current Period KPIs
+         $currentOrders = $this->orders->count();
+         
+         // Calculate Previous Period
+         $daysDiff = Carbon::parse($this->from_date)->diffInDays(Carbon::parse($this->to_date)) + 1;
+         $prev_to_date = Carbon::parse($this->from_date)->subDay()->toDateString();
+         $prev_from_date = Carbon::parse($this->from_date)->subDays($daysDiff)->toDateString();
+         
+         $prevQuery = \App\Models\Order::whereDate('order_date', '>=', $prev_from_date)
+             ->whereDate('order_date', '<=', $prev_to_date);
+             
+         if ($this->status != -1) {
+             $prevQuery->where('status', $this->status);
+         }
+         
+         $prevOrders = $prevQuery->count();
+         
+         $orderGrowth = 0;
+         if ($prevOrders > 0) {
+             $orderGrowth = (($currentOrders - $prevOrders) / $prevOrders) * 100;
+         } else if ($currentOrders > 0) {
+             $orderGrowth = 100;
+         }
+         
+         $this->kpi = [
+             'orders' => $currentOrders,
+             'growth' => round($orderGrowth, 1)
+         ];
+         
+         // Service Breakdown (100% Stacked Horizontal Bar)
+         $serviceQuery = DB::table('order_details')
+             ->join('orders', 'order_details.order_id', '=', 'orders.id')
+             ->select('order_details.service_name', DB::raw('SUM(order_details.service_quantity) as volume'))
+             ->whereDate('orders.order_date', '>=', $this->from_date)
+             ->whereDate('orders.order_date', '<=', $this->to_date);
+             
+         if ($this->status != -1) {
+             $serviceQuery->where('orders.status', $this->status);
+         }
+             
+         $services = $serviceQuery->groupBy('order_details.service_name')
+             ->orderByDesc('volume')
+             ->get();
+             
+         $this->serviceBreakdown = [];
+         foreach($services as $s) {
+             $this->serviceBreakdown[] = [
+                 'name' => $s->service_name,
+                 'amount' => $s->volume // Using Volume for Order report instead of Revenue
+             ];
+         }
+         
+         $this->dispatch('update-order-charts', [
+             'services' => $this->serviceBreakdown
+         ]);
      }
      /* download report */
      public function downloadFile()

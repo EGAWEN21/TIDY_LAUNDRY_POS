@@ -74,6 +74,8 @@ class PermissionSeeder extends Seeder
             ['name' => 'report_ledger', 'display_name' => 'Ledger Report', 'category' => 'Report'],
             ['name' => 'report_tax', 'display_name' => 'Tax Report', 'category' => 'Report'],
             ['name' => 'report_sales', 'display_name' => 'Sales Report', 'category' => 'Report'],
+            ['name' => 'report_customer', 'display_name' => 'Customer Report', 'category' => 'Report'],
+            ['name' => 'report_insights', 'display_name' => 'Business Insights', 'category' => 'Report'],
 
             ['name' => 'setting_view', 'display_name' => 'Setting View', 'category' => 'Setting'],
             ['name' => 'setting_file_tools', 'display_name' => 'File Tools Settings', 'category' => 'Setting'],

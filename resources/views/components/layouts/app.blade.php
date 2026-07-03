@@ -29,6 +29,43 @@
    
 
    <x-theme-component/>
+   
+   <style>
+       @media print {
+           /* Hide navigation and buttons */
+           aside, nav, .navbar, .sidebar, footer, .btn, button {
+               display: none !important;
+           }
+           
+           /* Expand main content */
+           .dashboard-main, .main-content {
+               margin-left: 0 !important;
+               margin-top: 0 !important;
+               padding: 0 !important;
+               width: 100% !important;
+               max-width: 100% !important;
+           }
+           
+           /* Clean up cards for printing */
+           .card {
+               border: 1px solid #dee2e6 !important;
+               box-shadow: none !important;
+               page-break-inside: avoid;
+               margin-bottom: 20px !important;
+           }
+           
+           /* Ensure charts and colors print correctly */
+           * {
+               -webkit-print-color-adjust: exact !important;
+               print-color-adjust: exact !important;
+           }
+           
+           /* Hide scrollbars during print */
+           ::-webkit-scrollbar {
+               display: none;
+           }
+       }
+   </style>
 </head>
 
 <body class="tw-text-sm">
