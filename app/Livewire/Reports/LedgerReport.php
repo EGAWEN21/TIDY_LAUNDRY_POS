@@ -35,6 +35,7 @@ class LedgerReport extends Component
         $this->start_date = Carbon::now()->startOfMonth()->toDateString();
         $this->end_date = Carbon::now()->endOfMonth()->toDateString();
         $this->data = collect();
+        $this->customers = collect();
         $this->calculateAgeing();
     }
 
