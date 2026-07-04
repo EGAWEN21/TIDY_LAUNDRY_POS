@@ -56,14 +56,13 @@ class DailyReport extends Component
 
          // 1. Payment Split
          $paymentRaw = \App\Models\Payment::whereDate('payment_date', $this->today)
-                ->join('payment_types', 'payments.payment_type', '=', 'payment_types.id')
-                ->selectRaw('payment_types.payment_type_name, SUM(payments.received_amount) as amount')
-                ->groupBy('payment_types.payment_type_name')
+                ->selectRaw('payment_type, SUM(received_amount) as amount')
+                ->groupBy('payment_type')
                 ->get();
          $this->paymentSplit = [];
          foreach($paymentRaw as $p) {
              $this->paymentSplit[] = [
-                 'name' => $p->payment_type_name,
+                 'name' => getpaymentMode($p->payment_type),
                  'amount' => $p->amount
              ];
          }
