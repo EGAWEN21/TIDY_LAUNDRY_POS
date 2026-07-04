@@ -11,13 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        $reports = ['report_customer', 'report_insights'];
+        $reports = [
+            'report_customer' => 'Customer Report',
+            'report_insights' => 'Business Insights',
+        ];
         
-        foreach ($reports as $r) {
+        foreach ($reports as $name => $displayName) {
             \Illuminate\Support\Facades\DB::table('permissions')->updateOrInsert(
-                ['name' => $r],
+                ['name' => $name],
                 [
-                    'display_name' => ucwords(str_replace('_', ' ', $r)),
+                    'display_name' => $displayName,
                     'category' => 'Report',
                     'created_at' => now(),
                     'updated_at' => now(),
