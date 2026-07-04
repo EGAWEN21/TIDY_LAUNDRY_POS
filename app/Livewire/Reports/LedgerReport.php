@@ -42,18 +42,22 @@ class LedgerReport extends Component
     {
         $today = Carbon::today();
         
+        $paymentsSub = DB::table('payments')
+            ->select('order_id', DB::raw('SUM(received_amount) as total_paid'))
+            ->groupBy('order_id');
+
         $orders = DB::table('orders')
-            ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
-            ->select('orders.id', 'orders.order_date', 'orders.total', DB::raw('COALESCE(SUM(payments.received_amount), 0) as paid'))
-            ->groupBy('orders.id', 'orders.order_date', 'orders.total')
+            ->leftJoinSub($paymentsSub, 'paid_orders', function ($join) {
+                $join->on('orders.id', '=', 'paid_orders.order_id');
+            })
+            ->select('orders.id', 'orders.order_date', 'orders.total', DB::raw('COALESCE(paid_orders.total_paid, 0) as paid'))
+            ->whereRaw('orders.total > COALESCE(paid_orders.total_paid, 0)')
             ->get();
             
         $ageing = [ '0_30' => 0, '31_60' => 0, '61_90' => 0, '90_plus' => 0 ];
         
         foreach($orders as $o) {
             $balance = $o->total - $o->paid;
-            if ($balance <= 0) continue;
-            
             $days = Carbon::parse($o->order_date)->diffInDays($today);
             
             if ($days <= 30) {
