@@ -110,29 +110,20 @@ class LedgerReport extends Component
                 'alert', ['type' => 'error','title' => 'Fetching failed',  'message' => 'You have not selected a customer!']);
             return;
         }
-        $this->data = collect();
-        if(!$this->selected_customer)
-        {
-            return abort(404);
-        }
-        $debits = collect(Order::where('customer_id',$this->selected_customer->id)->whereDate('order_date','>=',Carbon::parse($this->start_date)->toDateString())->whereDate('order_date','<=',Carbon::parse($this->end_date)->toDateString())->get());
-        foreach($debits as $row)
-        {
-            $row['date'] = $row['order_date'];
-            $row['type'] = 'debit';
-        }  
-        $credits = collect(Payment::where('customer_id',$this->selected_customer->id)->whereDate('payment_date','>=',Carbon::parse($this->start_date)->toDateString())->whereDate('payment_date','<=',Carbon::parse($this->end_date)->toDateString())->get());
-        foreach($credits as $row)
-        {
-            $row['date'] = $row['created_at'];
-            $row['type'] = 'credit';
-        }   
-        $this->data = $debits->concat($credits);
-      
-        $this->data = $this->data->toArray();
-        usort($this->data,function ($a,$b) {
-            return Carbon::parse($a['date'])->greaterThan(Carbon::parse($b['date'])) ;
-        });
+        $customerId = $this->selected_customer->id;
+        $startDate = Carbon::parse($this->start_date)->toDateString();
+        $endDate = Carbon::parse($this->end_date)->toDateString();
+
+        $this->data = array_map(function($row) { return (array) $row; }, DB::select("
+            SELECT order_date as date, 'debit' as type, order_number, total, 0 as received_amount
+            FROM orders 
+            WHERE customer_id = ? AND DATE(order_date) >= ? AND DATE(order_date) <= ?
+            UNION ALL
+            SELECT payment_date as date, 'credit' as type, NULL as order_number, 0 as total, received_amount
+            FROM payments 
+            WHERE customer_id = ? AND DATE(payment_date) >= ? AND DATE(payment_date) <= ?
+            ORDER BY date ASC
+        ", [$customerId, $startDate, $endDate, $customerId, $startDate, $endDate]));
         $this->first_data = [
             'debits'    => Order::where('customer_id',$this->selected_customer->id)->whereDate('order_date','<',Carbon::parse($this->start_date)->toDateString())->sum('total'),
             'credits'    => Payment::where('customer_id',$this->selected_customer->id)->whereDate('payment_date','<',Carbon::parse($this->start_date)->toDateString())->sum('received_amount'),

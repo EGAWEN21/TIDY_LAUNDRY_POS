@@ -47,12 +47,10 @@ class ExpenseReport extends Component
      /* report section */
      public function report()
      {
-         $this->expenses = \App\Models\Expense::whereDate('expense_date', '>=', $this->from_date)
+         // Calculate KPIs at the database level
+         $totalExpenses = \App\Models\Expense::whereDate('expense_date', '>=', $this->from_date)
              ->whereDate('expense_date', '<=', $this->to_date)
-             ->latest()
-             ->get();
-             
-         $totalExpenses = $this->expenses->sum('expense_amount');
+             ->sum('expense_amount');
          
          $totalIncome = \App\Models\Payment::whereDate('payment_date', '>=', $this->from_date)
              ->whereDate('payment_date', '<=', $this->to_date)
@@ -63,6 +61,12 @@ class ExpenseReport extends Component
              'income' => $totalIncome,
              'net_profit' => $totalIncome - $totalExpenses
          ];
+         
+         // Fetch expenses for the table display
+         $this->expenses = \App\Models\Expense::whereDate('expense_date', '>=', $this->from_date)
+             ->whereDate('expense_date', '<=', $this->to_date)
+             ->latest()
+             ->get();
          
          $categories = DB::table('expenses')
              ->join('expense_categories', 'expenses.expense_category_id', '=', 'expense_categories.id')

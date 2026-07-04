@@ -4,11 +4,10 @@ namespace App\Livewire\Customers;
 
 use Livewire\Component;
 use App\Models\Customer;
-use App\Models\Order;
-use App\Models\Payment;
 use App\Models\Translation;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Title;
 
 class CustomerLedger extends Component
@@ -39,22 +38,13 @@ class CustomerLedger extends Component
         {
             return abort(404);
         }
-        $debits = collect(Order::where('customer_id',$this->customer->id)->get());
-        foreach($debits as $row)
-        {
-            $row['date'] = $row['order_date'];
-            $row['type'] = 'debit';
-        }  
-        $credits = collect(Payment::where('customer_id',$this->customer->id)->get());
-        foreach($credits as $row)
-        {
-            $row['date'] = $row['created_at'];
-            $row['type'] = 'credit';
-        }   
-        $this->data = $debits->concat($credits);
-        $this->data = $this->data->toArray();
-        usort($this->data,function ($a,$b) {
-            return Carbon::parse($a['date'])->greaterThan(Carbon::parse($b['date'])) ;
-        });
+        $this->data = array_map(function($row) { return (array) $row; }, DB::select("
+            SELECT order_date as date, 'debit' as type, order_number, total, 0 as received_amount, id, NULL as order_id
+            FROM orders WHERE customer_id = ?
+            UNION ALL
+            SELECT created_at as date, 'credit' as type, NULL as order_number, 0 as total, received_amount, NULL as id, order_id
+            FROM payments WHERE customer_id = ?
+            ORDER BY date ASC
+        ", [$this->customer->id, $this->customer->id]));
     }
 }

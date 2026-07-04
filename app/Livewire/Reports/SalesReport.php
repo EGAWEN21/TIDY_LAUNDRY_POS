@@ -46,30 +46,28 @@ class SalesReport extends Component
       /* report section */
       public function report()
       {
-          $this->orders = \App\Models\Order::whereDate('order_date', '>=', $this->from_date)
+          // Calculate Current Period KPIs at the database level
+          $currentKpi = \App\Models\Order::whereDate('order_date', '>=', $this->from_date)
               ->whereDate('order_date', '<=', $this->to_date)
               ->where('status', 3)
-              ->latest()
-              ->get();
-              
-          // Calculate Current Period KPIs
-          $currentSales = $this->orders->sum('total');
-          $currentDiscount = $this->orders->sum('discount');
-          $currentOrders = $this->orders->count();
+              ->selectRaw('COALESCE(SUM(total), 0) as sales, COALESCE(SUM(discount), 0) as discount, COUNT(*) as orders')
+              ->first();
+          
+          $currentSales = $currentKpi->sales;
+          $currentDiscount = $currentKpi->discount;
+          $currentOrders = $currentKpi->orders;
           $currentAov = $currentOrders > 0 ? $currentSales / $currentOrders : 0;
           
-          // Calculate Previous Period (Period-over-Period)
+          // Calculate Previous Period (Period-over-Period) at the database level
           $daysDiff = Carbon::parse($this->from_date)->diffInDays(Carbon::parse($this->to_date)) + 1;
           $prev_to_date = Carbon::parse($this->from_date)->subDay()->toDateString();
           $prev_from_date = Carbon::parse($this->from_date)->subDays($daysDiff)->toDateString();
           
-          $prevOrders = \App\Models\Order::whereDate('order_date', '>=', $prev_from_date)
+          $prevSales = \App\Models\Order::whereDate('order_date', '>=', $prev_from_date)
               ->whereDate('order_date', '<=', $prev_to_date)
               ->where('status', 3)
-              ->get();
+              ->sum('total');
               
-          $prevSales = $prevOrders->sum('total');
-          
           // Growth Calculation
           $salesGrowth = 0;
           if ($prevSales > 0) {
@@ -86,7 +84,14 @@ class SalesReport extends Component
               'growth' => round($salesGrowth, 1)
           ];
           
-          // Service Breakdown (100% Stacked Horizontal Bar)
+          // Fetch orders for the table display (keep ->get() since the table needs all rows)
+          $this->orders = \App\Models\Order::whereDate('order_date', '>=', $this->from_date)
+              ->whereDate('order_date', '<=', $this->to_date)
+              ->where('status', 3)
+              ->latest()
+              ->get();
+          
+          // Service Breakdown (already uses DB-level aggregation - keep as is)
           $services = DB::table('order_details')
               ->join('orders', 'order_details.order_id', '=', 'orders.id')
               ->select('order_details.service_name', DB::raw('SUM(order_details.service_detail_total) as revenue'))
