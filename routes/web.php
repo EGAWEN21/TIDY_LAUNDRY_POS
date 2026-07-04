@@ -16,6 +16,22 @@ Route::get('/receipt/{id}', \App\Livewire\Orders\PrintOrder::class)->name('recei
 Route::group(['middleware' => [\App\Http\Middleware\InstalledMiddleware::class]], function () {
     Route::get('/', \App\Livewire\Auth\Login::class)->name('login');
     Route::group(['prefix' => 'admin', 'middleware' => [Store::class, 'single.session']], function () {
+        Route::get('/fix-permissions', function() {
+            $reports = ['report_customer', 'report_insights'];
+            foreach ($reports as $r) {
+                \Illuminate\Support\Facades\DB::table('permissions')->updateOrInsert(
+                    ['name' => $r],
+                    [
+                        'display_name' => ucwords(str_replace('_', ' ', $r)),
+                        'guard_name' => 'web',
+                        'category' => 'Report',
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]
+                );
+            }
+            return 'Permissions successfully forced into the Report category! You can now check the Roles page.';
+        });
         Route::get('/dashboard', \App\Livewire\HomePage::class)->name('admin.dashboard');
         Route::get('/notifications', \App\Livewire\System\Notifications::class)->name('notifications.index');
         Route::get('/pos', \App\Livewire\Orders\PosScreen::class)->name('orders.pos');
