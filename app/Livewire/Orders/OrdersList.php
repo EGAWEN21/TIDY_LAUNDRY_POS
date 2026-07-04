@@ -24,6 +24,9 @@ class OrdersList extends Component
     protected $currentCursor;
     public $hasMorePages;
     public $paid_filter;
+    public $date_from, $date_to;
+    public $date_preset;
+    public $collapsedGroups = [];
 
     #[Title('Orders')]
     public function render()
@@ -47,6 +50,83 @@ class OrdersList extends Component
             $this->lang = Translation::where('default', 1)->first();
         }
     }
+
+    public function getGroupedOrders()
+    {
+        $grouped = [];
+        foreach ($this->orders as $order) {
+            $dateKey = \Carbon\Carbon::parse($order->order_date)->format('Y-m-d');
+            if (!isset($grouped[$dateKey])) {
+                $grouped[$dateKey] = [
+                    'orders' => [],
+                    'count' => 0,
+                    'total_sales' => 0,
+                    'total_paid' => 0,
+                ];
+            }
+            $grouped[$dateKey]['orders'][] = $order;
+            $grouped[$dateKey]['count']++;
+            $grouped[$dateKey]['total_sales'] += $order->total;
+            $grouped[$dateKey]['total_paid'] += \App\Models\Payment::where('order_id', $order->id)->sum('received_amount');
+        }
+        krsort($grouped);
+        return $grouped;
+    }
+
+    public function applyDatePreset($preset)
+    {
+        if ($this->date_preset === $preset) {
+            $this->clearDateFilter();
+            return;
+        }
+        $this->date_preset = $preset;
+        $today = \Carbon\Carbon::today();
+        switch ($preset) {
+            case 'today':
+                $this->date_from = $today->format('Y-m-d');
+                $this->date_to = $today->format('Y-m-d');
+                break;
+            case 'yesterday':
+                $yesterday = $today->copy()->subDay();
+                $this->date_from = $yesterday->format('Y-m-d');
+                $this->date_to = $yesterday->format('Y-m-d');
+                break;
+            case 'this_week':
+                $this->date_from = $today->copy()->startOfWeek()->format('Y-m-d');
+                $this->date_to = $today->format('Y-m-d');
+                break;
+            case 'this_month':
+                $this->date_from = $today->copy()->startOfMonth()->format('Y-m-d');
+                $this->date_to = $today->format('Y-m-d');
+                break;
+        }
+        $this->reloadOrders();
+    }
+
+    public function applyDateRange($from, $to)
+    {
+        $this->date_from = $from;
+        $this->date_to = $to;
+        $this->date_preset = 'custom';
+        $this->reloadOrders();
+    }
+
+    public function clearDateFilter()
+    {
+        $this->date_from = null;
+        $this->date_to = null;
+        $this->date_preset = null;
+        $this->reloadOrders();
+    }
+
+    public function toggleGroup($date)
+    {
+        if (in_array($date, $this->collapsedGroups)) {
+            $this->collapsedGroups = array_values(array_diff($this->collapsedGroups, [$date]));
+        } else {
+            $this->collapsedGroups[] = $date;
+        }
+    }
     /* process while update the content */
     private function getBaseOrderQuery()
     {
@@ -66,6 +146,11 @@ class OrdersList extends Component
 
         // $this->reloadOrders();
         $ordersQuery = $this->getBaseOrderQuery()->orderBy('order_number','DESC');
+
+        if ($this->date_from && $this->date_to) {
+            $ordersQuery = $ordersQuery->whereDate('order_date', '>=', $this->date_from)
+                                       ->whereDate('order_date', '<=', $this->date_to);
+        }
 
         /* if the updated element is search_query */
         if ($name == 'search_query') {
@@ -285,53 +370,31 @@ class OrdersList extends Component
     }
     public function filterdata()
     {
-        if ($this->search_query || $this->search_query != '') {
-            if ($this->order_filter || $this->order_filter != '') {
-                $orders = $this->getBaseOrderQuery()
-                    ->where(function($q) {
-                        $q->where('order_number', 'like', '%' . $this->search_query . '%')
-                          ->orWhere('customer_name', 'like', '%' . $this->search_query . '%')
-                          ->orWhere('phone_number', 'like', '%' . $this->search_query . '%');
-                    })
-                    ->where('status', $this->order_filter)
-                    ->orderBy('order_number','DESC')
-                    ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
-                return $orders;
-            } else {
-                $orders = $this->getBaseOrderQuery()
-                    ->where(function($q) {
-                        $q->where('order_number', 'like', '%' . $this->search_query . '%')
-                          ->orWhere('customer_name', 'like', '%' . $this->search_query . '%')
-                          ->orWhere('phone_number', 'like', '%' . $this->search_query . '%');
-                    })
-                    ->orderBy('order_number','DESC')
-                    ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
-                return $orders;
-            }
-        } else {
-            if ($this->order_filter || $this->order_filter != '') {
+        $baseQuery = $this->getBaseOrderQuery();
 
-
-                $orders = $this->getBaseOrderQuery()->where('status', $this->order_filter)
-                    ->orderBy('order_number','DESC')
-                    ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
-
-                return $orders;
-            } elseif ($this->paid_filter || $this->paid_filter != '') {
-
-
-                $orders = $this->getBaseOrderQuery()->where('status', $this->order_filter)
-                    ->orderBy('order_number','DESC')
-                    ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
-
-                return $orders;
-            } else {
-                $orders = $this->getBaseOrderQuery()->orderBy('order_number','DESC')
-                    ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
-
-                return $orders;
-            }
+        // Apply date range filter
+        if ($this->date_from && $this->date_to) {
+            $baseQuery = $baseQuery->whereDate('order_date', '>=', $this->date_from)
+                                   ->whereDate('order_date', '<=', $this->date_to);
         }
+
+        if ($this->search_query || $this->search_query != '') {
+            $searchQuery = $this->search_query;
+            $baseQuery = $baseQuery->where(function($q) use ($searchQuery) {
+                $q->where('order_number', 'like', '%' . $searchQuery . '%')
+                  ->orWhere('customer_name', 'like', '%' . $searchQuery . '%')
+                  ->orWhere('phone_number', 'like', '%' . $searchQuery . '%');
+            });
+        }
+
+        if ($this->order_filter && $this->order_filter != '') {
+            $baseQuery = $baseQuery->where('status', $this->order_filter);
+        }
+
+        $orders = $baseQuery->orderBy('order_number', 'DESC')
+            ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
+
+        return $orders;
     }
 
     public function sendReceiptEmail($orderId)

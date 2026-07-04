@@ -105,6 +105,7 @@
 
     <!-- main js -->
     <script src="{{ asset('assets/js/app.js') }}"></script>
+    <script src="{{ asset('assets/js/flatpickr.js') }}"></script>
 
     <script>
         // ================== Image Upload Js Start ===========================

@@ -1,5 +1,6 @@
 <div class="dashboard-main-body">
     <div class="card h-100 p-0">
+        {{-- Search + Add Order Row --}}
         <div class="tw-py-1.5 tw-px-3 bg-base d-flex align-items-center flex-wrap gap-3 justify-content-between">
             <div class="d-flex align-items-center flex-wrap gap-3">
                 <form class="navbar-search">
@@ -14,10 +15,84 @@
             </a>
             @endcan
         </div>
+
+        {{-- Quick Period Filter Pills --}}
+        <div class="tw-py-2 tw-px-3 bg-base d-flex align-items-center flex-wrap justify-content-between" style="border-top: 1px solid #e5e7eb;">
+            <div class="order-period-pills">
+                <button type="button" wire:click="applyDatePreset('today')" class="order-period-pill {{ $date_preset === 'today' ? 'active' : '' }}">
+                    <iconify-icon icon="lucide:calendar-check"></iconify-icon>
+                    {{ $lang->data['today'] ?? 'Today' }}
+                </button>
+                <button type="button" wire:click="applyDatePreset('yesterday')" class="order-period-pill {{ $date_preset === 'yesterday' ? 'active' : '' }}">
+                    <iconify-icon icon="lucide:calendar-minus"></iconify-icon>
+                    {{ $lang->data['yesterday'] ?? 'Yesterday' }}
+                </button>
+                <button type="button" wire:click="applyDatePreset('this_week')" class="order-period-pill {{ $date_preset === 'this_week' ? 'active' : '' }}">
+                    <iconify-icon icon="lucide:calendar-range"></iconify-icon>
+                    {{ $lang->data['this_week'] ?? 'This Week' }}
+                </button>
+                <button type="button" wire:click="applyDatePreset('this_month')" class="order-period-pill {{ $date_preset === 'this_month' ? 'active' : '' }}">
+                    <iconify-icon icon="lucide:calendar-days"></iconify-icon>
+                    {{ $lang->data['this_month'] ?? 'This Month' }}
+                </button>
+                <button type="button" 
+                    @click="$wire.set('date_preset', $wire.date_preset === 'custom' ? null : 'custom')"
+                    class="order-period-pill {{ $date_preset === 'custom' ? 'active' : '' }}">
+                    <iconify-icon icon="lucide:calendar-search"></iconify-icon>
+                    {{ $lang->data['custom'] ?? 'Custom' }}
+                </button>
+            </div>
+            @if($date_from && $date_to && $date_preset)
+            <button type="button" wire:click="clearDateFilter" class="order-period-pill" style="border-color: #dc3545; color: #dc3545;">
+                <iconify-icon icon="lucide:x"></iconify-icon>
+                {{ $lang->data['clear_filter'] ?? 'Clear' }}
+            </button>
+            @endif
+        </div>
+
+        {{-- Custom Date Range Picker (shown when Custom is active) --}}
+        @if($date_preset === 'custom')
+        <div class="order-date-range-bar" x-data="{
+            fromDate: @entangle('date_from').live,
+            toDate: @entangle('date_to').live,
+            fpFrom: null,
+            fpTo: null,
+            init() {
+                this.fpFrom = flatpickr(this.$refs.dateFrom, {
+                    dateFormat: 'Y-m-d',
+                    altInput: true,
+                    altFormat: 'M j, Y',
+                    defaultDate: this.fromDate,
+                    onChange: (selectedDates, dateStr) => { this.fromDate = dateStr; }
+                });
+                this.fpTo = flatpickr(this.$refs.dateTo, {
+                    dateFormat: 'Y-m-d',
+                    altInput: true,
+                    altFormat: 'M j, Y',
+                    defaultDate: this.toDate,
+                    onChange: (selectedDates, dateStr) => { this.toDate = dateStr; }
+                });
+            }
+        }" wire:ignore.self>
+            <iconify-icon icon="lucide:calendar" style="font-size: 1.1rem; color: #487fff;"></iconify-icon>
+            <input type="text" x-ref="dateFrom" class="form-control" placeholder="{{ $lang->data['from_date'] ?? 'From date' }}">
+            <span class="range-separator">→</span>
+            <input type="text" x-ref="dateTo" class="form-control" placeholder="{{ $lang->data['to_date'] ?? 'To date' }}">
+            <button type="button" class="btn btn-primary btn-sm radius-8" @click="$wire.applyDateRange(fromDate, toDate)">
+                <iconify-icon icon="lucide:search" class="me-1"></iconify-icon>
+                {{ $lang->data['filter'] ?? 'Filter' }}
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm radius-8" wire:click="clearDateFilter">
+                {{ $lang->data['clear'] ?? 'Clear' }}
+            </button>
+        </div>
+        @endif
+
+        {{-- Orders Table with Date Grouping --}}
         <div class="tw-p-0">
-            <div class="table-responsive scroll-sm">
+            <div class="table-responsive scroll-sm" style="max-height: 75vh; overflow-y: auto;">
                 <table class="table bordered-table sm-table mb-0">
-                  <thead>
+                  <thead style="position: sticky; top: 0; z-index: 10; background: #fff;">
                     <tr>
                       <th scope="col" class="">{{ $lang->data['order_info'] ?? 'Order Info' }}</th>
                       <th scope="col" class="">{{ $lang->data['customer'] ?? 'Customer' }}</th>
@@ -29,8 +104,66 @@
                     </tr>
                   </thead>
                   <tbody>
-                        @foreach ($orders as $item)
-                        <tr class="tw-text-xs">
+                    @php
+                        $groupedOrders = $this->getGroupedOrders();
+                        $today = \Carbon\Carbon::today();
+                        $yesterday = \Carbon\Carbon::yesterday();
+                    @endphp
+                    @forelse ($groupedOrders as $dateKey => $group)
+                        @php
+                            $carbonDate = \Carbon\Carbon::parse($dateKey);
+                            if ($carbonDate->isToday()) {
+                                $dateLabel = ($lang->data['today'] ?? 'Today');
+                                $dateSublabel = $carbonDate->format('l, M j');
+                            } elseif ($carbonDate->isYesterday()) {
+                                $dateLabel = ($lang->data['yesterday'] ?? 'Yesterday');
+                                $dateSublabel = $carbonDate->format('l, M j');
+                            } elseif ($carbonDate->isCurrentWeek()) {
+                                $dateLabel = $carbonDate->format('l');
+                                $dateSublabel = $carbonDate->format('M j, Y');
+                            } else {
+                                $dateLabel = $carbonDate->format('l, M j');
+                                $dateSublabel = $carbonDate->format('Y');
+                            }
+                            $isCollapsed = in_array($dateKey, $collapsedGroups);
+                        @endphp
+                        {{-- Date Group Header --}}
+                        <tr class="order-date-header" wire:click="toggleGroup('{{ $dateKey }}')">
+                            <td colspan="7">
+                                <div class="order-date-header__content">
+                                    <div class="order-date-header__left">
+                                        <div class="order-date-header__icon">
+                                            <iconify-icon icon="lucide:calendar"></iconify-icon>
+                                        </div>
+                                        <div>
+                                            <div class="order-date-header__label">{{ $dateLabel }}</div>
+                                            <div class="order-date-header__sublabel">{{ $dateSublabel }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center">
+                                        <div class="order-date-header__stats">
+                                            <span class="order-date-header__stat">
+                                                <iconify-icon icon="lucide:package"></iconify-icon>
+                                                <strong>{{ $group['count'] }}</strong> {{ $group['count'] === 1 ? ($lang->data['order'] ?? 'order') : ($lang->data['orders'] ?? 'orders') }}
+                                            </span>
+                                            <span class="order-date-header__stat">
+                                                <iconify-icon icon="lucide:trending-up"></iconify-icon>
+                                                {{ $lang->data['sales'] ?? 'Sales' }}: <strong>{{ getFormattedCurrency($group['total_sales']) }}</strong>
+                                            </span>
+                                            <span class="order-date-header__stat">
+                                                <iconify-icon icon="lucide:wallet"></iconify-icon>
+                                                {{ $lang->data['collected'] ?? 'Collected' }}: <strong>{{ getFormattedCurrency($group['total_paid']) }}</strong>
+                                            </span>
+                                        </div>
+                                        <iconify-icon icon="lucide:chevron-down" class="order-date-header__toggle {{ $isCollapsed ? 'collapsed' : '' }}"></iconify-icon>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {{-- Order Rows for this Date Group --}}
+                        @if(!$isCollapsed)
+                        @foreach ($group['orders'] as $item)
+                        <tr class="tw-text-xs order-row-status-{{ $item->status }}">
                             <td>
                                 <div class="tw-flex tw-flex-col">
                                     <div class="text-neutral-600">
@@ -42,6 +175,21 @@
                                     <div class="text-neutral-600">
                                         {{ $lang->data['delivery_date'] ?? 'Delivery Date' }} : <span class="tw-font-medium text-primary-light">{{ \Carbon\Carbon::parse($item->delivery_date)->format('d/m/y') }}</span> 
                                     </div>
+                                    {{-- Relative Time --}}
+                                    @php
+                                        $orderTime = \Carbon\Carbon::parse($item->order_date);
+                                    @endphp
+                                    @if($orderTime->isToday())
+                                    <div class="order-relative-time">
+                                        <iconify-icon icon="lucide:clock"></iconify-icon>
+                                        {{ $orderTime->diffForHumans() }}
+                                    </div>
+                                    @elseif($orderTime->isYesterday())
+                                    <div class="order-relative-time">
+                                        <iconify-icon icon="lucide:clock"></iconify-icon>
+                                        {{ ($lang->data['yesterday'] ?? 'Yesterday') }} {{ $orderTime->format('g:i A') }}
+                                    </div>
+                                    @endif
                                 </div>
                             </td>
                             <td class="">
@@ -168,6 +316,10 @@
                             </td> 
                         </tr>
                         @endforeach
+                        @endif
+                    @empty
+                        {{-- No orders at all --}}
+                    @endforelse
                   </tbody>
                 </table>
                 @if(count($orders) == 0)

@@ -67,3 +67,250 @@ input::-webkit-inner-spin-button {
 input[type=number] {
   -moz-appearance: textfield;
 }
+
+/* ============================================
+   ORDER HISTORY — PREMIUM BANK-APP STYLES
+   ============================================ */
+
+/* Quick Period Filter Pills */
+.order-period-pills {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.order-period-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 50px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border: 1.5px solid #d1d5db;
+    background: #fff;
+    color: #4b5563;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.order-period-pill:hover {
+    border-color: #487fff;
+    color: #487fff;
+    background: #eef2ff;
+}
+
+.order-period-pill.active {
+    background: #487fff;
+    color: #fff;
+    border-color: #487fff;
+    box-shadow: 0 2px 8px rgba(72, 127, 255, 0.3);
+}
+
+.order-period-pill iconify-icon {
+    font-size: 0.85rem;
+}
+
+/* Date Range Picker Bar */
+.order-date-range-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1rem;
+    background: #f8fafc;
+    border-top: 1px solid #e5e7eb;
+    flex-wrap: wrap;
+}
+
+.order-date-range-bar .form-control {
+    max-width: 160px;
+    font-size: 0.78rem !important;
+    height: 2.1rem !important;
+    border-radius: 6px;
+}
+
+.order-date-range-bar .range-separator {
+    color: #9ca3af;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+/* Date Group Headers */
+.order-date-header {
+    background: linear-gradient(135deg, #f0f4ff 0%, #f8fafc 100%) !important;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    border-bottom: 2px solid #e0e7ff !important;
+    border-top: 1px solid #e0e7ff !important;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.order-date-header:hover {
+    background: linear-gradient(135deg, #e8edff 0%, #f0f4ff 100%) !important;
+}
+
+.order-date-header td {
+    padding: 0.6rem 1rem !important;
+}
+
+.order-date-header__content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.order-date-header__left {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.order-date-header__icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #487fff;
+    color: #fff;
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+.order-date-header__label {
+    font-weight: 600;
+    font-size: 0.82rem;
+    color: #1e293b;
+}
+
+.order-date-header__sublabel {
+    font-size: 0.72rem;
+    color: #64748b;
+    font-weight: 400;
+}
+
+.order-date-header__stats {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.order-date-header__stat {
+    font-size: 0.72rem;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.order-date-header__stat strong {
+    color: #334155;
+    font-weight: 600;
+}
+
+.order-date-header__toggle {
+    font-size: 1.1rem;
+    color: #94a3b8;
+    transition: transform 0.25s ease;
+    margin-left: 0.75rem;
+}
+
+.order-date-header__toggle.collapsed {
+    transform: rotate(-90deg);
+}
+
+/* Status Color Strips on Order Rows */
+.order-row-status-0 {
+    border-left: 3.5px solid #6c757d !important;
+}
+.order-row-status-1 {
+    border-left: 3.5px solid #ffc107 !important;
+}
+.order-row-status-2 {
+    border-left: 3.5px solid #0dcaf0 !important;
+}
+.order-row-status-3 {
+    border-left: 3.5px solid #28a745 !important;
+}
+.order-row-status-4 {
+    border-left: 3.5px solid #dc3545 !important;
+}
+
+/* Relative Time Badge */
+.order-relative-time {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.68rem;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+
+.order-relative-time iconify-icon {
+    font-size: 0.75rem;
+}
+
+/* Group Collapse Animation */
+.order-group-body tr {
+    transition: opacity 0.2s ease;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .order-date-header__stats {
+        display: none;
+    }
+    
+    .order-period-pills {
+        gap: 0.35rem;
+    }
+    
+    .order-period-pill {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.7rem;
+    }
+    
+    .order-date-range-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .order-date-range-bar .form-control {
+        max-width: 100%;
+    }
+}
+
+/* Flatpickr Theme Overrides */
+.flatpickr-calendar {
+    border-radius: 12px !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12) !important;
+    border: 1px solid #e5e7eb !important;
+}
+
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange {
+    background: #487fff !important;
+    border-color: #487fff !important;
+}
+
+.flatpickr-day.inRange {
+    background: #eef2ff !important;
+    border-color: #eef2ff !important;
+    box-shadow: -5px 0 0 #eef2ff, 5px 0 0 #eef2ff !important;
+}
+
+.flatpickr-day.today:not(.selected) {
+    border-color: #487fff !important;
+}
+
+.flatpickr-months .flatpickr-prev-month:hover svg,
+.flatpickr-months .flatpickr-next-month:hover svg {
+    fill: #487fff !important;
+}
