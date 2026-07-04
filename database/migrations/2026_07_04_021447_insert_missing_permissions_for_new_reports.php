@@ -18,7 +18,6 @@ return new class extends Migration
                 ['name' => $r],
                 [
                     'display_name' => ucwords(str_replace('_', ' ', $r)),
-                    'guard_name' => 'web',
                     'category' => 'Report',
                     'created_at' => now(),
                     'updated_at' => now(),
