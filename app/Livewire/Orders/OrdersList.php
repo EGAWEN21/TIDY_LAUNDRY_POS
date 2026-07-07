@@ -150,7 +150,7 @@ class OrdersList extends Component
         }
 
         foreach ($this->selectedOrders as $orderId) {
-            $this->changeOrderStatus($orderId, $status);
+            $this->changeOrderStatus($orderId, $status, true);
         }
         
         $this->selectedOrders = [];
@@ -530,7 +530,7 @@ class OrdersList extends Component
         }
     }
 
-    public function changeOrderStatus($orderId, $status)
+    public function changeOrderStatus($orderId, $status, $isBulk = false)
     {
         if(!\Illuminate\Support\Facades\Gate::allows('order_status_change')){
             abort(404);
@@ -562,17 +562,19 @@ class OrdersList extends Component
                 }
             } else {
                 // Strategy 1: wa.me Fallback (Manual Assist)
-                $customer = \App\Models\Customer::find($order->customer_id);
-                if ($customer && !empty($customer->phone)) {
-                    $phone = ltrim($customer->phone, '+');
-                    if (!str_starts_with($phone, ltrim(getCountryCode(), '+')) && strlen($phone) <= 10) {
-                        $phone = ltrim(getCountryCode(), '+') . $phone;
-                    }
-                    $messagePayload = getFormatedTextSMS($order->id, ($status == 2 ? 3 : 2));
-                    $url = "https://wa.me/{$phone}?text=" . urlencode($messagePayload);
-                    $this->dispatch('open-url', [['url' => $url]]);
-                    if (Auth::user()) {
-                        Auth::user()->notify(new \App\Notifications\SystemNotification('WhatsApp Fallback', "Manual wa.me link generated for Order {$order->order_number}", 'warning'));
+                if (!$isBulk) {
+                    $customer = \App\Models\Customer::find($order->customer_id);
+                    if ($customer && !empty($customer->phone)) {
+                        $phone = ltrim($customer->phone, '+');
+                        if (!str_starts_with($phone, ltrim(getCountryCode(), '+')) && strlen($phone) <= 10) {
+                            $phone = ltrim(getCountryCode(), '+') . $phone;
+                        }
+                        $messagePayload = getFormatedTextSMS($order->id, ($status == 2 ? 3 : 2));
+                        $url = "https://wa.me/{$phone}?text=" . urlencode($messagePayload);
+                        $this->dispatch('open-url', [['url' => $url]]);
+                        if (Auth::user()) {
+                            Auth::user()->notify(new \App\Notifications\SystemNotification('WhatsApp Fallback', "Manual wa.me link generated for Order {$order->order_number}", 'warning'));
+                        }
                     }
                 }
             }
