@@ -22,8 +22,8 @@ class PermissionSeeder extends Seeder
             ['name' => 'order_delete','display_name' => 'Order Delete','category' => 'Order'],
             ['name' => 'order_print','display_name' => 'Print Order','category' => 'Order'],
             ['name' => 'order_status_change','display_name' => 'Change Order Status','category' => 'Order'],
-            ['name' => 'bulk_order_status_change','display_name' => 'Bulk Change Order Status','category' => 'Order'],
-            ['name' => 'bulk_order_delete','display_name' => 'Bulk Order Delete','category' => 'Order'],
+            ['name' => 'bulk_order_status_change','display_name' => 'Bulk Change Order Status','category' => 'Bulk Actions'],
+            ['name' => 'bulk_order_delete','display_name' => 'Bulk Order Delete','category' => 'Bulk Actions'],
 
             ['name' => 'customer_list','display_name' => 'Customer List','category' => 'Customer'],
             ['name' => 'customer_view','display_name' => 'Customer View','category' => 'Customer'],
