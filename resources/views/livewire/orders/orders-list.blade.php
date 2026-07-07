@@ -190,7 +190,7 @@
                                     </div>
                                     {{-- Relative Time --}}
                                     @php
-                                        $orderTime = \Carbon\Carbon::parse($item->order_date);
+                                        $orderTime = \Carbon\Carbon::parse($item->created_at);
                                     @endphp
                                     @if($orderTime->isToday())
                                     <div class="order-relative-time">
