@@ -325,3 +325,54 @@ input[type=number] {
         opacity: 1;
     }
 }
+
+/* Bulk Action Bar */
+.bulk-action-bar {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #fff;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    border: 1px solid #e5e7eb;
+    border-radius: 50px;
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    z-index: 1050;
+    animation: slideUp 0.3s ease-out;
+}
+
+.bulk-action-bar__count {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border-right: 1px solid #e5e7eb;
+    padding-right: 1.25rem;
+}
+
+.bulk-action-bar__badge {
+    background: #eef2ff;
+    color: #487fff;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.bulk-action-bar__count span {
+    font-weight: 500;
+    color: #374151;
+    font-size: 0.9rem;
+}
+
+.bulk-action-bar__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}

@@ -131,6 +131,7 @@ class OrdersList extends Component
 
     public function toggleDateGroup($dateKey, $orderIds)
     {
+        $orderIds = array_map('strval', $orderIds);
         $allSelected = empty(array_diff($orderIds, $this->selectedOrders));
         if ($allSelected) {
             $this->selectedOrders = array_values(array_diff($this->selectedOrders, $orderIds));
@@ -143,8 +144,8 @@ class OrdersList extends Component
     {
         if(empty($this->selectedOrders)) return;
         
-        if(!\Illuminate\Support\Facades\Gate::allows('order_status_change')){
-            $this->dispatch('alert', ['type' => 'error',  'message' => 'You do not have permission to change status!']);
+        if(!\Illuminate\Support\Facades\Gate::allows('bulk_order_status_change')){
+            $this->dispatch('alert', ['type' => 'error',  'message' => 'You do not have permission to change status in bulk!']);
             return;
         }
 
@@ -160,8 +161,8 @@ class OrdersList extends Component
     {
         if(empty($this->selectedOrders)) return;
 
-        if(!\Illuminate\Support\Facades\Gate::allows('order_delete')){
-            $this->dispatch('alert', ['type' => 'error',  'message' => 'You do not have permission to delete orders!']);
+        if(!\Illuminate\Support\Facades\Gate::allows('bulk_order_delete')){
+            $this->dispatch('alert', ['type' => 'error',  'message' => 'You do not have permission to delete orders in bulk!']);
             return;
         }
 

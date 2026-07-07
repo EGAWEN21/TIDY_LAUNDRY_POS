@@ -135,7 +135,7 @@
                                     <div class="order-date-header__left">
                                         <div class="tw-mr-2" wire:click.stop>
                                             @php
-                                                $orderIds = collect($group['orders'])->pluck('id')->toArray();
+                                                $orderIds = collect($group['orders'])->pluck('id')->map(fn($id) => (string)$id)->toArray();
                                                 $allSelected = empty(array_diff($orderIds, $selectedOrders));
                                             @endphp
                                             <input type="checkbox" class="form-check-input tw-w-4 tw-h-4" 
@@ -474,22 +474,22 @@
 
     {{-- Floating Bulk Action Bar --}}
     @if(count($selectedOrders) > 0)
-    <div class="bulk-action-bar tw-fixed tw-bottom-6 tw-left-1/2 tw--translate-x-1/2 tw-bg-white tw-shadow-[0_8px_30px_rgb(0,0,0,0.12)] tw-border tw-border-neutral-200 tw-rounded-full tw-px-6 tw-py-3 tw-flex tw-align-items-center tw-gap-4 tw-z-50" style="animation: slideUp 0.3s ease-out;">
-        <div class="tw-flex tw-items-center tw-gap-2 tw-border-r tw-border-neutral-200 tw-pr-4">
-            <div class="tw-bg-primary-50 tw-text-primary-600 tw-rounded-full tw-size-8 tw-flex tw-justify-center tw-items-center tw-font-semibold">
+    <div class="bulk-action-bar">
+        <div class="bulk-action-bar__count">
+            <div class="bulk-action-bar__badge">
                 {{ count($selectedOrders) }}
             </div>
-            <span class="tw-font-medium tw-text-neutral-700 tw-text-sm">{{ count($selectedOrders) === 1 ? 'Order' : 'Orders' }} Selected</span>
+            <span>{{ count($selectedOrders) === 1 ? 'Order' : 'Orders' }} Selected</span>
         </div>
         
-        <div class="tw-flex tw-items-center tw-gap-3">
-            @can('order_status_change')
+        <div class="bulk-action-bar__actions">
+            @can('bulk_order_status_change')
             <div class="dropdown">
                 <button type="button" class="btn btn-outline-primary btn-sm radius-8 d-flex align-items-center gap-2" data-bs-toggle="dropdown">
                     <iconify-icon icon="lucide:list-checks"></iconify-icon>
                     Change Status
                 </button>
-                <ul class="dropdown-menu tw-mb-2">
+                <ul class="dropdown-menu mb-2">
                     <li><a class="dropdown-item d-flex align-items-center gap-2" href="javascript:void(0)" wire:click="bulkChangeStatus(0)"><iconify-icon icon="lucide:clock"></iconify-icon> Pending</a></li>
                     <li><a class="dropdown-item d-flex align-items-center gap-2" href="javascript:void(0)" wire:click="bulkChangeStatus(1)"><iconify-icon icon="lucide:loader"></iconify-icon> Processing</a></li>
                     <li><a class="dropdown-item d-flex align-items-center gap-2" href="javascript:void(0)" wire:click="bulkChangeStatus(2)"><iconify-icon icon="lucide:check-circle"></iconify-icon> Ready To Deliver</a></li>
@@ -499,7 +499,7 @@
             </div>
             @endcan
             
-            @can('order_delete')
+            @can('bulk_order_delete')
             <button type="button" class="btn btn-danger-100 text-danger-600 btn-sm radius-8 d-flex align-items-center gap-2" wire:click="bulkDelete" wire:confirm="Are you sure you want to delete these {{ count($selectedOrders) }} orders? This cannot be undone.">
                 <iconify-icon icon="fluent:delete-24-regular"></iconify-icon>
                 Delete
