@@ -46,20 +46,27 @@
                             </div>
                             <div class="flex-grow-1">
                                 <h6 class="text-md mb-0 fw-normal">{{ $lang->data['total_balance'] ?? 'Total Balance' }}</h6>
-                                <span class="text-sm text-secondary-light fw-normal">
-                                    @php
-                                    $balance_amount = $invoice_amount - $payment;
-                                @endphp
-                                @if ($balance_amount == 0)
-                                    {{ getFormattedCurrency($balance_amount) }} {{ 'Cr' }}
-                                @else
-                                    @if ($balance_amount < 0)
-                                        {{ getFormattedCurrency($balance_amount * -1) }} {{ 'Cr' }}
+                                <div class="tw-flex tw-items-center tw-gap-2">
+                                    <span class="text-sm text-secondary-light fw-normal">
+                                        @php
+                                        $balance_amount = $invoice_amount - $payment;
+                                        @endphp
+                                        @if ($balance_amount == 0)
+                                            {{ getFormattedCurrency($balance_amount) }} {{ 'Cr' }}
+                                        @else
+                                            @if ($balance_amount < 0)
+                                                {{ getFormattedCurrency($balance_amount * -1) }} {{ 'Cr' }}
+                                            @else
+                                                {{ getFormattedCurrency($balance_amount) }} {{ 'Dr' }}
+                                            @endif
+                                        @endif
+                                    </span>
+                                    @if($balance_amount <= 0)
+                                        <span class="badge bg-success-100 text-success-600 px-2 py-1 radius-4 tw-text-[0.65rem]">Good Standing</span>
                                     @else
-                                        {{ getFormattedCurrency($balance_amount) }} {{ 'Dr' }}
+                                        <span class="badge bg-danger-100 text-danger-600 px-2 py-1 radius-4 tw-text-[0.65rem]">Outstanding</span>
                                     @endif
-                                @endif
-                                </span>
+                                </div>
                             </div>
                         </div>
                         <div class="d-flex align-items-center gap-12">
@@ -105,6 +112,41 @@
         <div class="col-lg-8">
             <div class="card h-100">
                 <div class="card-body p-24">
+                    
+                    {{-- KPI Row --}}
+                    <div class="row gy-3 mb-24">
+                        <div class="col-md-3">
+                            <div class="tw-bg-neutral-50 tw-p-3 tw-rounded-xl tw-border tw-border-neutral-100">
+                                <div class="tw-text-xs tw-text-neutral-500 tw-font-medium mb-1">Total Orders</div>
+                                <div class="tw-text-lg tw-font-semibold tw-text-neutral-800">{{ $invoice_count }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="tw-bg-neutral-50 tw-p-3 tw-rounded-xl tw-border tw-border-neutral-100">
+                                <div class="tw-text-xs tw-text-neutral-500 tw-font-medium mb-1">Lifetime Spend</div>
+                                <div class="tw-text-lg tw-font-semibold tw-text-neutral-800">{{ getFormattedCurrency($invoice_amount) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="tw-bg-neutral-50 tw-p-3 tw-rounded-xl tw-border tw-border-neutral-100">
+                                <div class="tw-text-xs tw-text-neutral-500 tw-font-medium mb-1">Avg Order Value</div>
+                                <div class="tw-text-lg tw-font-semibold tw-text-neutral-800">{{ getFormattedCurrency($avg_order_value) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="tw-bg-neutral-50 tw-p-3 tw-rounded-xl tw-border tw-border-neutral-100">
+                                <div class="tw-text-xs tw-text-neutral-500 tw-font-medium mb-1">Last Order</div>
+                                <div class="tw-text-lg tw-font-semibold tw-text-neutral-800">
+                                    @if($last_order_date)
+                                        {{ \Carbon\Carbon::parse($last_order_date)->format('M j, Y') }}
+                                    @else
+                                        -
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <ul class="nav border-gradient-tab nav-pills mb-20 d-inline-flex" id="pills-tab" role="tablist">
                         <li class="nav-item" role="presentation">
                           <button class="nav-link d-flex align-items-center px-24 active" id="pills-edit-profile-tab" data-bs-toggle="pill" data-bs-target="#pills-edit-profile" type="button" role="tab" aria-controls="pills-edit-profile" aria-selected="true">

@@ -12,6 +12,7 @@ use Livewire\Component;
 class CustomerView extends Component
 {
     public $customer, $invoice_amount, $payment, $invoice_count, $orders, $balance, $order, $customer_name, $paid_amount, $payment_mode, $search_query, $order_filter, $note,$lang;
+    public $avg_order_value, $last_order_date;
     
     #[Title('View Customer')]
     public function render()
@@ -41,5 +42,9 @@ class CustomerView extends Component
         $this->invoice_count = Order::where('customer_id', $id)->count();
         $this->payment = Payment::where('customer_id', $id)->sum('received_amount');
         $this->balance = $this->invoice_amount - $this->payment;
+        
+        $this->avg_order_value = $this->invoice_count > 0 ? $this->invoice_amount / $this->invoice_count : 0;
+        $lastOrder = Order::where('customer_id', $id)->latest('order_date')->first();
+        $this->last_order_date = $lastOrder ? $lastOrder->order_date : null;
     }
 }

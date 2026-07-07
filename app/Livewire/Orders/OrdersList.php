@@ -27,6 +27,7 @@ class OrdersList extends Component
     public $date_from, $date_to;
     public $date_preset;
     public $collapsedGroups = [];
+    public $selectedOrders = [];
 
     #[Title('Orders')]
     public function render()
@@ -126,6 +127,61 @@ class OrdersList extends Component
         } else {
             $this->collapsedGroups[] = $date;
         }
+    }
+
+    public function toggleDateGroup($dateKey, $orderIds)
+    {
+        $allSelected = empty(array_diff($orderIds, $this->selectedOrders));
+        if ($allSelected) {
+            $this->selectedOrders = array_values(array_diff($this->selectedOrders, $orderIds));
+        } else {
+            $this->selectedOrders = array_unique(array_merge($this->selectedOrders, $orderIds));
+        }
+    }
+
+    public function bulkChangeStatus($status)
+    {
+        if(empty($this->selectedOrders)) return;
+        
+        if(!\Illuminate\Support\Facades\Gate::allows('order_status_change')){
+            $this->dispatch('alert', ['type' => 'error',  'message' => 'You do not have permission to change status!']);
+            return;
+        }
+
+        foreach ($this->selectedOrders as $orderId) {
+            $this->changeOrderStatus($orderId, $status);
+        }
+        
+        $this->selectedOrders = [];
+        $this->dispatch('alert', ['type' => 'success',  'message' => 'Status successfully updated for selected orders!']);
+    }
+
+    public function bulkDelete()
+    {
+        if(empty($this->selectedOrders)) return;
+
+        if(!\Illuminate\Support\Facades\Gate::allows('order_delete')){
+            $this->dispatch('alert', ['type' => 'error',  'message' => 'You do not have permission to delete orders!']);
+            return;
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () {
+            foreach ($this->selectedOrders as $orderId) {
+                $order = Order::find($orderId);
+                if ($order) {
+                    Schema::disableForeignKeyConstraints();
+                    OrderDetail::where('order_id', $order->id)->delete();
+                    OrderAddonDetail::where('order_id', $order->id)->delete();
+                    Payment::where('order_id', $order->id)->delete();
+                    $order->delete();
+                    Schema::enableForeignKeyConstraints();
+                }
+            }
+        });
+        
+        $this->selectedOrders = [];
+        $this->reloadOrders();
+        $this->dispatch('alert', ['type' => 'success',  'message' => 'Selected orders have been deleted!']);
     }
     /* process while update the content */
     private function getBaseOrderQuery()

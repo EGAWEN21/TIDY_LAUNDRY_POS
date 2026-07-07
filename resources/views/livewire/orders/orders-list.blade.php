@@ -94,6 +94,7 @@
                 <table class="table bordered-table sm-table mb-0">
                   <thead style="position: sticky; top: 0; z-index: 10; background: #fff;">
                     <tr>
+                      <th scope="col" class="tw-w-10"></th>
                       <th scope="col" class="">{{ $lang->data['order_info'] ?? 'Order Info' }}</th>
                       <th scope="col" class="">{{ $lang->data['customer'] ?? 'Customer' }}</th>
                       <th scope="col" class="">{{ $lang->data['order_amount'] ?? 'Order Amount' }}</th>
@@ -129,9 +130,18 @@
                         @endphp
                         {{-- Date Group Header --}}
                         <tr class="order-date-header" wire:click="toggleGroup('{{ $dateKey }}')">
-                            <td colspan="7">
+                            <td colspan="8">
                                 <div class="order-date-header__content">
                                     <div class="order-date-header__left">
+                                        <div class="tw-mr-2" wire:click.stop>
+                                            @php
+                                                $orderIds = collect($group['orders'])->pluck('id')->toArray();
+                                                $allSelected = empty(array_diff($orderIds, $selectedOrders));
+                                            @endphp
+                                            <input type="checkbox" class="form-check-input tw-w-4 tw-h-4" 
+                                                {{ $allSelected ? 'checked' : '' }}
+                                                wire:click="toggleDateGroup('{{ $dateKey }}', {{ json_encode($orderIds) }})">
+                                        </div>
                                         <div class="order-date-header__icon">
                                             <iconify-icon icon="lucide:calendar"></iconify-icon>
                                         </div>
@@ -164,6 +174,9 @@
                         @if(!$isCollapsed)
                         @foreach ($group['orders'] as $item)
                         <tr class="tw-text-xs order-row-status-{{ $item->status }}">
+                            <td class="tw-w-10 tw-align-middle">
+                                <input type="checkbox" class="form-check-input tw-w-4 tw-h-4" value="{{ $item->id }}" wire:model.live="selectedOrders">
+                            </td>
                             <td>
                                 <div class="tw-flex tw-flex-col">
                                     <div class="text-neutral-600">
@@ -458,6 +471,47 @@
             </div>
         </div>
     </div>
+
+    {{-- Floating Bulk Action Bar --}}
+    @if(count($selectedOrders) > 0)
+    <div class="bulk-action-bar tw-fixed tw-bottom-6 tw-left-1/2 tw--translate-x-1/2 tw-bg-white tw-shadow-[0_8px_30px_rgb(0,0,0,0.12)] tw-border tw-border-neutral-200 tw-rounded-full tw-px-6 tw-py-3 tw-flex tw-align-items-center tw-gap-4 tw-z-50" style="animation: slideUp 0.3s ease-out;">
+        <div class="tw-flex tw-items-center tw-gap-2 tw-border-r tw-border-neutral-200 tw-pr-4">
+            <div class="tw-bg-primary-50 tw-text-primary-600 tw-rounded-full tw-size-8 tw-flex tw-justify-center tw-items-center tw-font-semibold">
+                {{ count($selectedOrders) }}
+            </div>
+            <span class="tw-font-medium tw-text-neutral-700 tw-text-sm">{{ count($selectedOrders) === 1 ? 'Order' : 'Orders' }} Selected</span>
+        </div>
+        
+        <div class="tw-flex tw-items-center tw-gap-3">
+            @can('order_status_change')
+            <div class="dropdown">
+                <button type="button" class="btn btn-outline-primary btn-sm radius-8 d-flex align-items-center gap-2" data-bs-toggle="dropdown">
+                    <iconify-icon icon="lucide:list-checks"></iconify-icon>
+                    Change Status
+                </button>
+                <ul class="dropdown-menu tw-mb-2">
+                    <li><a class="dropdown-item d-flex align-items-center gap-2" href="javascript:void(0)" wire:click="bulkChangeStatus(0)"><iconify-icon icon="lucide:clock"></iconify-icon> Pending</a></li>
+                    <li><a class="dropdown-item d-flex align-items-center gap-2" href="javascript:void(0)" wire:click="bulkChangeStatus(1)"><iconify-icon icon="lucide:loader"></iconify-icon> Processing</a></li>
+                    <li><a class="dropdown-item d-flex align-items-center gap-2" href="javascript:void(0)" wire:click="bulkChangeStatus(2)"><iconify-icon icon="lucide:check-circle"></iconify-icon> Ready To Deliver</a></li>
+                    <li><a class="dropdown-item d-flex align-items-center gap-2" href="javascript:void(0)" wire:click="bulkChangeStatus(3)"><iconify-icon icon="lucide:truck"></iconify-icon> Delivered</a></li>
+                    <li><a class="dropdown-item d-flex align-items-center gap-2" href="javascript:void(0)" wire:click="bulkChangeStatus(4)"><iconify-icon icon="lucide:rotate-ccw"></iconify-icon> Returned</a></li>
+                </ul>
+            </div>
+            @endcan
+            
+            @can('order_delete')
+            <button type="button" class="btn btn-danger-100 text-danger-600 btn-sm radius-8 d-flex align-items-center gap-2" wire:click="bulkDelete" wire:confirm="Are you sure you want to delete these {{ count($selectedOrders) }} orders? This cannot be undone.">
+                <iconify-icon icon="fluent:delete-24-regular"></iconify-icon>
+                Delete
+            </button>
+            @endcan
+            
+            <button type="button" class="btn btn-neutral-100 btn-sm radius-8" wire:click="$set('selectedOrders', [])">
+                Cancel
+            </button>
+        </div>
+    </div>
+    @endif
     
     @script
     <script>

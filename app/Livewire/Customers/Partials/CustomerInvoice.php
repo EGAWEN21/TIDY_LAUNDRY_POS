@@ -20,6 +20,7 @@ class CustomerInvoice extends Component
     public $orders;
     public $order, $amount_to_pay, $note, $balance, $payment_mode, $order_filter, $lang;
     public $paid_amount, $customer_name, $search_query;
+    public $collapsedGroups = [];
 
 
     public function render()
@@ -41,6 +42,37 @@ class CustomerInvoice extends Component
     public function filterdata(){
         $orders = Order::where('customer_id',$this->customer->id)->latest()->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
         return $orders;
+    }
+
+    public function getGroupedOrders()
+    {
+        $grouped = [];
+        foreach ($this->orders as $order) {
+            $dateKey = \Carbon\Carbon::parse($order->order_date)->format('Y-m-d');
+            if (!isset($grouped[$dateKey])) {
+                $grouped[$dateKey] = [
+                    'orders' => [],
+                    'count' => 0,
+                    'total_sales' => 0,
+                    'total_paid' => 0,
+                ];
+            }
+            $grouped[$dateKey]['orders'][] = $order;
+            $grouped[$dateKey]['count']++;
+            $grouped[$dateKey]['total_sales'] += $order->total;
+            $grouped[$dateKey]['total_paid'] += \App\Models\Payment::where('order_id', $order->id)->sum('received_amount');
+        }
+        krsort($grouped);
+        return $grouped;
+    }
+
+    public function toggleGroup($date)
+    {
+        if (in_array($date, $this->collapsedGroups)) {
+            $this->collapsedGroups = array_values(array_diff($this->collapsedGroups, [$date]));
+        } else {
+            $this->collapsedGroups[] = $date;
+        }
     }
 
     public function loadOrders()

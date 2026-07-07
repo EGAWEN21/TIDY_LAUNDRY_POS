@@ -13,8 +13,59 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($orders as $item)
-                        <tr class="tw-text-xs">
+                    @php
+                        $groupedOrders = $this->getGroupedOrders();
+                    @endphp
+                    @forelse ($groupedOrders as $dateKey => $group)
+                        @php
+                            $carbonDate = \Carbon\Carbon::parse($dateKey);
+                            if ($carbonDate->isToday()) {
+                                $dateLabel = ($lang->data['today'] ?? 'Today');
+                                $dateSublabel = $carbonDate->format('l, M j');
+                            } elseif ($carbonDate->isYesterday()) {
+                                $dateLabel = ($lang->data['yesterday'] ?? 'Yesterday');
+                                $dateSublabel = $carbonDate->format('l, M j');
+                            } elseif ($carbonDate->isCurrentWeek()) {
+                                $dateLabel = $carbonDate->format('l');
+                                $dateSublabel = $carbonDate->format('M j, Y');
+                            } else {
+                                $dateLabel = $carbonDate->format('l, M j');
+                                $dateSublabel = $carbonDate->format('Y');
+                            }
+                            $isCollapsed = in_array($dateKey, $collapsedGroups);
+                        @endphp
+                        {{-- Date Group Header --}}
+                        <tr class="order-date-header" wire:click="toggleGroup('{{ $dateKey }}')">
+                            <td colspan="5">
+                                <div class="order-date-header__content">
+                                    <div class="order-date-header__left">
+                                        <div class="order-date-header__icon">
+                                            <iconify-icon icon="lucide:calendar"></iconify-icon>
+                                        </div>
+                                        <div>
+                                            <div class="order-date-header__label">{{ $dateLabel }}</div>
+                                            <div class="order-date-header__sublabel">{{ $dateSublabel }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center">
+                                        <div class="order-date-header__stats">
+                                            <span class="order-date-header__stat">
+                                                <iconify-icon icon="lucide:package"></iconify-icon>
+                                                <strong>{{ $group['count'] }}</strong> {{ $group['count'] === 1 ? ($lang->data['invoice'] ?? 'invoice') : ($lang->data['invoices'] ?? 'invoices') }}
+                                            </span>
+                                            <span class="order-date-header__stat">
+                                                <iconify-icon icon="lucide:wallet"></iconify-icon>
+                                                <strong>{{ getFormattedCurrency($group['total_sales']) }}</strong>
+                                            </span>
+                                        </div>
+                                        <iconify-icon icon="lucide:chevron-down" class="order-date-header__toggle {{ $isCollapsed ? 'collapsed' : '' }}"></iconify-icon>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        @if(!$isCollapsed)
+                        @foreach ($group['orders'] as $item)
+                        <tr class="tw-text-xs order-row-status-{{ $item->status }}">
                             <td>
                                 <div class="tw-flex tw-flex-col">
                                     <div class="text-neutral-600">
@@ -26,6 +77,16 @@
                                     <div class="text-neutral-600">
                                         {{ $lang->data['delivery_date'] ?? 'Delivery Date' }} : <span class="tw-font-medium text-primary-light">{{ \Carbon\Carbon::parse($item->delivery_date)->format('d/m/y') }}</span> 
                                     </div>
+                                    {{-- Relative Time --}}
+                                    @php
+                                        $orderTime = \Carbon\Carbon::parse($item->order_date);
+                                    @endphp
+                                    @if($orderTime->isToday())
+                                    <div class="order-relative-time tw-mt-1">
+                                        <iconify-icon icon="lucide:clock"></iconify-icon>
+                                        {{ $orderTime->diffForHumans() }}
+                                    </div>
+                                    @endif
                                 </div>
                             </td>
                             <td class="text-primary">
@@ -94,7 +155,15 @@
                                 </div>
                             </td>
                         </tr>
-                    @endforeach
+                        @endforeach
+                        @endif
+                    @empty
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-secondary-light">
+                                {{ $lang->data['no_data_found'] ?? 'No data found' }}
+                            </td>
+                        </tr>
+                    @endforelse
                 </tbody>
             </table>
             @if ($hasMorePages)
