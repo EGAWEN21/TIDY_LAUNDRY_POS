@@ -197,21 +197,21 @@
               </div>
           </div>
       </div>
-      <div class="tw-flex tw-items-center tw-gap-3 tw-mt-4 tw-w-full tw-h-14">
-          <button class="tw-px-4 tw-font-semibold tw-py-3 tw-h-full tw-bg-gradient-to-r tw-from-slate-800 tw-to-slate-900 dark:tw-from-slate-700 dark:tw-to-slate-800 hover:tw-from-slate-900 hover:tw-to-black tw-transition-all tw-rounded-xl tw-text-white tw-flex tw-items-center tw-justify-center tw-gap-2 tw-w-full tw-border-0 tw-shadow-lg hover:-tw-translate-y-0.5" data-bs-toggle="modal" data-bs-target="#payment">
+      <div class="tw-flex tw-items-center tw-gap-2 tw-mt-1 tw-p-2 tw-w-full tw-h-14">
+          <button class="tw-px-2 tw-justify-center tw-font-semibold tw-py-2 tw-h-full bg-success-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-w-full tw-border-0 tw-shadow-md" data-bs-toggle="modal" data-bs-target="#payment">
               <span>Payment</span>
           </button>
-          <button class="tw-px-4 tw-font-semibold tw-py-3 tw-h-full tw-bg-gradient-to-r tw-from-emerald-500 tw-to-emerald-600 dark:tw-from-emerald-600 dark:tw-to-emerald-700 hover:tw-from-emerald-600 hover:tw-to-emerald-700 tw-transition-all tw-rounded-xl tw-text-white tw-flex tw-items-center tw-justify-center tw-gap-2 tw-w-full tw-border-0 tw-shadow-lg hover:-tw-translate-y-0.5" @click.prevent="$emit('save', 'cash')">
+          <button class="tw-px-2 tw-justify-center tw-font-semibold tw-py-2 tw-h-full bg-info-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-w-full tw-border-0 tw-shadow-md" @click.prevent="$emit('save', 'cash')">
               <span>Cash</span>
           </button>
-          <button class="tw-px-4 tw-font-semibold tw-py-3 tw-h-full tw-bg-gradient-to-r tw-from-amber-500 tw-to-amber-600 dark:tw-from-amber-600 dark:tw-to-amber-700 hover:tw-from-amber-600 hover:tw-to-amber-700 tw-transition-all tw-rounded-xl tw-text-white tw-flex tw-items-center tw-justify-center tw-gap-2 tw-w-full tw-border-0 tw-shadow-lg hover:-tw-translate-y-0.5" @click.prevent="$emit('saveOffline')">
-              <span>Save Offline</span>
+          <button class="tw-px-2 tw-justify-center tw-font-semibold tw-py-2 tw-h-full tw-bg-orange-500 hover:tw-bg-orange-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-w-full tw-border-0 tw-shadow-md" @click.prevent="$emit('saveOffline')">
+              <span>Save</span>
           </button>
-          <button :disabled="isSyncing" class="tw-px-4 tw-font-semibold tw-py-3 tw-h-full tw-bg-gradient-to-r tw-from-primary-600 tw-to-primary-700 hover:tw-from-primary-700 hover:tw-to-primary-800 tw-transition-all tw-rounded-xl tw-text-white tw-flex tw-items-center tw-justify-center tw-gap-2 tw-w-full tw-border-0 tw-shadow-lg hover:-tw-translate-y-0.5 disabled:tw-opacity-50 disabled:tw-cursor-not-allowed disabled:hover:tw-translate-y-0" @click.prevent="$emit('syncAndPrint')">
+          <button :disabled="isSyncing" class="tw-px-2 tw-justify-center tw-font-semibold tw-py-2 tw-h-full bg-primary-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-w-full tw-border-0 tw-shadow-md disabled:tw-opacity-50" @click.prevent="$emit('syncAndPrint')">
               <svg v-if="isSyncing" class="tw-animate-spin -tw-ml-1 tw-mr-2 tw-h-4 tw-w-4 tw-text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="tw-opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="tw-opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
               <span>{{ isSyncing ? 'Syncing...' : 'Sync & Print' }}</span>
           </button>
-          <button class="tw-px-4 tw-py-3 tw-bg-gradient-to-r tw-from-rose-500 tw-to-rose-600 hover:tw-from-rose-600 hover:tw-to-rose-700 tw-transition-all tw-rounded-xl tw-text-white tw-h-full tw-flex tw-items-center tw-justify-center tw-gap-2 tw-border-0 tw-shadow-lg hover:-tw-translate-y-0.5" @click.prevent="$emit('clearAll')">
+          <button class="tw-px-2 tw-py-2 bg-danger-600 tw-rounded-md tw-text-white tw-h-full tw-flex tw-items-center tw-justify-center tw-gap-1.5 tw-border-0 tw-shadow-md" @click.prevent="$emit('clearAll')">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-arrow-repeat" viewBox="0 0 16 16"><path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41m-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9" /><path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5 5 0 0 0 8 3M3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9z" /></svg>
           </button>
       </div>
