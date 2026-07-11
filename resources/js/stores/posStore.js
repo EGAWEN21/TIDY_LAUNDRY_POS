@@ -60,11 +60,17 @@ export const usePosStore = defineStore('pos', {
             }
             return total;
         },
+        cartDiscount: (state) => {
+            return parseFloat(state.discount) || 0;
+        },
         cartTotal: (state) => {
+            let total = 0;
             if(state.settings.tax_type == 2) {
-                return state.cartSubTotal + state.cartAddonsTotal;
+                total = state.cartSubTotal + state.cartAddonsTotal;
+            } else {
+                total = state.cartSubTotal + state.cartAddonsTotal + state.cartTax;
             }
-            return state.cartSubTotal + state.cartAddonsTotal + state.cartTax;
+            return Math.max(0, total - (parseFloat(state.discount) || 0));
         },
         calculateItemTax: (state) => {
             return (item) => {
@@ -176,11 +182,11 @@ export const usePosStore = defineStore('pos', {
         },
 
         async loadFromLocal() {
-            this.services = await db.services.toArray();
+            this.services = (await db.services.toArray()).sort((a, b) => b.id - a.id);
             this.serviceTypes = await db.serviceTypes.toArray();
             this.serviceDetails = await db.serviceDetails.toArray();
-            this.addons = await db.addons.toArray();
-            this.customers = await db.customers.toArray();
+            this.addons = (await db.addons.toArray()).sort((a, b) => b.id - a.id);
+            this.customers = (await db.customers.toArray()).sort((a, b) => b.id - a.id);
             
             const settings = await db.settings.get(1);
             if(settings) {

@@ -179,6 +179,12 @@ const selectService = (service) => {
   
   availableServiceTypes.value = pos.serviceTypes
     .filter(st => typeIds.includes(st.id))
+    .sort((a, b) => {
+      if (a.position !== b.position) {
+        return (a.position || 0) - (b.position || 0);
+      }
+      return a.id - b.id;
+    })
     .map(st => {
       const d = details.find(d => d.service_type_id === st.id);
       return { ...st, price: d.service_price };
@@ -233,7 +239,7 @@ const buildOrderData = (type = 'save') => {
     delivery_date: pos.deliveryDate,
     sub_total: pos.cartSubTotal,
     addon_total: pos.cartAddonsTotal,
-    discount: 0,
+    discount: pos.cartDiscount,
     tax_percentage: pos.settings.tax_percentage,
     tax_amount: pos.cartTax,
     tax_type: pos.settings.tax_type,
