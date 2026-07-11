@@ -8,6 +8,8 @@ use App\Traits\UpdatesPosSyncTimestamp;
 
 class Order extends Model
 {
+    // Updates the 'pos_last_update' cache timestamp when an order is created/modified,
+    // ensuring the Offline POS app instantly syncs updated customer balances.
     use HasFactory, UpdatesPosSyncTimestamp;
     protected $fillable = [
         'order_number',
