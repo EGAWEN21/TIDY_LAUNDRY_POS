@@ -83,7 +83,7 @@
         <DiscountModal />
         <AddonModal />
     </Teleport>
-        <PaymentModal @saveOffline="saveOffline" />
+        <PaymentModal :isSyncing="isSyncingPrint" @saveOffline="saveOffline" @syncAndPrint="syncAndPrint" />
         <CustomerModal @customer-created="(cust) => selectCustomer(cust)" />
 </template>
 
