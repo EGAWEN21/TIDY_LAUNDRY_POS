@@ -7,7 +7,7 @@
 <div :class="[isDarkMode ? 'premium-bg-dark' : 'premium-bg-light', 'tw-w-full tw-min-h-screen tw-transition-colors tw-duration-300']">
     <div :class="[isDarkMode ? 'glass-panel-dark' : 'glass-panel-light', 'tw-w-full tw-flex tw-justify-between tw-items-center tw-shadow-sm tw-border-b tw-z-10 tw-relative']">
         <div class="tw-flex tw-gap-2 tw-px-3 tw-py-2 tw-items-center">
-            <a href="{{ route('orders') }}" class="no-underline">
+            <a href="/admin/orders" class="no-underline">
                 <button
                     class="bg-primary-600 tw-text-white tw-text-xs radius-8 px-20 tw-py-2 d-flex align-items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5"
