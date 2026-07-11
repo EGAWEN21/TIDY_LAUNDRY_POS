@@ -64,7 +64,7 @@
     </div>
 
     <div class="tw-w-[100%] tw-h-[calc(100vh-3.5rem)] tw-flex lg:tw-flex-row tw-flex-col tw-relative tw-overflow-hidden">
-        <div class="lg:tw-w-1/2 tw-w-full tw-flex-col tw-h-full tw-p-3 tw-overflow-y-auto">
+        <div class="lg:tw-w-5/12 tw-w-full tw-flex-col tw-h-full tw-p-3 tw-overflow-y-auto">
             <ProductGrid 
                 v-model:searchQuery="searchQuery" 
                 :filteredServices="filteredServices" 

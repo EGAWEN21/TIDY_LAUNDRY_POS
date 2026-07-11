@@ -44,7 +44,7 @@
     </div>
 
     <div class="tw-w-[100%] tw-h-full tw-flex lg:tw-flex-row tw-flex-col  tw-relative tw-mt-0.5">
-        <div class="lg:tw-w-1/2 tw-w-full tw-flex-col tw-h-[calc(100vh-4.0rem)]  tw-p-2 tw-bg-white p-16">
+        <div class="lg:tw-w-5/12 tw-w-full tw-flex-col tw-h-[calc(100vh-4.0rem)]  tw-p-2 tw-bg-white p-16">
             <div class="tw-flex tw-flex-col">
                 <div class="icon-field has-validation">
                     <span class="icon tw-translate-y-[2px]">
@@ -90,7 +90,7 @@
         </div>
         <div class=" tw-h-[calc(100vh-4rem)]  tw-bg-white p-16"
             :class="shown && detached ? 'tw-absolute tw-inset-0 tw-w-full' :
-                ' tw-hidden lg:tw-block lg:tw-w-1/2 tw-w-full tw-shrink-0 '">
+                ' tw-hidden lg:tw-block lg:tw-w-7/12 tw-w-full tw-shrink-0 '">
             <div class="tw-flex tw-items-center tw-gap-8 tw-w-full">
                 <div class="tw-flex tw-min-w-fit tw-shrink tw-flex-col" x-data="{}">
                     <div class="tw-text-sm">{{ $lang->data['order'] ?? 'Order' }} : <span
