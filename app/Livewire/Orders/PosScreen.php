@@ -135,6 +135,26 @@ class PosScreen extends Component
                 $this->selected_addons[$row->addon_id] = true;
             }
             
+        } else {
+            $draft = \App\Models\PosDraft::where('user_id', Auth::id())->first();
+            if ($draft && isset($draft->payload)) {
+                $payload = $draft->payload;
+                $this->selservices = $payload['selservices'] ?? [];
+                $this->inputs = $payload['inputs'] ?? [];
+                $this->inputi = $payload['inputi'] ?? 0;
+                $this->prices = $payload['prices'] ?? [];
+                $this->selling_price = $payload['selling_price'] ?? [];
+                $this->quantity = $payload['quantity'] ?? [];
+                $this->selected_type = $payload['selected_type'] ?? [];
+                $this->selected_addons = $payload['selected_addons'] ?? [];
+                $this->colors = $payload['colors'] ?? [];
+                if (isset($payload['customer_id'])) {
+                    $this->selectCustomer($payload['customer_id']);
+                }
+                $this->discount = $payload['discount'] ?? 0;
+                $this->payments = $payload['payments'] ?? [];
+                $this->payment_notes = $payload['payment_notes'] ?? '';
+            }
         }
         if (session()->has('selected_language')) {
             /* if session has selected language */
@@ -469,6 +489,28 @@ class PosScreen extends Component
         $this->total = ($this->sub_total + $itemtaxtotal2) - $this->discount;
         $this->total = round($this->total,3,PHP_ROUND_HALF_UP);
         $this->balance = $this->total - $this->paid_amount;
+        
+        if (!$this->order && !$this->request_id) {
+            $draftPayload = [
+                'selservices' => $this->selservices,
+                'inputs' => $this->inputs,
+                'inputi' => $this->inputi,
+                'prices' => $this->prices,
+                'selling_price' => $this->selling_price,
+                'quantity' => $this->quantity,
+                'selected_type' => $this->selected_type,
+                'selected_addons' => $this->selected_addons,
+                'colors' => $this->colors,
+                'customer_id' => $this->selected_customer->id ?? null,
+                'discount' => $this->discount,
+                'payments' => $this->payments,
+                'payment_notes' => $this->payment_notes,
+            ];
+            \App\Models\PosDraft::updateOrCreate(
+                ['user_id' => Auth::id()],
+                ['payload' => $draftPayload]
+            );
+        }
     }
     //add payment
     public function add_payment(){
@@ -756,6 +798,7 @@ class PosScreen extends Component
     //Reload page on clicking clearall
     public function clearAll()
     {
+        \App\Models\PosDraft::where('user_id', Auth::id())->delete();
         $this->dispatch('reloadpage');
     }
 

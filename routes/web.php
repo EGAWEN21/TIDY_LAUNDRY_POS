@@ -15,7 +15,7 @@ Route::get('/receipt/{id}', \App\Livewire\Orders\PrintOrder::class)->name('recei
 
 Route::group(['middleware' => [\App\Http\Middleware\InstalledMiddleware::class]], function () {
     Route::get('/', \App\Livewire\Auth\Login::class)->name('login');
-    Route::group(['prefix' => 'admin', 'middleware' => [Store::class, 'single.session']], function () {
+    Route::group(['prefix' => 'admin', 'middleware' => ['auth', Store::class, 'single.session']], function () {
         Route::get('/dashboard', \App\Livewire\HomePage::class)->name('admin.dashboard');
         Route::get('/notifications', \App\Livewire\System\Notifications::class)->name('notifications.index');
         Route::get('/pos', \App\Livewire\Orders\PosScreen::class)->name('orders.pos');
