@@ -208,7 +208,7 @@
                         </div>
 
                         <div
-                            class="tw-flex tw-h-[calc(100dvh-23rem)] tw-overflow-y-auto tw-overflow-x-auto tw-w-full tw-shrink-0">
+                            class="tw-flex tw-h-[calc(100dvh-28rem)] tw-overflow-y-auto tw-overflow-x-auto tw-w-full tw-shrink-0">
                             <table class="  tw-w-full tw-text-xs tw-shrink-0  tw-h-fit">
                                 <tbody>
                                     @php

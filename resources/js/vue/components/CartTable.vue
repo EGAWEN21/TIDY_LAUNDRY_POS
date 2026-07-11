@@ -78,7 +78,7 @@
                       </table>
                   </div>
 
-                  <div class="tw-flex tw-h-[calc(100dvh-23rem)] tw-overflow-y-auto tw-overflow-x-auto tw-w-full tw-shrink-0">
+                  <div class="tw-flex tw-h-[calc(100dvh-28rem)] tw-overflow-y-auto tw-overflow-x-auto tw-w-full tw-shrink-0">
                       <table class="tw-w-full tw-text-xs tw-shrink-0 tw-h-fit">
                           <TransitionGroup name="cart-list" tag="tbody">
                               <tr v-for="(item, key) in pos.cart" :key="key" class="tw-border-b tw-border-neutral-200 dark:tw-border-neutral-800/50 tw-border-solid tw-transition-all tw-duration-200">
