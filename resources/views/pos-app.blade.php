@@ -23,6 +23,11 @@
     <link href="{{asset('assets/plugins/toastr.min.css')}}" rel="stylesheet" />
     <link rel="stylesheet" href="{{ asset('assets/css/style.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/custom.css') }}">
+    <!-- Google Fonts Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     @vite('resources/css/app.css')
     
     <!-- PWA Manifest & Theme Color -->
@@ -59,7 +64,7 @@
         // Register PWA Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/build/sw.js', { scope: '/admin/pos-app/' })
+                navigator.serviceWorker.register('/build/sw.js', { scope: '/admin/pos/' })
                 .then(registration => {
                     console.log('PWA ServiceWorker registered successfully');
                 })
@@ -72,7 +77,7 @@
 </head>
 
 <body>
-    <div id="pos-app"></div>
+    <div id="pos-app" class="tw-font-sans"></div>
     
     <script src="{{ asset('assets/js/lib/jquery-3.7.1.min.js') }}"></script>
     <!-- Bootstrap js -->

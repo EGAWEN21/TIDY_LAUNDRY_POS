@@ -18,10 +18,10 @@ Route::group(['middleware' => [\App\Http\Middleware\InstalledMiddleware::class]]
     Route::group(['prefix' => 'admin', 'middleware' => ['auth', Store::class, 'single.session']], function () {
         Route::get('/dashboard', \App\Livewire\HomePage::class)->name('admin.dashboard');
         Route::get('/notifications', \App\Livewire\System\Notifications::class)->name('notifications.index');
-        Route::get('/pos', \App\Livewire\Orders\PosScreen::class)->name('orders.pos');
-        Route::get('/pos-app', function () {
+        Route::get('/online-pos', \App\Livewire\Orders\PosScreen::class)->name('orders.online-pos');
+        Route::get('/pos', function () {
             return view('pos-app');
-        })->name('orders.pos-app')->middleware('auth');
+        })->name('orders.pos')->middleware('auth');
         Route::get('/pos/edit/{id}', \App\Livewire\Orders\PosScreen::class)->name('orders.pos.edit');
         Route::get('/order-status-screen', \App\Livewire\Orders\OrderStatusScreen::class)->name('orders.status-screen');
         Route::group(['prefix' => 'orders/'], function () {

@@ -27,6 +27,12 @@
                     <span>{{ $lang->data['pos'] ?? 'POS' }}</span>
                 </a>
             </li>
+            <li>
+                <a href="{{route('orders.online-pos')}}">
+                    <iconify-icon icon="mdi:monitor-dashboard" class="menu-icon"></iconify-icon>
+                    <span>{{ $lang->data['online_pos'] ?? 'Online POS' }}</span>
+                </a>
+            </li>
             @endcan
             @can('order_list')
             <li>

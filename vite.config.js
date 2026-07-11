@@ -20,12 +20,55 @@ export default defineConfig({
         VitePWA({
             outDir: 'public/build',
             buildBase: '/build/',
-            scope: '/admin/pos-app/',
+            scope: '/admin/pos/',
             registerType: 'autoUpdate',
             injectRegister: 'script',
             workbox: {
-                navigateFallback: '/admin/pos-app',
+                navigateFallback: '/admin/pos',
                 globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,ttf,eot}'],
+                runtimeCaching: [
+                    {
+                        urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+                        handler: 'CacheFirst',
+                        options: {
+                            cacheName: 'google-fonts-cache',
+                            expiration: {
+                                maxEntries: 10,
+                                maxAgeSeconds: 60 * 60 * 24 * 365, // 365 days
+                            },
+                            cacheableResponse: {
+                                statuses: [0, 200]
+                            }
+                        }
+                    },
+                    {
+                        urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+                        handler: 'CacheFirst',
+                        options: {
+                            cacheName: 'gstatic-fonts-cache',
+                            expiration: {
+                                maxEntries: 10,
+                                maxAgeSeconds: 60 * 60 * 24 * 365, // 365 days
+                            },
+                            cacheableResponse: {
+                                statuses: [0, 200]
+                            }
+                        }
+                    },
+                    {
+                        // Ensure API sync routes are NetworkOnly to prevent Service Worker proxy timeouts on chunked data
+                        urlPattern: /\/api\/pos\/.*/i,
+                        handler: 'NetworkOnly',
+                        options: {
+                            backgroundSync: {
+                                name: 'api-syncQueue',
+                                options: {
+                                    maxRetentionTime: 24 * 60 // 24 hours
+                                }
+                            }
+                        }
+                    }
+                ]
             },
             manifest: {
                 name: 'TidyPOS Offline',
@@ -34,7 +77,7 @@ export default defineConfig({
                 theme_color: '#ffffff',
                 background_color: '#ffffff',
                 display: 'standalone',
-                start_url: '/admin/pos-app',
+                start_url: '/admin/pos',
                 icons: [
                     {
                         src: '/assets/img/logo-ct.png',

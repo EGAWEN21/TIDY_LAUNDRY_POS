@@ -104,96 +104,99 @@ class PosApiController extends Controller
     {
         $orders = $request->input('orders', []);
         $syncedIds = [];
+        $requiresApproval = [];
 
         foreach ($orders as $offlineOrder) {
-            \Illuminate\Support\Facades\DB::transaction(function () use ($offlineOrder, &$syncedIds) {
-                $order_number = $this->generateOrderID();
-
+            \Illuminate\Support\Facades\DB::transaction(function () use ($offlineOrder, &$syncedIds, &$requiresApproval) {
+                
                 // Safely resolve the real customer ID from the database using phone number
                 $customerId = $offlineOrder['customer_id'] ?? null;
                 if (!empty($offlineOrder['phone_number'])) {
                     $dbCustomer = Customer::where('phone', $offlineOrder['phone_number'])->first();
                     if ($dbCustomer) {
                         $customerId = $dbCustomer->id;
+                        $offlineOrder['customer_id'] = $customerId;
                     }
                 }
 
-                $order = Order::create([
-                    'order_number' => $order_number,
-                    'customer_id' => $customerId,
-                    'customer_name' => $offlineOrder['customer_name'] ?? null,
-                    'phone_number' => $offlineOrder['phone_number'] ?? null,
-                    'order_date' => $offlineOrder['order_date'],
-                    'delivery_date' => $offlineOrder['delivery_date'],
-                    'sub_total' => $offlineOrder['sub_total'],
-                    'addon_total' => $offlineOrder['addon_total'],
-                    'discount' => $offlineOrder['discount'] ?? 0,
-                    'tax_percentage' => $offlineOrder['tax_percentage'],
-                    'tax_amount' => $offlineOrder['tax_amount'],
-                    'tax_type' => $offlineOrder['tax_type'],
-                    'taxable_amount' => $offlineOrder['taxable_amount'],
-                    'total' => $offlineOrder['total'],
-                    'note' => $offlineOrder['note'] ?? null,
-                    'status' => 0,
-                    'order_type' => 1,
-                    'created_by' => Auth::id(),
-                    'financial_year_id' => getFinancialYearId()
-                ]);
-
-                if (isset($offlineOrder['details'])) {
-                    foreach ($offlineOrder['details'] as $detail) {
-                        OrderDetail::create([
-                            'order_id' => $order->id,
-                            'service_id' => $detail['service_id'],
-                            'service_name' => $detail['service_name'],
-                            'service_quantity' => $detail['service_quantity'],
-                            'service_detail_total' => $detail['service_detail_total'],
-                            'service_price' => $detail['service_price'],
-                            'color_code' => $detail['color_code'] ?? null,
-                        ]);
+                if (Auth::user()->hasPermission('accept_reject_order')) {
+                    // User has manager privileges, bypass requests and establish order directly
+                    $order = \App\Services\OrderService::establishOrder($offlineOrder, Auth::id());
+                    
+                    if(isset($offlineOrder['uuid'])) {
+                        $syncedIds[$offlineOrder['uuid']] = $order->id;
+                        $requiresApproval[$offlineOrder['uuid']] = false;
                     }
-                }
 
-                if (isset($offlineOrder['addons'])) {
-                    foreach ($offlineOrder['addons'] as $addon) {
-                        OrderAddonDetail::create([
-                            'order_id' => $order->id,
-                            'addon_id' => $addon['addon_id'],
-                            'addon_name' => $addon['addon_name'],
-                            'addon_price' => $addon['addon_price'],
-                        ]);
+                    // Trigger automated SMS for order creation
+                    sendOrderCreateSMS($order->id, $order->customer_id);
+
+                } else {
+                    // User does not have privileges, create an OrderRequest
+                    $orderRequest = \App\Models\OrderRequest::create([
+                        'request_number' => \App\Services\OrderService::generateRequestID(),
+                        'customer_id' => $customerId,
+                        'customer_name' => $offlineOrder['customer_name'] ?? null,
+                        'phone_number' => $offlineOrder['phone_number'] ?? null,
+                        'order_date' => $offlineOrder['order_date'],
+                        'delivery_date' => $offlineOrder['delivery_date'],
+                        'sub_total' => $offlineOrder['sub_total'],
+                        'addon_total' => $offlineOrder['addon_total'],
+                        'discount' => $offlineOrder['discount'] ?? 0,
+                        'tax_percentage' => $offlineOrder['tax_percentage'],
+                        'tax_amount' => $offlineOrder['tax_amount'],
+                        'tax_type' => $offlineOrder['tax_type'],
+                        'taxable_amount' => $offlineOrder['taxable_amount'],
+                        'total' => $offlineOrder['total'],
+                        'note' => $offlineOrder['note'] ?? null,
+                        'status' => 0, // Pending
+                        'order_type' => 1,
+                        'created_by' => Auth::id(),
+                        'financial_year_id' => getFinancialYearId()
+                    ]);
+
+                    // Store details as JSON payload in request to be processed upon approval
+                    $payload = [
+                        'details' => $offlineOrder['details'] ?? [],
+                        'addons' => $offlineOrder['addons'] ?? [],
+                        'payments' => $offlineOrder['payments'] ?? []
+                    ];
+                    $orderRequest->payload = json_encode($payload);
+                    $orderRequest->save();
+
+                    // Notify managers
+                    $managers = \App\Models\User::whereHas('roles', function($q) {
+                        $q->whereHas('permissions', function($p) {
+                            $p->where('name', 'accept_reject_order');
+                        });
+                    })->get();
+
+                    foreach($managers as $manager) {
+                        $manager->notify(new \App\Notifications\SystemNotification(
+                            'New Order Request',
+                            'A new order request (' . $orderRequest->request_number . ') requires your approval.',
+                            route('orders.requests')
+                        ));
                     }
-                }
 
-                if (isset($offlineOrder['payments'])) {
-                    foreach ($offlineOrder['payments'] as $payment) {
-                        Payment::create([
-                            'payment_date' => $offlineOrder['order_date'],
-                            'customer_id' => $customerId,
-                            'customer_name' => $offlineOrder['customer_name'] ?? null,
-                            'order_id' => $order->id,
-                            'payment_type' => $payment['payment_type'],
-                            'received_amount' => $payment['amount'],
-                            'notes' => $payment['notes'] ?? "Notes",
-                            'financial_year_id' => getFinancialYearId(),
-                            'created_by' => Auth::id(),
-                        ]);
+                    if(isset($offlineOrder['uuid'])) {
+                        $syncedIds[$offlineOrder['uuid']] = $orderRequest->id; // Technically request ID, not order ID, but frontend can't print it anyway.
+                        $requiresApproval[$offlineOrder['uuid']] = true;
                     }
-                }
-
-                if(isset($offlineOrder['uuid'])) {
-                    $syncedIds[$offlineOrder['uuid']] = $order->id;
                 }
             });
         }
 
-        return response()->json(['synced_orders' => $syncedIds]);
+        return response()->json([
+            'synced_orders' => $syncedIds,
+            'requires_approval' => $requiresApproval
+        ]);
     }
 
     private function generateOrderID()
     {
         $code_prefix = 'ORD-';
-        $ordernumber = Order::Orderby('id', 'desc')->first();
+        $ordernumber = Order::lockForUpdate()->orderBy('id', 'desc')->first();
         if ($ordernumber && $ordernumber->order_number != "") {
             $code = explode("-", $ordernumber->order_number);
             $new_code = (int)$code[1] + 1;

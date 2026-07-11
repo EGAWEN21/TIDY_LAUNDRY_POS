@@ -587,71 +587,74 @@ class PosScreen extends Component
             $order = $this->order;
             if($this->order)
             {
-                Order::whereId($this->order->id)->update([
-                    'customer_id'   => $this->selected_customer->id ?? null,
-                    'customer_name' => $this->selected_customer->name ?? null,
-                    'phone_number'  => $this->selected_customer->phone ?? null,
-                    'order_date'    => Carbon::parse($this->date)->toDateTimeString(),
-                    'delivery_date' => Carbon::parse($this->delivery_date)->toDateTimeString(),
-                    'sub_total' => $this->sub_total,
-                    'addon_total'   => $this->addon_total,
-                    'discount'  => $this->discount ?? 0,
-                    'tax_percentage'    => $this->tax_percent,
-                    'tax_amount'    => $this->tax,
-                    'tax_type'  => getTaxType(),
-                    'taxable_amount'    => $this->taxable,
-                    'total' => $this->total,
-                    'note'  => $this->payment_notes,
-                    'status'    => 0,
-                    'order_type'    => 1,
-                ],$this->order->id);
-                OrderDetail::whereOrderId($this->order->id)->delete();
-                OrderAddonDetail::whereOrderId($this->order->id)->delete();
-                Payment::whereOrderId($this->order->id)->delete();
-                
-                foreach ($this->selservices as $key => $value) {
-                    $service = Service::where('id', $value['service'])->first();
-                    $service_type = ServiceType::where('id', $value['service_type'])->first();
-                    $service_type_detail = ServiceDetail::where('service_type_id', $service_type->id)->first();
-                    $amount += $this->prices[$key];
-                    OrderDetail::create([
-                        'order_id'  => $order->id,
-                        'service_id'    => $service->id,
-                        'service_name'  => $service_type->service_type_name,
-                        'service_quantity'  => $this->quantity[$key],
-                        'service_detail_total'  => $this->selling_price[$key] * $this->quantity[$key],
-                        'service_price' => $this->selling_price[$key],
-                        'color_code' => $this->colors[$key],
+                \Illuminate\Support\Facades\DB::transaction(function() use ($order) {
+                    Order::whereId($order->id)->update([
+                        'customer_id'   => $this->selected_customer->id ?? null,
+                        'customer_name' => $this->selected_customer->name ?? null,
+                        'phone_number'  => $this->selected_customer->phone ?? null,
+                        'order_date'    => Carbon::parse($this->date)->toDateTimeString(),
+                        'delivery_date' => Carbon::parse($this->delivery_date)->toDateTimeString(),
+                        'sub_total' => $this->sub_total,
+                        'addon_total'   => $this->addon_total,
+                        'discount'  => $this->discount ?? 0,
+                        'tax_percentage'    => $this->tax_percent,
+                        'tax_amount'    => $this->tax,
+                        'tax_type'  => getTaxType(),
+                        'taxable_amount'    => $this->taxable,
+                        'total' => $this->total,
+                        'note'  => $this->payment_notes,
+                        'status'    => 0,
+                        'order_type'    => 1,
                     ]);
-                }
-                if ($this->selected_addons) {
-                    foreach ($this->selected_addons as $key => $value) {
-                        if ($value === true) {
-                            $addon = Addon::where('id', $key)->first();
-                            \App\Models\OrderAddonDetail::create([
+                    OrderDetail::whereOrderId($order->id)->delete();
+                    OrderAddonDetail::whereOrderId($order->id)->delete();
+                    Payment::whereOrderId($order->id)->delete();
+                    
+                    $amount = 0;
+                    foreach ($this->selservices as $key => $value) {
+                        $service = Service::where('id', $value['service'])->first();
+                        $service_type = ServiceType::where('id', $value['service_type'])->first();
+                        $service_type_detail = ServiceDetail::where('service_type_id', $service_type->id)->first();
+                        $amount += $this->prices[$key];
+                        OrderDetail::create([
+                            'order_id'  => $order->id,
+                            'service_id'    => $service->id,
+                            'service_name'  => $service_type->service_type_name,
+                            'service_quantity'  => $this->quantity[$key],
+                            'service_detail_total'  => $this->selling_price[$key] * $this->quantity[$key],
+                            'service_price' => $this->selling_price[$key],
+                            'color_code' => $this->colors[$key] ?? null,
+                        ]);
+                    }
+                    if ($this->selected_addons) {
+                        foreach ($this->selected_addons as $key => $value) {
+                            if ($value === true) {
+                                $addon = Addon::where('id', $key)->first();
+                                \App\Models\OrderAddonDetail::create([
+                                    'order_id'  => $order->id,
+                                    'addon_id'    => $addon->id,
+                                    'addon_name'    => $addon->addon_name,
+                                    'addon_price'   => $addon->addon_price,
+                                ]);
+                            }
+                        }
+                    }
+                    if (count($this->payments) > 0) {
+                        foreach ($this->payments as $payment) {
+                            \App\Models\Payment::create([
+                                'payment_date'  => $this->date,
+                                'customer_id'   => $this->selected_customer->id ?? null,
+                                'customer_name' => $this->selected_customer->name ?? null,
                                 'order_id'  => $order->id,
-                                'addon_id'    => $addon->id,
-                                'addon_name'    => $addon->addon_name,
-                                'addon_price'   => $addon->addon_price,
+                                'payment_type'  => $payment['payment_type'],
+                                'received_amount'    => $payment['amount'],
+                                'notes'  =>  $payment['notes'] ?? "Notes",
+                                'financial_year_id' => getFinancialYearId(),
+                                'created_by'    => Auth::user()->id,
                             ]);
                         }
                     }
-                }
-                if (count($this->payments) > 0) {
-                    foreach ($this->payments as $payment) {
-                        \App\Models\Payment::create([
-                            'payment_date'  => $this->date,
-                            'customer_id'   => $this->selected_customer->id ?? null,
-                            'customer_name' => $this->selected_customer->name ?? null,
-                            'order_id'  => $order->id,
-                            'payment_type'  => $payment['payment_type'],
-                            'received_amount'    => $payment['amount'],
-                            'notes'  =>  $payment['notes'] ?? "Notes",
-                            'financial_year_id' => getFinancialYearId(),
-                            'created_by'    => Auth::user()->id,
-                        ]);
-                    }
-                }
+                });
                 $this->flag = 1;
                 $this->dispatch('alert', ['type' => 'success',  'message' => $order->order_number . ' Was Successfully Updated!']);
                 if(\Illuminate\Support\Facades\Gate::allows('order_print')){

@@ -14,11 +14,17 @@ export const usePosStore = defineStore('pos', {
         cartAddons: [],
         cartCustomer: null,
         payments: [],
-        cartDiscount: 0,
         cartDiscountType: null,
+        paymentNotes: '',
+        discount: 0,
+        orderDate: new Date().toISOString().split('T')[0],
+        deliveryDate: (() => { const d = new Date(); d.setDate(d.getDate() + 2); return d.toISOString().split('T')[0]; })(),
+        customerQuery: '',
         isOnline: navigator.onLine,
         isSyncing: false,
         lastSyncTimestamp: 0,
+        needsReAuth: false,
+        syncErrors: 0,
     }),
     
     getters: {
@@ -91,6 +97,18 @@ export const usePosStore = defineStore('pos', {
             // Set Axios token
             axios.defaults.headers.common['Authorization'] = `Bearer ${window.PosConfig.apiToken}`;
             axios.defaults.headers.common['Accept'] = 'application/json';
+
+            // Global Axios Interceptor for 401 Unauthorized (Step 4)
+            axios.interceptors.response.use(
+                response => response,
+                error => {
+                    if (error.response && error.response.status === 401) {
+                        this.needsReAuth = true;
+                        this.isSyncing = false;
+                    }
+                    return Promise.reject(error);
+                }
+            );
 
             if(this.isOnline) {
                 await this.fetchFromServer();
@@ -171,42 +189,87 @@ export const usePosStore = defineStore('pos', {
         },
         
         async syncOfflineData() {
-            if(this.isSyncing || !this.isOnline) return;
+            if(this.isSyncing || !this.isOnline || this.needsReAuth) return { success: false, reason: 'offline_or_syncing' };
             this.isSyncing = true;
+            
+            let syncResult = {
+                success: true,
+                syncedOrders: {},
+                requiresApproval: {}
+            };
+            
             try {
-                // Fetch pending customers
-                const pendingCustomers = await db.syncQueue.where('type').equals('customer').toArray();
-                if(pendingCustomers.length > 0) {
-                    const payload = pendingCustomers.map(p => p.data);
-                    const response = await axios.post('/api/pos/sync-customers', { customers: payload });
-                    
-                    if(response.data.synced_customers) {
-                        for(let uuid in response.data.synced_customers) {
-                            const item = pendingCustomers.find(p => p.data.uuid === uuid);
-                            if(item) await db.syncQueue.delete(item.id);
+                const chunkArray = (array, size) => {
+                    const result = [];
+                    for (let i = 0; i < array.length; i += size) result.push(array.slice(i, i + size));
+                    return result;
+                };
+
+                // Sync Customers in chunks
+                const allCustomers = await db.syncQueue.where('type').equals('customer').toArray();
+                const pendingCustomers = allCustomers.filter(c => c.status !== 'error');
+                const customerChunks = chunkArray(pendingCustomers, 20);
+
+                for (const chunk of customerChunks) {
+                    try {
+                        const payload = chunk.map(p => p.data);
+                        const response = await axios.post('/api/pos/sync-customers', { customers: payload });
+                        
+                        if(response.data.synced_customers) {
+                            for(let uuid in response.data.synced_customers) {
+                                const item = chunk.find(p => p.data.uuid === uuid);
+                                if(item) await db.syncQueue.delete(item.id);
+                            }
                         }
+                    } catch (error) {
+                        if (error.response && error.response.status === 401) break;
+                        for (const item of chunk) {
+                            const newCount = (item.retry_count || 0) + 1;
+                            const newStatus = newCount > 3 ? 'error' : 'pending';
+                            await db.syncQueue.update(item.id, { retry_count: newCount, status: newStatus });
+                        }
+                        syncResult.success = false;
                     }
                 }
 
-                // Fetch pending orders
-                const pendingOrders = await db.syncQueue.where('type').equals('order').toArray();
-                if(pendingOrders.length > 0) {
-                    const payload = pendingOrders.map(p => p.data);
-                    const response = await axios.post('/api/pos/sync-orders', { orders: payload });
-                    
-                    // Delete synced items from queue
-                    if(response.data.synced_orders) {
-                        for(let uuid in response.data.synced_orders) {
-                            const item = pendingOrders.find(p => p.data.uuid === uuid);
-                            if(item) await db.syncQueue.delete(item.id);
+                // Sync Orders in chunks
+                const allOrders = await db.syncQueue.where('type').equals('order').toArray();
+                const pendingOrders = allOrders.filter(o => o.status !== 'error');
+                const orderChunks = chunkArray(pendingOrders, 20);
+
+                for (const chunk of orderChunks) {
+                    try {
+                        const payload = chunk.map(p => p.data);
+                        const response = await axios.post('/api/pos/sync-orders', { orders: payload });
+                        
+                        if(response.data.synced_orders) {
+                            for(let uuid in response.data.synced_orders) {
+                                syncResult.syncedOrders[uuid] = response.data.synced_orders[uuid];
+                                if (response.data.requires_approval) {
+                                    syncResult.requiresApproval[uuid] = response.data.requires_approval[uuid];
+                                }
+                                const item = chunk.find(p => p.data.uuid === uuid);
+                                if(item) await db.syncQueue.delete(item.id);
+                            }
                         }
+                    } catch (error) {
+                        if (error.response && error.response.status === 401) break;
+                        for (const item of chunk) {
+                            const newCount = (item.retry_count || 0) + 1;
+                            const newStatus = newCount > 3 ? 'error' : 'pending';
+                            await db.syncQueue.update(item.id, { retry_count: newCount, status: newStatus });
+                        }
+                        syncResult.success = false;
                     }
                 }
-            } catch(error) {
-                console.error("Sync failed", error);
+            } catch (error) {
+                console.error("Global Sync Error:", error);
+                syncResult.success = false;
             } finally {
                 this.isSyncing = false;
+                await this.checkUpdates();
             }
+            return syncResult;
         },
 
         increaseQty(index) {

@@ -13,78 +13,86 @@ class OrderService
 {
     public static function establishOrder($payload, $userId)
     {
-        $order_number = self::generateOrderID();
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($payload, $userId) {
+            $order_number = self::generateOrderID();
 
-        $order = Order::create([
-            'order_number' => $order_number,
-            'customer_id' => $payload['customer_id'] ?? null,
-            'customer_name' => $payload['customer_name'] ?? null,
-            'phone_number' => $payload['phone_number'] ?? null,
-            'order_date' => Carbon::parse($payload['order_date'])->toDateTimeString(),
-            'delivery_date' => Carbon::parse($payload['delivery_date'])->toDateTimeString(),
-            'sub_total' => $payload['sub_total'],
-            'addon_total' => $payload['addon_total'],
-            'discount' => $payload['discount'] ?? 0,
-            'tax_percentage' => $payload['tax_percentage'],
-            'tax_amount' => $payload['tax_amount'],
-            'tax_type' => $payload['tax_type'],
-            'taxable_amount' => $payload['taxable_amount'],
-            'total' => $payload['total'],
-            'note' => $payload['note'] ?? null,
-            'status' => 0,
-            'order_type' => 1,
-            'created_by' => $userId,
-            'financial_year_id' => getFinancialYearId()
-        ]);
+            $order = Order::create([
+                'order_number' => $order_number,
+                'customer_id' => $payload['customer_id'] ?? null,
+                'customer_name' => $payload['customer_name'] ?? null,
+                'phone_number' => $payload['phone_number'] ?? null,
+                'order_date' => Carbon::parse($payload['order_date'])->toDateTimeString(),
+                'delivery_date' => Carbon::parse($payload['delivery_date'])->toDateTimeString(),
+                'sub_total' => $payload['sub_total'],
+                'addon_total' => $payload['addon_total'],
+                'discount' => $payload['discount'] ?? 0,
+                'tax_percentage' => $payload['tax_percentage'],
+                'tax_amount' => $payload['tax_amount'],
+                'tax_type' => $payload['tax_type'],
+                'taxable_amount' => $payload['taxable_amount'],
+                'total' => $payload['total'],
+                'note' => $payload['note'] ?? null,
+                'status' => 0,
+                'order_type' => 1,
+                'created_by' => $userId,
+                'financial_year_id' => getFinancialYearId()
+            ]);
 
-        if (isset($payload['details'])) {
-            foreach ($payload['details'] as $detail) {
-                OrderDetail::create([
-                    'order_id' => $order->id,
-                    'service_id' => $detail['service_id'],
-                    'service_name' => $detail['service_name'],
-                    'service_quantity' => $detail['service_quantity'],
-                    'service_detail_total' => $detail['service_detail_total'],
-                    'service_price' => $detail['service_price'],
-                    'color_code' => $detail['color_code'] ?? null,
-                ]);
+            if (isset($payload['details'])) {
+                foreach ($payload['details'] as $detail) {
+                    OrderDetail::create([
+                        'order_id' => $order->id,
+                        'service_id' => $detail['service_id'],
+                        'service_name' => $detail['service_name'],
+                        'service_quantity' => $detail['service_quantity'],
+                        'service_detail_total' => $detail['service_detail_total'],
+                        'service_price' => $detail['service_price'],
+                        'color_code' => $detail['color_code'] ?? null,
+                    ]);
+                }
             }
-        }
 
-        if (isset($payload['addons'])) {
-            foreach ($payload['addons'] as $addon) {
-                OrderAddonDetail::create([
-                    'order_id' => $order->id,
-                    'addon_id' => $addon['addon_id'],
-                    'addon_name' => $addon['addon_name'],
-                    'addon_price' => $addon['addon_price'],
-                ]);
+            if (isset($payload['addons'])) {
+                foreach ($payload['addons'] as $addon) {
+                    OrderAddonDetail::create([
+                        'order_id' => $order->id,
+                        'addon_id' => $addon['addon_id'],
+                        'addon_name' => $addon['addon_name'],
+                        'addon_price' => $addon['addon_price'],
+                    ]);
+                }
             }
-        }
 
-        if (isset($payload['payments'])) {
-            foreach ($payload['payments'] as $payment) {
-                Payment::create([
-                    'payment_date' => $payload['order_date'],
-                    'customer_id' => $payload['customer_id'] ?? null,
-                    'customer_name' => $payload['customer_name'] ?? null,
-                    'order_id' => $order->id,
-                    'payment_type' => $payment['payment_type'],
-                    'received_amount' => $payment['amount'],
-                    'notes' => $payment['notes'] ?? "Notes",
-                    'financial_year_id' => getFinancialYearId(),
-                    'created_by' => $userId,
-                ]);
+            if (isset($payload['payments'])) {
+                foreach ($payload['payments'] as $payment) {
+                    Payment::create([
+                        'payment_date' => $payload['order_date'],
+                        'customer_id' => $payload['customer_id'] ?? null,
+                        'customer_name' => $payload['customer_name'] ?? null,
+                        'order_id' => $order->id,
+                        'payment_type' => $payment['payment_type'],
+                        'received_amount' => $payment['amount'],
+                        'notes' => $payment['notes'] ?? "Notes",
+                        'financial_year_id' => getFinancialYearId(),
+                        'created_by' => $userId,
+                    ]);
+                }
             }
-        }
 
-        return $order;
+            return $order;
+        });
     }
 
     public static function generateOrderID()
     {
         $code_prefix = 'ORD-';
-        $ordernumber = Order::orderBy('id', 'desc')->first();
+        
+        if (\Illuminate\Support\Facades\DB::transactionLevel() > 0) {
+            $ordernumber = Order::lockForUpdate()->orderBy('id', 'desc')->first();
+        } else {
+            $ordernumber = Order::orderBy('id', 'desc')->first();
+        }
+
         if ($ordernumber && $ordernumber->order_number != "") {
             $code = explode("-", $ordernumber->order_number);
             $new_code = (int)$code[1] + 1;
@@ -98,7 +106,13 @@ class OrderService
     public static function generateRequestID()
     {
         $code_prefix = 'REQ-';
-        $reqnumber = OrderRequest::orderBy('id', 'desc')->first();
+        
+        if (\Illuminate\Support\Facades\DB::transactionLevel() > 0) {
+            $reqnumber = OrderRequest::lockForUpdate()->orderBy('id', 'desc')->first();
+        } else {
+            $reqnumber = OrderRequest::orderBy('id', 'desc')->first();
+        }
+
         if ($reqnumber && $reqnumber->request_number != "") {
             $code = explode("-", $reqnumber->request_number);
             $new_code = (int)$code[1] + 1;

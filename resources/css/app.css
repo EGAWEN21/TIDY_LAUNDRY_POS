@@ -1,3 +1,55 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+  .glass-panel-light {
+    @apply tw-bg-white/80 tw-backdrop-blur-md tw-border tw-border-white/20 tw-shadow-[0_8px_32px_0_rgba(31,38,135,0.07)];
+  }
+  .glass-panel-dark {
+    @apply tw-bg-slate-900/80 tw-backdrop-blur-md tw-border tw-border-white/10 tw-shadow-[0_8px_32px_0_rgba(0,0,0,0.3)];
+  }
+  
+  .premium-bg-light {
+    background: radial-gradient(at 0% 0%, hsla(253,16%,7%,0.05) 0, transparent 50%), 
+                radial-gradient(at 50% 0%, hsla(225,39%,30%,0.05) 0, transparent 50%), 
+                radial-gradient(at 100% 0%, hsla(339,49%,30%,0.05) 0, transparent 50%);
+    @apply tw-bg-slate-50;
+  }
+  
+  .premium-bg-dark {
+    background: radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+                radial-gradient(at 50% 0%, hsla(225,39%,30%,0.2) 0, transparent 50%), 
+                radial-gradient(at 100% 0%, hsla(339,49%,30%,0.2) 0, transparent 50%);
+    @apply tw-bg-slate-950;
+  }
+}
+
+/* Premium Modals */
+.modal-content {
+  @apply tw-bg-white/90 dark:tw-bg-slate-900/90 tw-backdrop-blur-xl tw-border tw-border-white/20 dark:tw-border-white/10 tw-shadow-2xl tw-rounded-2xl !important;
+}
+.modal-header {
+  @apply tw-border-b tw-border-slate-200/50 dark:tw-border-slate-700/50 !important;
+}
+.modal-footer {
+  @apply tw-border-t tw-border-slate-200/50 dark:tw-border-slate-700/50 !important;
+}
+.modal-title {
+  @apply dark:tw-text-white !important;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply tw-bg-slate-300 dark:tw-bg-slate-700 tw-rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply tw-bg-slate-400 dark:tw-bg-slate-600;
+}
