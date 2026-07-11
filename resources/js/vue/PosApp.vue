@@ -71,7 +71,7 @@
                 @select-service="selectService" 
             />
         </div>
-        <CartTable :shown="shown" :detached="detached" :isSyncing="isSyncingPrint" @saveOffline="saveOffline" @syncAndPrint="syncAndPrint" @clearAll="clearAll" />
+        <CartTable :shown="shown" :detached="detached" :isSyncing="isSyncingPrint" @save="saveOffline" @saveOffline="saveOffline" @syncAndPrint="syncAndPrint" @clearAll="clearAll" />
     </div>
     </div>
 
