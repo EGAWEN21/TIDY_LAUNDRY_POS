@@ -14,12 +14,13 @@
                                   <div class="d-flex align-items-center gap-10 fw-medium text-lg">
                                       <div class="form-check style-check d-flex align-items-center">
                                           <input class="form-check-input radius-4 border border-neutral-500"
-                                              type="radio" :id="'test' + item.id" name="test"
-                                              v-model="selected_type" :value="item.id">
+                                              type="checkbox" :id="'test' + item.id" name="test"
+                                              :value="item.id"
+                                              v-model="selected_types[item.id]">
                                       </div>
                                       <label :for="'test' + item.id" class="form-label fw-medium text-primary-light mb-0">{{ item.service_type_name }}</label>
                                   </div>
-                                  <div class="">{{ item.price }}</div>
+                                  <div class="">{{ formatPrice(item.price) }}</div>
                               </div>
                           </div>
                       </template>
@@ -39,19 +40,40 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, reactive, watch } from 'vue';
 
 const props = defineProps({
-  availableServiceTypes: Array
+  availableServiceTypes: Array,
+  currency: { type: String, default: '' }
 });
 
-const emit = defineEmits(['add-item']);
-const selected_type = ref(null);
+const emit = defineEmits(['add-items']);
+
+// Reactive object mirroring Livewire's selected_type = { id: true/false }
+const selected_types = reactive({});
+
+// Watch for when the modal gets new service types (i.e. user clicked a new product)
+// and auto-select the first one, matching the online POS behavior
+watch(() => props.availableServiceTypes, (newTypes) => {
+  // Clear previous selections
+  Object.keys(selected_types).forEach(key => delete selected_types[key]);
+  
+  // Auto-select the first service type
+  if (newTypes && newTypes.length > 0) {
+    selected_types[newTypes[0].id] = true;
+  }
+}, { immediate: true });
+
+const formatPrice = (price) => {
+  const num = parseFloat(price);
+  return isNaN(num) ? price : num.toLocaleString();
+};
 
 const addItem = () => {
-  if (selected_type.value) {
-    emit('add-item', selected_type.value);
-    selected_type.value = null;
+  // Collect all checked type IDs
+  const checkedIds = Object.keys(selected_types).filter(id => selected_types[id] === true);
+  if (checkedIds.length > 0) {
+    emit('add-items', checkedIds.map(id => parseInt(id)));
   }
 };
 </script>

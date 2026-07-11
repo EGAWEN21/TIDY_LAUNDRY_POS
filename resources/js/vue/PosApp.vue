@@ -78,7 +78,7 @@
 
     <Teleport to="body">
         <InstallPrompt />
-        <ServiceTypeModal :availableServiceTypes="availableServiceTypes" @add-item="selected_type = $event; addItem()" />
+        <ServiceTypeModal :availableServiceTypes="availableServiceTypes" :currency="pos.settings.currency" @add-items="addItems" />
         <NotesModal />
         <DiscountModal />
         <AddonModal />
@@ -348,25 +348,27 @@ const closeModalsAndReset = () => {
   clearAll();
 };
 
-const addItem = () => {
-  if(selectedService.value && selected_type.value) {
-    const type = availableServiceTypes.value.find(t => t.id == selected_type.value);
-    if(type) {
-        addToCart(selectedService.value, type);
-        selected_type.value = null; // reset selection
-        
-        // Hide modal
-        const modalEl = document.getElementById('servicetype');
-        if (modalEl && modalEl.classList.contains('show')) {
-            if (typeof window.bootstrap !== 'undefined') {
-                const modalInstance = window.bootstrap.Modal.getOrCreateInstance(modalEl);
-                if (modalInstance) {
-                    modalInstance.hide();
-                }
-            } else if (typeof window.$ !== 'undefined') {
-                window.$('#servicetype').modal('hide');
-            }
-        }
+// Handles multiple service type selections (matching the online POS behavior)
+const addItems = (typeIds) => {
+  if (!selectedService.value || !typeIds || typeIds.length === 0) return;
+  
+  typeIds.forEach(typeId => {
+    const type = availableServiceTypes.value.find(t => t.id == typeId);
+    if (type) {
+      addToCart(selectedService.value, type);
+    }
+  });
+  
+  selected_type.value = null;
+  
+  // Hide modal
+  const modalEl = document.getElementById('servicetype');
+  if (modalEl && modalEl.classList.contains('show')) {
+    if (typeof window.bootstrap !== 'undefined') {
+      const modalInstance = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+      if (modalInstance) modalInstance.hide();
+    } else if (typeof window.$ !== 'undefined') {
+      window.$('#servicetype').modal('hide');
     }
   }
 };
