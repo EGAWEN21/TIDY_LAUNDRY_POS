@@ -45,15 +45,17 @@ class WhatsAppWebhookController extends Controller
                     // Remove '#', 'ORD-', and spaces, then look for it.
                     // E.g., "#ORD-000001", "000001", "ORD 000001"
                     $cleanText = preg_replace('/[^a-zA-Z0-9]/', '', $textBody);
+                    $strippedText = str_ireplace(['ORD-', 'ORD', '#'], '', $cleanText);
+                    $strippedText = trim($strippedText);
                     
-                    // Try to match exact first
-                    $order = Order::with('details.service')->where('order_number', $textBody)->first();
-                    
-                    if (!$order) {
-                        // Fallback: strip standard prefixes
-                        $strippedText = str_ireplace(['ORD-', 'ORD', '#'], '', $textBody);
-                        $strippedText = trim($strippedText);
-                        $order = Order::with('details.service')->where('order_number', 'LIKE', '%' . $strippedText . '%')->first();
+                    $order = null;
+                    if (strlen($strippedText) >= 4) {
+                        // Try to match exact first
+                        $order = Order::with('details.service')->where('order_number', $textBody)->first();
+                        
+                        if (!$order) {
+                            $order = Order::with('details.service')->where('order_number', 'LIKE', '%' . $strippedText . '%')->first();
+                        }
                     }
 
                     // Send the reply (passing $order=null sends the friendly Not Found message)

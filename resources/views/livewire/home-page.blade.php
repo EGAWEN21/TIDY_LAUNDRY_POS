@@ -134,14 +134,13 @@
                                 </div>
                                 <div class="tw-flex tw-gap-2 tw-items-center tw-my-2">
                                     @php
-                                        $services = \App\Models\OrderDetail::where('order_id', $item->id)
-                                            ->limit(4)
-                                            ->get();
+                                        // Use eager loaded details instead of querying the DB in a loop
+                                        $services = $item->details->take(4);
                                     @endphp
                                     <div class="tw-size-8 tw-rounded-lg tw-overflow-clip">
                                         @foreach ($services as $row)
                                             @php
-                                                $service = \App\Models\Service::where('id', $row->service_id)->first();
+                                                $service = $row->service;
                                             @endphp
                                             @if(str_contains($service->icon, ':'))
                                                 <div class="tw-flex tw-items-center tw-justify-center tw-h-full tw-w-full bg-light">

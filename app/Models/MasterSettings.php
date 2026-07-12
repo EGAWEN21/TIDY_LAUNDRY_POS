@@ -11,12 +11,23 @@ class MasterSettings extends Model
     protected $fillable=['master_title','master_value'];
     public $timestamps = false;
     
-        /* master settings value update settings */
-        public function siteData(){
-            $siteInfo=array();
+    protected static function booted()
+    {
+        $clearCache = function () {
+            \Illuminate\Support\Facades\Cache::forget('master_settings');
+        };
+        static::saved($clearCache);
+        static::deleted($clearCache);
+    }
+
+    /* master settings value update settings */
+    public function siteData(){
+        return \Illuminate\Support\Facades\Cache::rememberForever('master_settings', function () {
+            $siteInfo = array();
             foreach($this->get() as $key=>$value){
-                $siteInfo[$value['master_title']]=$value['master_value'];
+                $siteInfo[$value['master_title']] = $value['master_value'];
             }
             return $siteInfo;
-        }
+        });
+    }
 }

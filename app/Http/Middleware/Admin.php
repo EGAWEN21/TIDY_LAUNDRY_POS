@@ -19,7 +19,9 @@ class Admin
      */
    public function handle(Request $request, Closure $next): Response
     {
-        // Another "Master Key" to keep the admin dashboard open.
-        return $next($request);
+        if (Auth::check() && (Auth::user()->user_type == 1 || Auth::user()->user_type == null)) {
+            return $next($request);
+        }
+        abort(403, 'Unauthorized Access. Admins only.');
     }
 }

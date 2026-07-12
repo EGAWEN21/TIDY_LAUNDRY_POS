@@ -595,12 +595,12 @@ class OrdersList extends Component
     {
         $order = Order::whereId($order)->first();
         if ($order) {
-            Schema::disableForeignKeyConstraints();
-            OrderDetail::where('order_id', $order->id)->delete();
-            OrderAddonDetail::where('order_id', $order->id)->delete();
-            Payment::where('order_id', $order->id)->delete();
-            $order->delete();
-            Schema::enableForeignKeyConstraints();
+            \Illuminate\Support\Facades\DB::transaction(function () use ($order) {
+                OrderDetail::where('order_id', $order->id)->delete();
+                OrderAddonDetail::where('order_id', $order->id)->delete();
+                Payment::where('order_id', $order->id)->delete();
+                $order->delete();
+            });
             $this->reloadOrders();
         }
         $this->dispatch(

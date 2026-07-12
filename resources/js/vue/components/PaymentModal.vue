@@ -12,10 +12,15 @@
                 <div class="modal-body p-24">
                     <div class="">
                         <ul>
+                            <li class="d-flex align-items-center gap-1 tw-justify-between text-sm tw-mb-2">
+                                <span class="text-md fw-semibold text-primary-light">
+                                    Total Due :</span>
+                                <span class="text-secondary-light fw-bold text-lg"> {{ formatCurrency(pos.cartTotal) }}</span>
+                            </li>
                             <li class="d-flex align-items-center gap-1 tw-justify-between text-sm">
                                 <span class="text-md fw-semibold text-primary-light">
-                                    Balance :</span>
-                                <span class="text-secondary-light fw-medium"> {{ formatCurrency(pos.currentBalance || 0) }}</span>
+                                    Remaining Balance :</span>
+                                <span class="text-danger fw-bold text-lg"> {{ formatCurrency(remainingBalance) }}</span>
                             </li>
                         </ul>
                     </div>
@@ -42,7 +47,7 @@
                                         <td class="text-primary">{{ formatCurrency(item.amount) }}</td>
                                         <td> {{ item.payment_type_name }}</td>
                                         <td>
-                                            <button @click="removePayment(key)" type="button" class="remove-item-button bg-danger-focus bg-hover-danger-200 text-danger-600 fw-medium tw-size-6 d-flex justify-content-center align-items-center rounded-circle"> 
+                                            <button @click="removePayment(key)" type="button" class="remove-item-button bg-danger-focus bg-hover-danger-200 text-danger-600 fw-medium tw-size-6 d-flex justify-content-center align-items-center rounded-circle" aria-label="Remove Payment"> 
                                                 <iconify-icon icon="fluent:delete-24-regular" class="menu-icon"></iconify-icon>
                                             </button>
                                         </td>
@@ -143,10 +148,17 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { usePosStore } from '../../stores/posStore';
+import { toast } from 'vue3-toastify';
 
 const pos = usePosStore();
+
+const remainingBalance = computed(() => {
+    const totalPaid = pos.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const bal = pos.cartTotal - totalPaid;
+    return bal > 0 ? bal : 0;
+});
 const props = defineProps({
   isSyncing: Boolean
 });
@@ -163,7 +175,7 @@ const formatCurrency = (val) => {
 
 const add_payment = () => {
     if (!payment_type.value || !payment_amount.value) {
-        alert("Please enter both payment type and amount");
+        toast.error("Please enter both payment type and amount");
         return;
     }
     const typeLabel = {

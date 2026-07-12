@@ -29,7 +29,7 @@ class HomePage extends Component
         $this->ready_count = Order::where('status',2)->count();
         $this->delivered_count = Order::where('status',3)->count();
         $this->returned_count =  Order::where('status',4)->count();
-        $this->orders = Order::whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())->get();
+        $this->orders = Order::with(['details.service'])->whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())->get();
         if(session()->has('selected_language'))
         {
             /* if the session has selected language */
@@ -49,7 +49,7 @@ class HomePage extends Component
         {
             if($this->order_filter == '')
             {
-                $this->orders = \App\Models\Order::whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())
+                $this->orders = \App\Models\Order::with(['details.service'])->whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())
                                             ->where(function($q) use ($value) {
                                                 $q->where('order_number','like','%'.$value.'%')
                                                     ->orwhere('customer_name','like','%'.$value.'%');
@@ -58,7 +58,7 @@ class HomePage extends Component
                                             ->get();
             }
             else{
-                $this->orders = \App\Models\Order::where('status',$this->order_filter)
+                $this->orders = \App\Models\Order::with(['details.service'])->where('status',$this->order_filter)
                                             ->whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())
                                             ->where(function($q) use ($value) {
                                                 $q->where('order_number','like','%'.$value.'%')
@@ -73,11 +73,11 @@ class HomePage extends Component
             /* if the updated element is search_query and value is empty */
             if($this->order_filter == '')
             {  /* if the order filter value is empty */
-                $this->orders = \App\Models\Order::whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())->latest()->get();
+                $this->orders = \App\Models\Order::with(['details.service'])->whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())->latest()->get();
             }
             else{
                 /* if the order filter value is not empty */
-                $this->orders = \App\Models\Order::whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())->where('status',$value)->latest()->get();
+                $this->orders = \App\Models\Order::with(['details.service'])->whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())->where('status',$value)->latest()->get();
 
             }
         }
@@ -87,11 +87,11 @@ class HomePage extends Component
             $this->search_query = '';
             if($value == '')
             {    /* if the order filter value is empty */
-                $this->orders = \App\Models\Order::whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())->latest()->get();
+                $this->orders = \App\Models\Order::with(['details.service'])->whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())->latest()->get();
             }
             else{
                 /* if the order filter value is empty */
-                $this->orders = \App\Models\Order::whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())->where('status',$value)->latest()->get();
+                $this->orders = \App\Models\Order::with(['details.service'])->whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())->where('status',$value)->latest()->get();
             }
         }
     }

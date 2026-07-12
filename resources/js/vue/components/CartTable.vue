@@ -36,7 +36,7 @@
                           <span class="tw-font-bold tw-text-sm tw-text-green-800 dark:tw-text-green-300">{{ pos.cartCustomer.name }}</span>
                           <span class="tw-text-xs tw-text-green-600 dark:tw-text-green-400">{{ pos.cartCustomer.phone }}</span>
                       </div>
-                      <button @click="pos.cartCustomer = null" class="tw-text-red-500 hover:tw-text-red-700 dark:tw-text-red-400 dark:hover:tw-text-red-300 tw-font-bold tw-px-2 tw-text-lg">&times;</button>
+                      <button @click="pos.cartCustomer = null" class="tw-text-red-500 hover:tw-text-red-700 dark:tw-text-red-400 dark:hover:tw-text-red-300 tw-font-bold tw-px-2 tw-text-lg" aria-label="Remove customer">&times;</button>
                   </div>
                   <div class="icon-field tw-relative tw-w-full tw-items-center">
                       <span class="icon -tw-translate-y-[2px]">
@@ -100,18 +100,18 @@
                                               <div v-show="openSwatchIndex === key" class="tw-absolute tw-z-50 tw-bg-white tw-shadow-lg tw-border tw-border-gray-200" style="top: 32px; left: 0px; width: 170px; border-radius: 12px; padding: 12px;">
                                                   <div class="tw-flex tw-justify-between tw-items-center" style="margin-bottom: 10px;">
                                                       <span class="tw-text-xs tw-font-semibold tw-uppercase tw-tracking-wider" style="font-size: 10px; color: #4b5563;">Quick Colors</span>
-                                                      <button @click="openSwatchIndex = null" class="tw-text-gray-400 hover:tw-text-gray-600">&times;</button>
+                                                      <button @click="openSwatchIndex = null" class="tw-text-gray-400 hover:tw-text-gray-600" aria-label="Close swatches">&times;</button>
                                                   </div>
                                                   <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                                                       <div v-for="(swatch, sIndex) in quickSwatches" :key="sIndex" class="tw-relative tw-group" style="display: flex; align-items: center; justify-content: center;">
-                                                          <button type="button" @click="applySwatch(item, swatch)" class="tw-rounded-full tw-shadow-sm hover:tw-scale-110 tw-transition-transform" style="cursor: pointer; padding: 0; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" :style="`background-color: ${swatch}; width: 22px; height: 22px;`" :title="swatch"></button>
-                                                          <button type="button" @click.stop="removeSwatch(sIndex)" class="tw-hidden group-hover:tw-flex tw-items-center tw-justify-center" style="position: absolute; top: -4px; right: -4px; z-index: 10; width: 14px; height: 14px; background-color: #ef4444; color: white; border-radius: 50%; font-size: 10px; line-height: 1; border: none; padding: 0; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.1);" title="Remove">&times;</button>
+                                                          <button type="button" @click="applySwatch(item, swatch)" class="tw-rounded-full tw-shadow-sm hover:tw-scale-110 tw-transition-transform" style="cursor: pointer; padding: 0; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" :style="`background-color: ${swatch}; width: 22px; height: 22px;`" :title="swatch" :aria-label="'Apply color ' + swatch"></button>
+                                                          <button type="button" @click.stop="removeSwatch(sIndex)" class="tw-hidden group-hover:tw-flex tw-items-center tw-justify-center" style="position: absolute; top: -4px; right: -4px; z-index: 10; width: 14px; height: 14px; background-color: #ef4444; color: white; border-radius: 50%; font-size: 10px; line-height: 1; border: none; padding: 0; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.1);" title="Remove" aria-label="Remove swatch">&times;</button>
                                                       </div>
                                                   </div>
                                               </div>
                                           </div>
                                           <input type="color" pattern="^#+([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$" class="tw-w-10 tw-h-6 tw-p-0 tw-border-0" v-model="item.color_code">
-                                          <button type="button" @click="addSwatch(item.color_code)" class="tw-flex tw-items-center tw-justify-center tw-w-6 tw-h-6 tw-bg-gray-100 hover:tw-bg-gray-200 tw-rounded tw-border tw-border-gray-300 tw-transition-colors tw-text-gray-700 tw-text-xs tw-font-bold" title="Save current color to quick swatches">+</button>
+                                          <button type="button" @click="addSwatch(item.color_code)" class="tw-flex tw-items-center tw-justify-center tw-w-6 tw-h-6 tw-bg-gray-100 hover:tw-bg-gray-200 tw-rounded tw-border tw-border-gray-300 tw-transition-colors tw-text-gray-700 tw-text-xs tw-font-bold" title="Save current color to quick swatches" aria-label="Save current color to quick swatches">+</button>
                                       </div>
                                   </td>
                                   <td class="tw-py-2 tw-px-1 lg:tw-w-[15%] tw-w-[10rem] tw-text-center">
@@ -125,11 +125,11 @@
                                   <td class="tw-py-2 tw-px-1 lg:tw-w-[15%] tw-w-[10rem] tw-text-center">
                                       <div class="tw-h-full tw-w-full tw-flex tw-items-center tw-justify-center">
                                           <div class="tw-flex tw-items-center tw-gap-2 tw-justify-center tw-text-sm">
-                                              <button @click="pos.decreaseQty(key)" class="tw-px-2 tw-py-1 bg-primary-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md">
+                                              <button @click="pos.decreaseQty(key)" class="tw-px-2 tw-py-1 bg-primary-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md" aria-label="Decrease quantity">
                                                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-dash" viewBox="0 0 16 16"><path d="M4 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 4 8" /></svg>
                                               </button>
                                               {{ item.quantity }}
-                                              <button @click="pos.increaseQty(key)" class="tw-px-2 tw-py-1 bg-primary-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md">
+                                              <button @click="pos.increaseQty(key)" class="tw-px-2 tw-py-1 bg-primary-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md" aria-label="Increase quantity">
                                                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-lg" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2" /></svg>
                                               </button>
                                           </div>
@@ -143,10 +143,10 @@
                                   </td>
                                   <td class="tw-py-2 tw-px-1 lg:tw-w-[10%] tw-w-[10rem] tw-text-center">
                                       <div class="tw-h-full tw-w-full tw-flex tw-items-center tw-justify-center tw-gap-2">
-                                          <button @click.prevent="pos.duplicateItem(key)" title="Duplicate" class="tw-px-2 tw-py-1 bg-info-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-justify-center tw-gap-1.5 tw-border-0 tw-shadow-md">
+                                          <button @click.prevent="pos.duplicateItem(key)" title="Duplicate" aria-label="Duplicate item" class="tw-px-2 tw-py-1 bg-info-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-justify-center tw-gap-1.5 tw-border-0 tw-shadow-md">
                                               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-copy" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1z"/></svg>
                                           </button>
-                                          <button @click="pos.removeItem(key)" title="Remove" class="tw-px-2 tw-py-1 tw-bg-red-500 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md">
+                                          <button @click="pos.removeItem(key)" title="Remove item" aria-label="Remove item" class="tw-px-2 tw-py-1 tw-bg-red-500 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md">
                                               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z" /><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z" /></svg>
                                           </button>
                                       </div>
@@ -161,7 +161,7 @@
               <div class="tw-flex tw-flex-col tw-gap-2">
                   <div class="tw-flex tw-items-end tw-justify-end tw-gap-2">
                       <div class="tw-flex tw-items-center tw-gap-2">
-                          Addon <button data-bs-toggle="modal" data-bs-target="#addons" class="tw-px-1 tw-py-1 tw-rounded-md tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md bg-primary-600 tw-text-white tw-border tw-border-solid tw-bg-transparent tw-border-neutral-400"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-box-fill" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M15.528 2.973a.75.75 0 0 1 .472.696v8.662a.75.75 0 0 1-.472.696l-7.25 2.9a.75.75 0 0 1-.557 0l-7.25-2.9A.75.75 0 0 1 0 12.331V3.669a.75.75 0 0 1 .471-.696L7.443.184l.004-.001.274-.11a.75.75 0 0 1 .558 0l.274.11.004.001zm-1.374.527L8 5.962 1.846 3.5 1 3.839v.4l6.5 2.6v7.922l.5.2.5-.2V6.84l6.5-2.6v-.4l-.846-.339Z" /></svg></button> :
+                          Addon <button data-bs-toggle="modal" data-bs-target="#addons" class="tw-px-1 tw-py-1 tw-rounded-md tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md bg-primary-600 tw-text-white tw-border tw-border-solid tw-bg-transparent tw-border-neutral-400" aria-label="Add Addon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-box-fill" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M15.528 2.973a.75.75 0 0 1 .472.696v8.662a.75.75 0 0 1-.472.696l-7.25 2.9a.75.75 0 0 1-.557 0l-7.25-2.9A.75.75 0 0 1 0 12.331V3.669a.75.75 0 0 1 .471-.696L7.443.184l.004-.001.274-.11a.75.75 0 0 1 .558 0l.274.11.004.001zm-1.374.527L8 5.962 1.846 3.5 1 3.839v.4l6.5 2.6v7.922l.5.2.5-.2V6.84l6.5-2.6v-.4l-.846-.339Z" /></svg></button> :
                       </div>
                       <div class="tw-font-bold">{{ formatCurrency(pos.cartAddonsTotal) }}</div>
                   </div>
@@ -175,7 +175,7 @@
                   </div>
                   <div class="tw-flex tw-items-center tw-gap-2">
                       <div class="tw-flex tw-items-center tw-gap-2">
-                          Notes : <button data-bs-toggle="modal" data-bs-target="#notesModal" class="tw-px-1 tw-py-1 tw-rounded-md tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md bg-primary-600 tw-text-white tw-border tw-border-solid tw-bg-transparent tw-border-neutral-400"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-pencil-square" viewBox="0 0 16 16"><path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z" /><path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5z" /></svg></button>
+                          Notes : <button data-bs-toggle="modal" data-bs-target="#notesModal" class="tw-px-1 tw-py-1 tw-rounded-md tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md bg-primary-600 tw-text-white tw-border tw-border-solid tw-bg-transparent tw-border-neutral-400" aria-label="Edit Notes"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-pencil-square" viewBox="0 0 16 16"><path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z" /><path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5z" /></svg></button>
                       </div>
                   </div>
               </div>
@@ -186,7 +186,7 @@
                   </div>
                   <div class="tw-flex tw-items-end tw-justify-end tw-gap-2">
                       <div class="tw-flex tw-items-center tw-gap-2">
-                          Discount <button data-bs-toggle="modal" data-bs-target="#discount" class="tw-px-1 tw-py-1 tw-rounded-md tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md bg-primary-600 tw-text-white tw-border tw-border-solid tw-bg-transparent tw-border-neutral-400"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-tag-fill" viewBox="0 0 16 16"><path d="M2 1a1 1 0 0 0-1 1v4.586a1 1 0 0 0 .293.707l7 7a1 1 0 0 0 1.414 0l4.586-4.586a1 1 0 0 0 0-1.414l-7-7A1 1 0 0 0 6.586 1zm4 3.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0" /></svg></button> :
+                          Discount <button data-bs-toggle="modal" data-bs-target="#discount" class="tw-px-1 tw-py-1 tw-rounded-md tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md bg-primary-600 tw-text-white tw-border tw-border-solid tw-bg-transparent tw-border-neutral-400" aria-label="Apply Discount"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-tag-fill" viewBox="0 0 16 16"><path d="M2 1a1 1 0 0 0-1 1v4.586a1 1 0 0 0 .293.707l7 7a1 1 0 0 0 1.414 0l4.586-4.586a1 1 0 0 0 0-1.414l-7-7A1 1 0 0 0 6.586 1zm4 3.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0" /></svg></button> :
                       </div>
                       <div class="tw-font-bold">{{ formatCurrency(pos.cartDiscount) }}</div>
                   </div>

@@ -137,37 +137,16 @@ class PosApiController extends Controller
                         'request_number' => \App\Services\OrderService::generateRequestID(),
                         'customer_id' => $customerId,
                         'customer_name' => $offlineOrder['customer_name'] ?? null,
-                        'phone_number' => $offlineOrder['phone_number'] ?? null,
-                        'order_date' => $offlineOrder['order_date'],
-                        'delivery_date' => $offlineOrder['delivery_date'],
-                        'sub_total' => $offlineOrder['sub_total'],
-                        'addon_total' => $offlineOrder['addon_total'],
-                        'discount' => $offlineOrder['discount'] ?? 0,
-                        'tax_percentage' => $offlineOrder['tax_percentage'],
-                        'tax_amount' => $offlineOrder['tax_amount'],
-                        'tax_type' => $offlineOrder['tax_type'],
-                        'taxable_amount' => $offlineOrder['taxable_amount'],
-                        'total' => $offlineOrder['total'],
-                        'note' => $offlineOrder['note'] ?? null,
+                        'total_amount' => $offlineOrder['total'],
+                        'payload' => $offlineOrder, // Storing the full order data here safely.
                         'status' => 0, // Pending
-                        'order_type' => 1,
-                        'created_by' => Auth::id(),
-                        'financial_year_id' => getFinancialYearId()
+                        'created_by' => Auth::id()
                     ]);
 
-                    // Store details as JSON payload in request to be processed upon approval
-                    $payload = [
-                        'details' => $offlineOrder['details'] ?? [],
-                        'addons' => $offlineOrder['addons'] ?? [],
-                        'payments' => $offlineOrder['payments'] ?? []
-                    ];
-                    $orderRequest->payload = json_encode($payload);
-                    $orderRequest->save();
-
                     // Notify managers
-                    $managers = \App\Models\User::whereHas('roles', function($q) {
+                    $managers = \App\Models\User::whereHas('role', function($q) {
                         $q->whereHas('permissions', function($p) {
-                            $p->where('name', 'accept_reject_order');
+                            $p->where('permission_name', 'accept_reject_order');
                         });
                     })->get();
 

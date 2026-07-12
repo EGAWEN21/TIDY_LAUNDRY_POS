@@ -1,4 +1,6 @@
 <template>
+<ReAuthModal />
+<SyncQueueModal />
 <div v-if="fatalError" class="tw-absolute tw-inset-0 tw-z-50 tw-bg-red-50 tw-text-red-900 tw-p-8 tw-overflow-y-auto">
     <h1 class="tw-text-2xl tw-font-bold tw-mb-4">Fatal UI Error</h1>
     <pre class="tw-whitespace-pre-wrap tw-text-sm">{{ fatalError }}</pre>
@@ -52,13 +54,16 @@
                     <span class="tw-w-2 tw-h-2 tw-bg-red-500 tw-rounded-full"></span> Offline Mode
                 </span>
             </div>
-            <button @click="toggleTheme" class="tw-ml-4 tw-p-2 tw-rounded-full tw-transition-colors hover:tw-bg-slate-200 dark:hover:tw-bg-slate-700">
+            <button @click="toggleTheme" class="tw-ml-4 tw-p-2 tw-rounded-full tw-transition-colors hover:tw-bg-slate-200 dark:hover:tw-bg-slate-700" aria-label="Toggle dark mode">
                 <svg v-if="!isDarkMode" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="tw-w-5 tw-h-5 tw-text-slate-600">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
                 </svg>
                 <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="tw-w-5 tw-h-5 tw-text-slate-300">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
                 </svg>
+            </button>
+            <button data-bs-toggle="modal" data-bs-target="#syncQueueModal" class="tw-ml-2 tw-p-2 tw-rounded-full tw-transition-colors hover:tw-bg-slate-200 dark:hover:tw-bg-slate-700 tw-text-slate-600 dark:tw-text-slate-300" title="Sync Manager" aria-label="Open Sync Manager">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21v-5h5"/></svg>
             </button>
         </div>
     </div>
@@ -100,6 +105,9 @@ import DiscountModal from './components/DiscountModal.vue';
 import AddonModal from './components/AddonModal.vue';
 import CartTable from './components/CartTable.vue';
 import InstallPrompt from './components/InstallPrompt.vue';
+import ReAuthModal from './components/ReAuthModal.vue';
+import SyncQueueModal from './components/SyncQueueModal.vue';
+import { toast } from 'vue3-toastify';
 
 const pos = usePosStore();
 
@@ -226,7 +234,7 @@ const isSyncingPrint = ref(false);
 
 const buildOrderData = (type = 'save') => {
   if (pos.cart.length === 0) {
-    alert("Cart is empty");
+    toast.error("Cart is empty");
     return null;
   }
   
@@ -283,7 +291,7 @@ const saveOffline = async (type = 'save') => {
     retry_count: 0
   });
 
-  alert("Order Saved Offline! It will sync automatically in the background.");
+  toast.success("Order Saved Offline! It will sync automatically in the background.");
   closeModalsAndReset();
 };
 
@@ -308,7 +316,7 @@ const syncAndPrint = async () => {
     const syncResult = await pos.syncOfflineData();
 
     if (!syncResult.success) {
-      alert("You are currently offline or sync failed. Please check your connection. The order is queued in 'Save Offline' mode.");
+      toast.warning("You are currently offline or sync failed. The order is queued securely.");
       closeModalsAndReset();
       return;
     }
@@ -318,13 +326,13 @@ const syncAndPrint = async () => {
     const requiresApproval = syncResult.requiresApproval[orderData.uuid];
 
     if (!serverOrderId) {
-      alert("Sync completed, but could not retrieve the server Order ID for printing.");
+      toast.error("Sync completed, but could not retrieve the server Order ID for printing.");
       closeModalsAndReset();
       return;
     }
 
     if (requiresApproval) {
-      alert("Order requires manager approval. Cannot print receipt yet.");
+      toast.info("Order requires manager approval. Cannot print receipt yet.");
     } else {
       // 4. Open the native thermal printer bypass!
       window.open('/admin/orders/print/' + serverOrderId, '_blank');
@@ -334,7 +342,7 @@ const syncAndPrint = async () => {
 
   } catch (error) {
     console.error("Print Sync Error:", error);
-    alert("An error occurred while syncing. Order is saved offline.");
+    toast.error("An error occurred while syncing. Order is saved offline.");
     closeModalsAndReset();
   } finally {
     isSyncingPrint.value = false;

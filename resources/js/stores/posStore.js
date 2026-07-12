@@ -273,7 +273,7 @@ export const usePosStore = defineStore('pos', {
                 syncResult.success = false;
             } finally {
                 this.isSyncing = false;
-                await this.checkUpdates();
+                await this.loadFromLocal();
             }
             return syncResult;
         },

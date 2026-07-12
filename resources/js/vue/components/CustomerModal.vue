@@ -61,6 +61,7 @@
 import { ref } from 'vue';
 import { usePosStore } from '../../stores/posStore';
 import { db } from '../../db';
+import { toast } from 'vue3-toastify';
 
 const pos = usePosStore();
 
@@ -86,7 +87,7 @@ const generateUUID = () => {
 
 const createCustomer = async () => {
   if(!customer_name.value || !customer_phone.value) {
-    alert("Name and Phone required");
+    toast.error("Name and Phone required");
     return;
   }
   
