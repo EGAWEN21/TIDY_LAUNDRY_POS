@@ -20,7 +20,6 @@ return new class extends Migration
             $table->foreign('order_id')->references('id')->on('orders')->onDelete('cascade');
         });
         Schema::table('payments', function (Blueprint $table) {
-            $table->dropForeign(['order_id']);
             $table->foreign('order_id')->references('id')->on('orders')->onDelete('cascade');
         });
     }
@@ -40,7 +39,6 @@ return new class extends Migration
         });
         Schema::table('payments', function (Blueprint $table) {
             $table->dropForeign(['order_id']);
-            $table->foreign('order_id')->references('id')->on('orders');
         });
     }
 };
