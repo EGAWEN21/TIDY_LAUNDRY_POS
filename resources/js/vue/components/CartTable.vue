@@ -1,6 +1,6 @@
 <template>
-  <div class="tw-h-[calc(100vh-4rem)] dark:tw-bg-slate-900/50 tw-bg-white/50 tw-backdrop-blur-xl tw-shadow-[-4px_0_24px_rgba(0,0,0,0.05)] tw-border-l tw-border-white/20 dark:tw-border-white/5 tw-p-4 lg:tw-p-6" :class="shown && detached ? 'tw-absolute tw-inset-0 tw-w-full tw-z-50' : 'tw-hidden lg:tw-block lg:tw-w-7/12 tw-w-full tw-shrink-0'">
-      <div class="tw-flex tw-items-center tw-gap-8 tw-w-full">
+  <div class="tw-h-[calc(100vh-4rem)] tw-flex tw-flex-col dark:tw-bg-slate-900/50 tw-bg-white/50 tw-backdrop-blur-xl tw-shadow-[-4px_0_24px_rgba(0,0,0,0.05)] tw-border-l tw-border-white/20 dark:tw-border-white/5 tw-p-4 lg:tw-p-6" :class="shown && detached ? 'tw-absolute tw-inset-0 tw-w-full tw-z-50' : 'tw-hidden lg:tw-block lg:tw-w-7/12 tw-w-full tw-shrink-0'">
+      <div class="tw-flex tw-items-center tw-gap-8 tw-w-full tw-shrink-0">
           <div class="tw-flex tw-min-w-fit tw-shrink tw-flex-col">
               <div class="tw-text-sm">Order : <span class="tw-font-bold">#{{ pos.cartOrderId }}</span></div>
               <div class="tw-flex tw-items-center tw-gap-2">
@@ -58,7 +58,7 @@
               </button>
           </div>
       </div>
-      <div class="tw-w-full tw-flex tw-flex-col tw-mt-6 tw-rounded-2xl tw-overflow-clip tw-border tw-border-white/60 dark:tw-border-white/10 tw-shadow-lg tw-bg-white/60 dark:tw-bg-slate-800/60 tw-backdrop-blur-md">
+      <div class="tw-w-full tw-flex tw-flex-col tw-flex-1 tw-min-h-0 tw-mt-6 tw-rounded-2xl tw-overflow-clip tw-border tw-border-white/60 dark:tw-border-white/10 tw-shadow-lg tw-bg-white/60 dark:tw-bg-slate-800/60 tw-backdrop-blur-md">
           <div class="tw-flex tw-flex-col lg:tw-w-full tw-overflow-x-auto">
               <div class="tw-flex tw-flex-col lg:tw-w-full tw-w-full tw-min-w-[60rem]">
                   <div class="tw-flex tw-flex-col tw-overflow-x-auto tw-w-full tw-shrink-0">

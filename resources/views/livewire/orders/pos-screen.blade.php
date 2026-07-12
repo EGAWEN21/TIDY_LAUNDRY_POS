@@ -88,7 +88,7 @@
                 </div>
             </div>
         </div>
-        <div class=" tw-h-[calc(100vh-4rem)]  tw-bg-white p-16"
+        <div class=" tw-h-[calc(100vh-4rem)] tw-flex tw-flex-col tw-bg-white p-16"
             :class="shown && detached ? 'tw-absolute tw-inset-0 tw-w-full' :
                 ' tw-hidden lg:tw-block lg:tw-w-7/12 tw-w-full tw-shrink-0 '">
             <div class="tw-flex tw-items-center tw-gap-8 tw-w-full">
@@ -171,7 +171,7 @@
                 </div>
             </div>
             <div
-                class="tw-w-full   tw-flex tw-flex-col tw-mt-4 tw-rounded-lg tw-overflow-clip tw-border @error('error') tw-border-red-500 @else tw-border-neutral-200 dark:tw-border-[#1b2431] @enderror tw-border-solid">
+                class="tw-w-full tw-flex-1 tw-min-h-0 tw-flex tw-flex-col tw-mt-4 tw-rounded-lg tw-overflow-clip tw-border @error('error') tw-border-red-500 @else tw-border-neutral-200 dark:tw-border-[#1b2431] @enderror tw-border-solid">
                 <div class="tw-flex tw-flex-col lg:tw-w-full tw-overflow-x-auto">
                     <div class="tw-flex tw-flex-col lg:tw-w-full tw-w-full tw-min-w-[60rem]">
                         <div class="tw-flex tw-flex-col  tw-overflow-x-auto tw-w-full tw-shrink-0">
