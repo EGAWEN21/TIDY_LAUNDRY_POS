@@ -78,26 +78,32 @@ class PosApiController extends Controller
     {
         $customers = $request->input('customers', []);
         $syncedIds = [];
+        $failedIds = [];
         
         foreach ($customers as $cust) {
-            // Upsert based on phone number to prevent duplicates
-            $customer = Customer::updateOrCreate(
-                ['phone' => $cust['phone']],
-                [
-                    'name' => $cust['name'],
-                    'email' => $cust['email'] ?? null,
-                    'tax_number' => $cust['tax_number'] ?? null,
-                    'address' => $cust['address'] ?? null,
-                    'is_active' => 1
-                ]
-            );
-            // Return mapping of local UUID to server ID
-            if(isset($cust['uuid'])) {
-                $syncedIds[$cust['uuid']] = $customer->id;
+            try {
+                $customer = Customer::updateOrCreate(
+                    ['phone' => $cust['phone']],
+                    [
+                        'uuid' => $cust['uuid'] ?? null,
+                        'name' => $cust['name'],
+                        'email' => $cust['email'] ?? null,
+                        'tax_number' => $cust['tax_number'] ?? null,
+                        'address' => $cust['address'] ?? null,
+                        'is_active' => 1
+                    ]
+                );
+                if(isset($cust['uuid'])) {
+                    $syncedIds[$cust['uuid']] = $customer->id;
+                }
+            } catch (\Exception $e) {
+                if(isset($cust['uuid'])) {
+                    $failedIds[$cust['uuid']] = "Customer Sync Error: " . $e->getMessage();
+                }
             }
         }
 
-        return response()->json(['synced_customers' => $syncedIds]);
+        return response()->json(['synced_customers' => $syncedIds, 'failed' => $failedIds]);
     }
 
     public function syncOrders(Request $request)
@@ -105,84 +111,124 @@ class PosApiController extends Controller
         $orders = $request->input('orders', []);
         $syncedIds = [];
         $requiresApproval = [];
+        $failedIds = [];
 
         foreach ($orders as $offlineOrder) {
-            \Illuminate\Support\Facades\DB::transaction(function () use ($offlineOrder, &$syncedIds, &$requiresApproval) {
-                
-                // Safely resolve the real customer ID from the database using phone number
-                $customerId = $offlineOrder['customer_id'] ?? null;
-                if (!empty($offlineOrder['phone_number'])) {
-                    $dbCustomer = Customer::where('phone', $offlineOrder['phone_number'])->first();
-                    if ($dbCustomer) {
-                        $customerId = $dbCustomer->id;
-                        $offlineOrder['customer_id'] = $customerId;
-                    }
-                }
+            $uuid = $offlineOrder['uuid'] ?? null;
+            if (!$uuid) {
+                continue; // Cannot track without a UUID
+            }
 
-                if (Auth::user()->hasPermission('accept_reject_order')) {
-                    // User has manager privileges, bypass requests and establish order directly
-                    $order = \App\Services\OrderService::establishOrder($offlineOrder, Auth::id());
+            try {
+                \Illuminate\Support\Facades\DB::transaction(function () use ($offlineOrder, $uuid, &$syncedIds, &$requiresApproval) {
                     
-                    if(isset($offlineOrder['uuid'])) {
-                        $syncedIds[$offlineOrder['uuid']] = $order->id;
-                        $requiresApproval[$offlineOrder['uuid']] = false;
+                    // 1. Idempotency Check: Did we already sync this order?
+                    if (Auth::user()->hasPermission('accept_reject_order')) {
+                        $existingOrder = Order::where('uuid', $uuid)->first();
+                        if ($existingOrder) {
+                            $syncedIds[$uuid] = $existingOrder->id;
+                            $requiresApproval[$uuid] = false;
+                            return; // Already processed
+                        }
+                    } else {
+                        $existingRequest = \App\Models\OrderRequest::where('uuid', $uuid)->first();
+                        if ($existingRequest) {
+                            $syncedIds[$uuid] = $existingRequest->id;
+                            $requiresApproval[$uuid] = true;
+                            return; // Already processed
+                        }
                     }
 
-                    // Trigger automated SMS for order creation
-                    sendOrderCreateSMS($order->id, $order->customer_id);
+                    $customerId = $offlineOrder['customer_id'] ?? null;
 
-                } else {
-                    // User does not have privileges, create an OrderRequest
-                    $orderRequest = \App\Models\OrderRequest::create([
-                        'request_number' => \App\Services\OrderService::generateRequestID(),
-                        'customer_id' => $customerId,
-                        'customer_name' => $offlineOrder['customer_name'] ?? null,
-                        'total_amount' => $offlineOrder['total'],
-                        'payload' => $offlineOrder, // Storing the full order data here safely.
-                        'status' => 0, // Pending
-                        'created_by' => Auth::id()
-                    ]);
-
-                    // Notify managers
-                    $managers = \App\Models\User::whereHas('role', function($q) {
-                        $q->whereHas('permissions', function($p) {
-                            $p->where('permission_name', 'accept_reject_order');
-                        });
-                    })->get();
-
-                    foreach($managers as $manager) {
-                        $manager->notify(new \App\Notifications\SystemNotification(
-                            'New Order Request',
-                            'A new order request (' . $orderRequest->request_number . ') requires your approval.',
-                            route('orders.requests')
-                        ));
+                    // 2. Unified Graph Sync: Process nested new customer if present
+                    if (!empty($offlineOrder['new_customer'])) {
+                        $custData = $offlineOrder['new_customer'];
+                        if (!empty($custData['phone'])) {
+                            // Atomic upsert check
+                            $customer = Customer::updateOrCreate(
+                                ['phone' => $custData['phone']],
+                                [
+                                    'uuid' => $custData['uuid'] ?? null,
+                                    'name' => $custData['name'],
+                                    'email' => $custData['email'] ?? null,
+                                    'tax_number' => $custData['tax_number'] ?? null,
+                                    'address' => $custData['address'] ?? null,
+                                    'is_active' => 1
+                                ]
+                            );
+                            $customerId = $customer->id;
+                            $offlineOrder['customer_id'] = $customerId;
+                            // Ensure phone_number is available for the order payload if needed
+                            $offlineOrder['phone_number'] = $custData['phone'];
+                        }
+                    } 
+                    // Fallback to searching by phone if passed directly
+                    elseif (!empty($offlineOrder['phone_number'])) {
+                        $dbCustomer = Customer::where('phone', $offlineOrder['phone_number'])->first();
+                        if ($dbCustomer) {
+                            $customerId = $dbCustomer->id;
+                            $offlineOrder['customer_id'] = $customerId;
+                        }
                     }
 
-                    if(isset($offlineOrder['uuid'])) {
-                        $syncedIds[$offlineOrder['uuid']] = $orderRequest->id; // Technically request ID, not order ID, but frontend can't print it anyway.
-                        $requiresApproval[$offlineOrder['uuid']] = true;
+                    // 3. Process the Order
+                    if (Auth::user()->hasPermission('accept_reject_order')) {
+                        // User has manager privileges, bypass requests and establish order directly
+                        $order = \App\Services\OrderService::establishOrder($offlineOrder, Auth::id());
+                        
+                        // Update UUID on the order
+                        $order->uuid = $uuid;
+                        $order->save();
+                        
+                        $syncedIds[$uuid] = $order->id;
+                        $requiresApproval[$uuid] = false;
+
+                        // Trigger automated SMS for order creation
+                        sendOrderCreateSMS($order->id, $order->customer_id);
+
+                    } else {
+                        // User does not have privileges, create an OrderRequest
+                        $orderRequest = \App\Models\OrderRequest::create([
+                            'request_number' => \App\Services\OrderService::generateRequestID(),
+                            'customer_id' => $customerId,
+                            'customer_name' => $offlineOrder['customer_name'] ?? null,
+                            'total_amount' => $offlineOrder['total'],
+                            'payload' => $offlineOrder, // Storing the full order data here safely.
+                            'status' => 0, // Pending
+                            'created_by' => Auth::id(),
+                            'uuid' => $uuid
+                        ]);
+
+                        // Notify managers
+                        $managers = \App\Models\User::whereHas('role', function($q) {
+                            $q->whereHas('permissions', function($p) {
+                                $p->where('permission_name', 'accept_reject_order');
+                            });
+                        })->get();
+
+                        foreach($managers as $manager) {
+                            $manager->notify(new \App\Notifications\SystemNotification(
+                                'New Order Request',
+                                'A new order request (' . $orderRequest->request_number . ') requires your approval.',
+                                route('orders.requests')
+                            ));
+                        }
+
+                        $syncedIds[$uuid] = $orderRequest->id;
+                        $requiresApproval[$uuid] = true;
                     }
-                }
-            });
+                });
+            } catch (\Exception $e) {
+                // Granular Error Reporting
+                $failedIds[$uuid] = "Sync Error: " . $e->getMessage();
+            }
         }
 
         return response()->json([
             'synced_orders' => $syncedIds,
-            'requires_approval' => $requiresApproval
+            'requires_approval' => $requiresApproval,
+            'failed' => $failedIds
         ]);
-    }
-
-    private function generateOrderID()
-    {
-        $code_prefix = 'ORD-';
-        $ordernumber = Order::lockForUpdate()->orderBy('id', 'desc')->first();
-        if ($ordernumber && $ordernumber->order_number != "") {
-            $code = explode("-", $ordernumber->order_number);
-            $new_code = (int)$code[1] + 1;
-            $new_code = str_pad($new_code, 4, "0", STR_PAD_LEFT);
-            return $code_prefix . $new_code;
-        } else {
-            return $code_prefix . '0001';
-        }
     }
 }

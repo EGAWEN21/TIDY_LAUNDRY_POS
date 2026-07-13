@@ -58,14 +58,22 @@
                                     <td>
                                         <span v-if="item.status === 'pending'" class="badge bg-warning-50 text-warning-600 radius-8 px-12 py-4">Pending</span>
                                         <span v-else-if="item.status === 'error'" class="badge bg-danger-50 text-danger-600 radius-8 px-12 py-4">Error</span>
+                                        <div v-if="item.error_message" class="tw-text-xs tw-text-red-500 tw-mt-1 tw-max-w-[200px]">
+                                            {{ item.error_message }}
+                                        </div>
                                     </td>
                                     <td class="text-secondary-light text-xs">
                                         {{ formatTime(item.timestamp) }}
                                     </td>
                                     <td class="text-end">
-                                        <button @click="deleteItem(item.id)" class="btn btn-sm btn-outline-danger radius-8 d-inline-flex align-items-center justify-content-center p-2" title="Delete Offline Data">
-                                            <iconify-icon icon="mdi:trash-can-outline"></iconify-icon>
-                                        </button>
+                                        <div class="d-flex justify-content-end gap-2">
+                                            <button v-if="item.type === 'order' && item.status === 'error'" @click="editAndFix(item)" class="btn btn-sm btn-outline-primary radius-8 d-inline-flex align-items-center justify-content-center p-2 tw-gap-1" title="Edit & Fix Order">
+                                                <iconify-icon icon="mdi:pencil-outline"></iconify-icon> Fix
+                                            </button>
+                                            <button @click="deleteItem(item.id)" class="btn btn-sm btn-outline-danger radius-8 d-inline-flex align-items-center justify-content-center p-2" title="Delete Offline Data">
+                                                <iconify-icon icon="mdi:trash-can-outline"></iconify-icon>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             </tbody>
@@ -133,6 +141,37 @@ const getDetails = (item) => {
 
 const formatTime = (ts) => {
     return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' });
+};
+
+const editAndFix = async (item) => {
+    // Load into cart
+    pos.cart = item.data.details.map(d => ({
+        service_id: d.service_id,
+        service_type_name: d.service_name,
+        quantity: d.service_quantity,
+        price: d.service_price,
+        color_code: d.color_code || ''
+    }));
+    
+    pos.cartCustomer = item.data.new_customer || pos.customers.find(c => c.id === item.data.customer_id) || null;
+    pos.payments = item.data.payments || [];
+    pos.orderDate = item.data.order_date;
+    pos.deliveryDate = item.data.delivery_date;
+    pos.discount = item.data.discount;
+    
+    // Delete the failed order from queue since we're fixing it
+    await db.syncQueue.delete(item.id);
+    
+    toast.info("Order loaded for fixing.");
+    
+    // Close modal
+    const modalEl = document.getElementById('syncQueueModal');
+    if (typeof window.bootstrap !== 'undefined') {
+        const mInst = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+        if (mInst) mInst.hide();
+    } else if (typeof window.$ !== 'undefined') {
+        window.$('#syncQueueModal').modal('hide');
+    }
 };
 
 // Expose fetchQueue to global scope so bootstrap modal events can trigger it if needed

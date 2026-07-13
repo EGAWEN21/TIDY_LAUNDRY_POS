@@ -243,6 +243,7 @@ const buildOrderData = (type = 'save') => {
     customer_id: pos.cartCustomer ? pos.cartCustomer.id : null,
     customer_name: pos.cartCustomer ? pos.cartCustomer.name : null,
     phone_number: pos.cartCustomer ? pos.cartCustomer.phone : null,
+    new_customer: (pos.cartCustomer && pos.cartCustomer.sync_status === 'pending') ? pos.cartCustomer : null,
     order_date: pos.orderDate,
     delivery_date: pos.deliveryDate,
     sub_total: pos.cartSubTotal,

@@ -60,12 +60,7 @@ export default defineConfig({
                         urlPattern: /\/api\/pos\/.*/i,
                         handler: 'NetworkOnly',
                         options: {
-                            backgroundSync: {
-                                name: 'api-syncQueue',
-                                options: {
-                                    maxRetentionTime: 24 * 60 // 24 hours
-                                }
-                            }
+                            // Workbox backgroundSync removed to prevent conflicts with custom Dexie queue
                         }
                     }
                 ]

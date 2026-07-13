@@ -87,39 +87,29 @@ class OrderService
     {
         $code_prefix = 'ORD-';
         
-        if (\Illuminate\Support\Facades\DB::transactionLevel() > 0) {
-            $ordernumber = Order::lockForUpdate()->orderBy('id', 'desc')->first();
-        } else {
-            $ordernumber = Order::orderBy('id', 'desc')->first();
-        }
-
-        if ($ordernumber && $ordernumber->order_number != "") {
-            $code = explode("-", $ordernumber->order_number);
-            $new_code = (int)$code[1] + 1;
-            $new_code = str_pad($new_code, 4, "0", STR_PAD_LEFT);
-            return $code_prefix . $new_code;
-        } else {
-            return $code_prefix . '0001';
-        }
+        // Lock the sequences table for order_number
+        $sequence = \Illuminate\Support\Facades\DB::table('sequences')->where('name', 'order_number')->lockForUpdate()->first();
+        
+        $new_code = $sequence->value + 1;
+        
+        \Illuminate\Support\Facades\DB::table('sequences')->where('name', 'order_number')->update(['value' => $new_code]);
+        
+        $new_code_str = str_pad($new_code, 4, "0", STR_PAD_LEFT);
+        return $code_prefix . $new_code_str;
     }
 
     public static function generateRequestID()
     {
         $code_prefix = 'REQ-';
         
-        if (\Illuminate\Support\Facades\DB::transactionLevel() > 0) {
-            $reqnumber = OrderRequest::lockForUpdate()->orderBy('id', 'desc')->first();
-        } else {
-            $reqnumber = OrderRequest::orderBy('id', 'desc')->first();
-        }
-
-        if ($reqnumber && $reqnumber->request_number != "") {
-            $code = explode("-", $reqnumber->request_number);
-            $new_code = (int)$code[1] + 1;
-            $new_code = str_pad($new_code, 4, "0", STR_PAD_LEFT);
-            return $code_prefix . $new_code;
-        } else {
-            return $code_prefix . '0001';
-        }
+        // Lock the sequences table for request_number
+        $sequence = \Illuminate\Support\Facades\DB::table('sequences')->where('name', 'request_number')->lockForUpdate()->first();
+        
+        $new_code = $sequence->value + 1;
+        
+        \Illuminate\Support\Facades\DB::table('sequences')->where('name', 'request_number')->update(['value' => $new_code]);
+        
+        $new_code_str = str_pad($new_code, 4, "0", STR_PAD_LEFT);
+        return $code_prefix . $new_code_str;
     }
 }

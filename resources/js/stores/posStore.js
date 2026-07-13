@@ -97,6 +97,13 @@ export const usePosStore = defineStore('pos', {
 
     actions: {
         async initialize() {
+            // Request persistent storage to prevent silent eviction
+            if (navigator.storage && navigator.storage.persist) {
+                navigator.storage.persist().then(granted => {
+                    if (granted) console.log("Storage will not be cleared except by explicit user action");
+                });
+            }
+
             window.addEventListener('online', this.updateOnlineStatus);
             window.addEventListener('offline', this.updateOnlineStatus);
             
@@ -104,19 +111,9 @@ export const usePosStore = defineStore('pos', {
             axios.defaults.headers.common['Authorization'] = `Bearer ${window.PosConfig.apiToken}`;
             axios.defaults.headers.common['Accept'] = 'application/json';
 
-            // Global Axios Interceptor for 401 Unauthorized (Step 4)
-            axios.interceptors.response.use(
-                response => response,
-                error => {
-                    if (error.response && error.response.status === 401) {
-                        this.needsReAuth = true;
-                        this.isSyncing = false;
-                    }
-                    return Promise.reject(error);
-                }
-            );
-
             if(this.isOnline) {
+                // FLUSH OFFLINE QUEUE FIRST before overwriting catalog to prevent App Boot data rot!
+                await this.syncOfflineData();
                 await this.fetchFromServer();
             } else {
                 await this.loadFromLocal();
@@ -125,6 +122,12 @@ export const usePosStore = defineStore('pos', {
             // Background Auto-Updater Engine
             setInterval(async () => {
                 if(this.isOnline && !this.isSyncing) {
+                    // Pause background polling if cart is active or if there are items in the queue
+                    const queueCount = await db.syncQueue.count();
+                    if (this.cart.length > 0 || queueCount > 0) {
+                        return; // Prevent shifting the master catalog while active offline work is present
+                    }
+
                     try {
                         const res = await axios.get('/api/pos/check-update');
                         if(res.data.timestamp > this.lastSyncTimestamp) {
@@ -143,9 +146,12 @@ export const usePosStore = defineStore('pos', {
             if(this.isOnline) {
                 this.syncOfflineData();
                 // Also trigger an immediate check for updates when coming online
-                axios.get('/api/pos/check-update').then(res => {
+                axios.get('/api/pos/check-update').then(async res => {
                     if(res.data.timestamp > this.lastSyncTimestamp) {
-                        this.fetchFromServer();
+                        const queueCount = await db.syncQueue.count();
+                        if (this.cart.length === 0 && queueCount === 0) {
+                            this.fetchFromServer();
+                        }
                     }
                 }).catch(err => {});
             }
@@ -211,34 +217,7 @@ export const usePosStore = defineStore('pos', {
                     return result;
                 };
 
-                // Sync Customers in chunks
-                const allCustomers = await db.syncQueue.where('type').equals('customer').toArray();
-                const pendingCustomers = allCustomers.filter(c => c.status !== 'error');
-                const customerChunks = chunkArray(pendingCustomers, 20);
-
-                for (const chunk of customerChunks) {
-                    try {
-                        const payload = chunk.map(p => p.data);
-                        const response = await axios.post('/api/pos/sync-customers', { customers: payload });
-                        
-                        if(response.data.synced_customers) {
-                            for(let uuid in response.data.synced_customers) {
-                                const item = chunk.find(p => p.data.uuid === uuid);
-                                if(item) await db.syncQueue.delete(item.id);
-                            }
-                        }
-                    } catch (error) {
-                        if (error.response && error.response.status === 401) break;
-                        for (const item of chunk) {
-                            const newCount = (item.retry_count || 0) + 1;
-                            const newStatus = newCount > 3 ? 'error' : 'pending';
-                            await db.syncQueue.update(item.id, { retry_count: newCount, status: newStatus });
-                        }
-                        syncResult.success = false;
-                    }
-                }
-
-                // Sync Orders in chunks
+                // Sync Orders First (Unified Graph Sync will handle nested customers)
                 const allOrders = await db.syncQueue.where('type').equals('order').toArray();
                 const pendingOrders = allOrders.filter(o => o.status !== 'error');
                 const orderChunks = chunkArray(pendingOrders, 20);
@@ -258,16 +237,77 @@ export const usePosStore = defineStore('pos', {
                                 if(item) await db.syncQueue.delete(item.id);
                             }
                         }
+
+                        // Granular Error Reporting for failed items in batch
+                        if (response.data.failed) {
+                            for(let uuid in response.data.failed) {
+                                const item = chunk.find(p => p.data.uuid === uuid);
+                                if (item) {
+                                    await db.syncQueue.update(item.id, { 
+                                        status: 'error', 
+                                        error_message: response.data.failed[uuid] 
+                                    });
+                                }
+                            }
+                            syncResult.success = false;
+                        }
                     } catch (error) {
                         if (error.response && error.response.status === 401) break;
                         for (const item of chunk) {
                             const newCount = (item.retry_count || 0) + 1;
                             const newStatus = newCount > 3 ? 'error' : 'pending';
-                            await db.syncQueue.update(item.id, { retry_count: newCount, status: newStatus });
+                            const errMsg = error.response ? `Server Error: ${error.response.status}` : 'Poor or unstable network connection.';
+                            await db.syncQueue.update(item.id, { retry_count: newCount, status: newStatus, error_message: errMsg });
                         }
                         syncResult.success = false;
                     }
                 }
+
+                // Sync Standalone Customers (if any)
+                const allCustomers = await db.syncQueue.where('type').equals('customer').toArray();
+                const pendingCustomers = allCustomers.filter(c => c.status !== 'error');
+                const customerChunks = chunkArray(pendingCustomers, 20);
+
+                for (const chunk of customerChunks) {
+                    try {
+                        const payload = chunk.map(p => p.data);
+                        const response = await axios.post('/api/pos/sync-customers', { customers: payload });
+                        
+                        if(response.data.synced_customers) {
+                            for(let uuid in response.data.synced_customers) {
+                                const item = chunk.find(p => p.data.uuid === uuid);
+                                if(item) {
+                                    await db.syncQueue.delete(item.id);
+                                    // Update local customer status
+                                    const cust = await db.customers.where('uuid').equals(uuid).first();
+                                    if (cust) await db.customers.update(cust.id, { sync_status: 'synced' });
+                                }
+                            }
+                        }
+
+                        if (response.data.failed) {
+                            for(let uuid in response.data.failed) {
+                                const item = chunk.find(p => p.data.uuid === uuid);
+                                if (item) {
+                                    await db.syncQueue.update(item.id, { 
+                                        status: 'error', 
+                                        error_message: response.data.failed[uuid] 
+                                    });
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        if (error.response && error.response.status === 401) break;
+                        for (const item of chunk) {
+                            const newCount = (item.retry_count || 0) + 1;
+                            const newStatus = newCount > 3 ? 'error' : 'pending';
+                            const errMsg = error.response ? `Server Error: ${error.response.status}` : 'Poor or unstable network connection.';
+                            await db.syncQueue.update(item.id, { retry_count: newCount, status: newStatus, error_message: errMsg });
+                        }
+                        syncResult.success = false;
+                    }
+                }
+
             } catch (error) {
                 console.error("Global Sync Error:", error);
                 syncResult.success = false;
