@@ -4,13 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Traits\UpdatesPosSyncTimestamp;
 
 class Order extends Model
 {
     // Updates the 'pos_last_update' cache timestamp when an order is created/modified,
     // ensuring the Offline POS app instantly syncs updated customer balances.
-    use HasFactory, UpdatesPosSyncTimestamp;
+    use HasFactory, UpdatesPosSyncTimestamp, SoftDeletes;
     protected $fillable = [
         'order_number',
         'customer_id',
@@ -43,9 +44,21 @@ class Order extends Model
         return $this->hasMany(\App\Models\OrderDetail::class, 'order_id', 'id');
     }
     
-    /* user relation */
+    /* addon relation */
     public function addons()
     {
         return $this->hasMany(\App\Models\OrderAddonDetail::class, 'order_id', 'id');
+    }
+
+    /* deleted by relation */
+    public function deletedBy()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'deleted_by', 'id');
+    }
+
+    /* payments relation */
+    public function payments()
+    {
+        return $this->hasMany(\App\Models\Payment::class, 'order_id', 'id');
     }
 }

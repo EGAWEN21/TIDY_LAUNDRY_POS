@@ -13,22 +13,36 @@ class HomePage extends Component
     public $pending_count,$processing_count,$ready_count,$delivered_count,$returned_count,$orders,$array,$search_query,$order_filter,$lang;
     public function render()
     {
-        $this->pending_count = Order::where('status',0)->count();
-        $this->processing_count = Order::where('status',1)->count();
-        $this->ready_count = Order::where('status',2)->count();
-        $this->delivered_count = Order::where('status',3)->count();
-        $this->returned_count = Order::where('status',4)->count();
+        $counts = \Illuminate\Support\Facades\Cache::remember('dashboard_order_counts', 300, function() {
+            return Order::select('status', \Illuminate\Support\Facades\DB::raw('count(*) as total'))
+                ->groupBy('status')
+                ->pluck('total', 'status')
+                ->toArray();
+        });
+
+        $this->pending_count = $counts[0] ?? 0;
+        $this->processing_count = $counts[1] ?? 0;
+        $this->ready_count = $counts[2] ?? 0;
+        $this->delivered_count = $counts[3] ?? 0;
+        $this->returned_count = $counts[4] ?? 0;
         return view('livewire.home-page');
     }
 
     /* process before mount */
     public function mount()
     {
-        $this->pending_count = Order::where('status',0)->count();
-        $this->processing_count = Order::where('status',1)->count();
-        $this->ready_count = Order::where('status',2)->count();
-        $this->delivered_count = Order::where('status',3)->count();
-        $this->returned_count =  Order::where('status',4)->count();
+        $counts = \Illuminate\Support\Facades\Cache::remember('dashboard_order_counts', 300, function() {
+            return Order::select('status', \Illuminate\Support\Facades\DB::raw('count(*) as total'))
+                ->groupBy('status')
+                ->pluck('total', 'status')
+                ->toArray();
+        });
+
+        $this->pending_count = $counts[0] ?? 0;
+        $this->processing_count = $counts[1] ?? 0;
+        $this->ready_count = $counts[2] ?? 0;
+        $this->delivered_count = $counts[3] ?? 0;
+        $this->returned_count = $counts[4] ?? 0;
         $this->orders = Order::with(['details.service'])->whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())->get();
         if(session()->has('selected_language'))
         {

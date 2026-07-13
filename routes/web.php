@@ -85,6 +85,7 @@ Route::group(['middleware' => [\App\Http\Middleware\InstalledMiddleware::class]]
             Route::get('/whatsapp', \App\Livewire\Settings\WhatsappSettings::class)->name('settings.whatsapp');
             Route::get('/theme', \App\Livewire\Settings\ThemeSettings::class)->name('settings.theme');
             Route::get('/file', \App\Livewire\Settings\FileTools::class)->name('settings.file');
+            Route::get('/recycle-bin', \App\Livewire\Settings\RecycleBin::class)->name('settings.recycle-bin');
             Route::group(['prefix' => 'translations/'], function () {
                 Route::get('/', \App\Livewire\Settings\Translations::class)->name('settings.translations');
                 Route::get('/create', \App\Livewire\Settings\Translations\CreateTranslations::class)->name('settings.translations-create');

@@ -66,7 +66,7 @@
                                         </button>
                                     @endcan
                                     @can('expense_delete')
-                                        <button type="button" class="remove-item-button bg-danger-focus bg-hover-danger-200 text-danger-600 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle" wire:click="delete({{ $row->id }})"> 
+                                        <button type="button" class="remove-item-button bg-danger-focus bg-hover-danger-200 text-danger-600 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle" onclick="confirmDelete(() => @this.delete({{ $row->id }}))"> 
                                             <iconify-icon icon="fluent:delete-24-regular" class="menu-icon"></iconify-icon>
                                         </button>
                                     @endcan

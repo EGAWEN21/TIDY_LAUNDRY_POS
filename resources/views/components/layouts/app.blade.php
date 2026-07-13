@@ -140,7 +140,25 @@
                 $('body').removeAttr('style');
             });
         });
+
+        // SweetAlert2 global confirmation function
+        function confirmDelete(callback, message = "You won't be able to revert this!") {
+            Swal.fire({
+                title: 'Are you sure?',
+                text: message,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#3b82f6',
+                confirmButtonText: 'Yes, delete it!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    callback();
+                }
+            });
+        }
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         "use strict";
         document.addEventListener('livewire:init', () => {

@@ -12,7 +12,7 @@ use Auth;
 use App\Models\Translation;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Pagination\Cursor;
-use Illuminate\Support\Facades\Schema;
+
 use Livewire\Component;
 
 class OrdersList extends Component
@@ -68,7 +68,7 @@ class OrdersList extends Component
             $grouped[$dateKey]['orders'][] = $order;
             $grouped[$dateKey]['count']++;
             $grouped[$dateKey]['total_sales'] += $order->total;
-            $grouped[$dateKey]['total_paid'] += \App\Models\Payment::where('order_id', $order->id)->sum('received_amount');
+            $grouped[$dateKey]['total_paid'] += $order->payments_sum_received_amount ?? 0;
         }
         krsort($grouped);
         return $grouped;
@@ -170,32 +170,33 @@ class OrdersList extends Component
             foreach ($this->selectedOrders as $orderId) {
                 $order = Order::find($orderId);
                 if ($order) {
-                    Schema::disableForeignKeyConstraints();
+                    $order->deleted_by = Auth::id();
+                    $order->save();
+                    
                     OrderDetail::where('order_id', $order->id)->delete();
                     OrderAddonDetail::where('order_id', $order->id)->delete();
                     Payment::where('order_id', $order->id)->delete();
                     $order->delete();
-                    Schema::enableForeignKeyConstraints();
                 }
             }
         });
         
         $this->selectedOrders = [];
         $this->reloadOrders();
-        $this->dispatch('alert', ['type' => 'success',  'message' => 'Selected orders have been deleted!']);
+        $this->dispatch('alert', ['type' => 'success',  'message' => 'Selected orders have been moved to Recycle Bin!']);
     }
     /* process while update the content */
     private function getBaseOrderQuery()
     {
         if (Auth::user()->user_type == 1 || Auth::user()->viewable_staff_orders === 'all') {
-            return \App\Models\Order::query();
+            return \App\Models\Order::withSum('payments', 'received_amount');
         }
         $viewable_ids = [Auth::user()->id];
         if (!empty(Auth::user()->viewable_staff_orders)) {
             $extra_ids = explode(',', Auth::user()->viewable_staff_orders);
             $viewable_ids = array_merge($viewable_ids, $extra_ids);
         }
-        return \App\Models\Order::whereIn('created_by', $viewable_ids);
+        return \App\Models\Order::withSum('payments', 'received_amount')->whereIn('created_by', $viewable_ids);
     }
 
     public function updated($name, $value)
@@ -228,7 +229,7 @@ class OrdersList extends Component
                 $paymentStatus = $this->paid_filter;
                 // Fetch orders and calculate payment status
                 $this->orders = $ordersQuery->orderBy('order_number','DESC')->get()->map(function ($order) {
-                    $paidAmount = Payment::where('order_id', $order->id)->sum('received_amount');
+                    $paidAmount = $order->payments_sum_received_amount ?? 0;
 
                     if ($paidAmount == 0) {
                         $order->payment_status = 3;
@@ -267,7 +268,7 @@ class OrdersList extends Component
                 $paymentStatus = $this->paid_filter;
                 // Fetch orders and calculate payment status
                 $this->orders = $ordersQuery->orderBy('order_number','DESC')->get()->map(function ($order) {
-                    $paidAmount = Payment::where('order_id', $order->id)->sum('received_amount');
+                    $paidAmount = $order->payments_sum_received_amount ?? 0;
 
                     if ($paidAmount == 0) {
                         $order->payment_status = 3;
@@ -302,7 +303,7 @@ class OrdersList extends Component
                 $paymentStatus = $value;
                 // Fetch orders and calculate payment status
                 $this->orders = $ordersQuery->orderBy('order_number','DESC')->get()->map(function ($order) {
-                    $paidAmount = Payment::where('order_id', $order->id)->sum('received_amount');
+                    $paidAmount = $order->payments_sum_received_amount ?? 0;
 
                     if ($paidAmount == 0) {
                         $order->payment_status = 3;
@@ -593,9 +594,16 @@ class OrdersList extends Component
 
     public function deleteOrder($order)
     {
+        if(!\Illuminate\Support\Facades\Gate::allows('order_delete')){
+            abort(404);
+        }
+
         $order = Order::whereId($order)->first();
         if ($order) {
             \Illuminate\Support\Facades\DB::transaction(function () use ($order) {
+                $order->deleted_by = Auth::id();
+                $order->save();
+                
                 OrderDetail::where('order_id', $order->id)->delete();
                 OrderAddonDetail::where('order_id', $order->id)->delete();
                 Payment::where('order_id', $order->id)->delete();
@@ -605,7 +613,7 @@ class OrdersList extends Component
         }
         $this->dispatch(
             'alert',
-            ['type' => 'success',  'message' => 'Order has been deleted!']
+            ['type' => 'success',  'message' => 'Order has been moved to Recycle Bin!']
         );
     }
 }

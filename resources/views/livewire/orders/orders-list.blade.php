@@ -309,7 +309,7 @@
                                     </a>
                                     @endcan
                                     @can('order_delete')
-                                    <button type="button" wire:click.prevent="deleteOrder({{$item->id}})" class="remove-item-button bg-danger-focus bg-hover-danger-200 text-danger-600 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle"> 
+                                    <button type="button" onclick="confirmDelete(() => @this.deleteOrder({{$item->id}}))" class="remove-item-button bg-danger-focus bg-hover-danger-200 text-danger-600 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle"> 
                                         <iconify-icon icon="fluent:delete-24-regular" class="menu-icon"></iconify-icon>
                                     </button>
                                     @endcan
@@ -500,7 +500,7 @@
             @endcan
             
             @can('bulk_order_delete')
-            <button type="button" class="btn btn-danger-100 text-danger-600 btn-sm radius-8 d-flex align-items-center gap-2" wire:click="bulkDelete" wire:confirm="Are you sure you want to delete these {{ count($selectedOrders) }} orders? This cannot be undone.">
+            <button type="button" class="btn btn-danger-100 text-danger-600 btn-sm radius-8 d-flex align-items-center gap-2" onclick="confirmDelete(() => @this.bulkDelete(), 'Are you sure you want to delete these {{ count($selectedOrders) }} orders? This cannot be undone.')">
                 <iconify-icon icon="fluent:delete-24-regular"></iconify-icon>
                 Delete
             </button>

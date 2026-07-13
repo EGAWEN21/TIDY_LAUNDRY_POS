@@ -54,8 +54,8 @@
                                                 </a>
                                             @endif
                                             @if(Auth::id() == $item->created_by || Auth::user()->hasPermission('delete_order_requests') || Auth::user()->hasPermission('accept_reject_order'))
-                                                <button type="button" class="bg-danger-100 text-danger-600 bg-hover-danger-200 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle" wire:click="deleteRequest({{ $item->id }})" onclick="confirm('Are you sure you want to delete this request?') || event.stopImmediatePropagation()">
-                                                    <iconify-icon icon="lucide:trash-2" class="menu-icon"></iconify-icon>
+                                                <button type="button" class="bg-danger-100 text-danger-600 bg-hover-danger-200 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle" onclick="confirmDelete(() => @this.deleteRequest({{ $item->id }}))">
+                                                    <iconify-icon icon="fluent:delete-24-regular" class="menu-icon"></iconify-icon>
                                                 </button>
                                             @endif
                                         </div>

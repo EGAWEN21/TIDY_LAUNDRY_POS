@@ -606,9 +606,9 @@ class PosScreen extends Component
                         'status'    => 0,
                         'order_type'    => 1,
                     ]);
-                    OrderDetail::whereOrderId($order->id)->delete();
-                    OrderAddonDetail::whereOrderId($order->id)->delete();
-                    Payment::whereOrderId($order->id)->delete();
+                    OrderDetail::whereOrderId($order->id)->forceDelete();
+                    OrderAddonDetail::whereOrderId($order->id)->forceDelete();
+                    Payment::whereOrderId($order->id)->forceDelete();
                     
                     $amount = 0;
                     foreach ($this->selservices as $key => $value) {

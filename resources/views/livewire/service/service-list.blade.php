@@ -73,7 +73,7 @@
                                     </a>
                                     @endcan
                                     @can('service_delete')
-                                    <button type="button" wire:click="delete({{$item->id}})" class="remove-item-button bg-danger-focus bg-hover-danger-200 text-danger-600 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle">
+                                    <button type="button" onclick="confirmDelete(() => @this.delete({{$item->id}}))" class="remove-item-button bg-danger-focus bg-hover-danger-200 text-danger-600 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle">
                                         <iconify-icon icon="fluent:delete-24-regular" class="menu-icon"></iconify-icon>
                                     </button>
                                     @endcan

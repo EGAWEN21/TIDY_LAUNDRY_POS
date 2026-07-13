@@ -8,3 +8,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote')->hourly();
 
 \Illuminate\Support\Facades\Schedule::command('notifications:cleanup')->daily();
+\Illuminate\Support\Facades\Schedule::command('orders:purge-trashed')->daily();

@@ -252,6 +252,11 @@
                                 class="ri-circle-fill circle-icon text-primary-600 w-auto"></i> {{$lang->data['theme'] ?? 'Theme'}}</a>
                     </li>
                     @endcan
+                    @can('order_restore')
+                    <li>
+                        <a href="{{ route('settings.recycle-bin') }}"><i class="ri-circle-fill circle-icon text-danger-600 w-auto"></i>{{$lang->data['recycle_bin'] ?? 'Recycle Bin'}}</a>
+                    </li>
+                    @endcan
                 </ul>
             </li>
             @endcan
