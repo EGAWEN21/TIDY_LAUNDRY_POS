@@ -112,6 +112,17 @@ class PosApiController extends Controller
         $syncedIds = [];
         $requiresApproval = [];
         $failedIds = [];
+        $createdRequestIds = [];
+
+        // Cache managers query outside the loop to prevent N+1 DB calls during batch sync
+        $managers = collect();
+        if (!Auth::user()->hasPermission('accept_reject_order')) {
+            $managers = \App\Models\User::whereHas('role', function($q) {
+                $q->whereHas('permissions', function($p) {
+                    $p->where('permission_name', 'accept_reject_order');
+                });
+            })->get();
+        }
 
         foreach ($orders as $offlineOrder) {
             $uuid = $offlineOrder['uuid'] ?? null;
@@ -120,7 +131,7 @@ class PosApiController extends Controller
             }
 
             try {
-                \Illuminate\Support\Facades\DB::transaction(function () use ($offlineOrder, $uuid, &$syncedIds, &$requiresApproval) {
+                \Illuminate\Support\Facades\DB::transaction(function () use ($offlineOrder, $uuid, &$syncedIds, &$requiresApproval, &$createdRequestIds) {
                     
                     // 1. Idempotency Check: Did we already sync this order?
                     if (Auth::user()->hasPermission('accept_reject_order')) {
@@ -200,28 +211,30 @@ class PosApiController extends Controller
                             'uuid' => $uuid
                         ]);
 
-                        // Notify managers
-                        $managers = \App\Models\User::whereHas('role', function($q) {
-                            $q->whereHas('permissions', function($p) {
-                                $p->where('permission_name', 'accept_reject_order');
-                            });
-                        })->get();
-
-                        foreach($managers as $manager) {
-                            $manager->notify(new \App\Notifications\SystemNotification(
-                                'New Order Request',
-                                'A new order request (' . $orderRequest->request_number . ') requires your approval.',
-                                route('orders.requests')
-                            ));
-                        }
-
                         $syncedIds[$uuid] = $orderRequest->id;
                         $requiresApproval[$uuid] = true;
+                        $createdRequestIds[] = $orderRequest->id;
                     }
                 });
             } catch (\Exception $e) {
                 // Granular Error Reporting
                 $failedIds[$uuid] = "Sync Error: " . $e->getMessage();
+            }
+        }
+
+        // Batch Manager Notifications to prevent notification spam and API timeouts
+        if (!empty($createdRequestIds)) {
+            // Guarantee consistency: Only notify for records successfully committed to DB
+            $verifiedCount = \App\Models\OrderRequest::whereIn('id', $createdRequestIds)->count();
+            
+            if ($verifiedCount > 0) {
+                foreach($managers as $manager) {
+                    $manager->notify(new \App\Notifications\SystemNotification(
+                        'New Offline Order Requests',
+                        "There are {$verifiedCount} new offline order request(s) requiring your approval.",
+                        route('orders.requests')
+                    ));
+                }
             }
         }
 
