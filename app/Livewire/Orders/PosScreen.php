@@ -86,7 +86,7 @@ class PosScreen extends Component
                         $this->selservices[$this->inputi]['service_type']  = $serviceType?->id;
                         
                         $this->selling_price[$this->inputi] = $row['service_price'];
-                        $this->colors[$this->inputi] = $row['color_code'] ?? '';
+                        $this->colors[$this->inputi] = $row['color_code'] ?? '#000000';
                         
                         if ($payload['tax_type'] == 2) {
                             $itemtotallocal = $row['service_price'] * (100 / (100 + ($this->tax_percent ?? 0)));
@@ -311,7 +311,7 @@ class PosScreen extends Component
         $this->prices[$this->inputi] = 100;
         $this->service_types[$this->inputi] = '';
         $this->quantity[$this->inputi]  = 1;
-        $this->colors[$this->inputi]  = '';
+        $this->colors[$this->inputi]  = '#000000';
     }
     /* increase the count */
     public function increase($key)
@@ -364,7 +364,7 @@ class PosScreen extends Component
             $this->selservices[$newKey] = $this->selservices[$key] ?? [];
             $this->prices[$newKey] = $this->prices[$key] ?? 0;
             $this->selling_price[$newKey] = $this->selling_price[$key] ?? 0;
-            $this->colors[$newKey] = $this->colors[$key] ?? '';
+            $this->colors[$newKey] = $this->colors[$key] ?? '#000000';
             $this->quantity[$newKey] = $this->quantity[$key] ?? 1;
             $this->service_types = collect();
             $this->calculateTotal();

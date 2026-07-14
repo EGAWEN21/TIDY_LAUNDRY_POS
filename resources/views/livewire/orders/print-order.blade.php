@@ -90,11 +90,11 @@
                                 </td>
                                 <td class="text-primary">
                                     @if($item->color_code!="")
-                                    <div class="tw-size-6 tw-rounded-lg" style="background-color: {{$item->color_code}}">
+                                    <div class="tw-size-6 tw-rounded-lg tw-border tw-border-neutral-200" style="background-color: {{$item->color_code}}">
                                     </div>
 
                                     @else
-                                    <div class="tw-size-6 tw-rounded-lg tw-bg-white" >
+                                    <div class="tw-size-6 tw-rounded-lg tw-bg-black tw-border tw-border-neutral-200" >
                                     </div>
                                     @endif
                                 </td>
