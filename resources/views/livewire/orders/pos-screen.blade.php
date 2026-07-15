@@ -1,5 +1,5 @@
 <div x-data="posFunction" class="tw-w-full">
-    <div class="tw-w-full tw-bg-white tw-flex tw-justify-between tw-items-center ">
+    <div class="tw-w-full tw-bg-white dark:tw-bg-[#1b2431] tw-flex tw-justify-between tw-items-center ">
         <div class="tw-flex tw-gap-2 tw-px-3 tw-py-2">
             <a href="{{ route('orders') }}" class="no-underline">
                 <button
@@ -42,7 +42,7 @@
     </div>
 
     <div class="tw-w-[100%] tw-h-full tw-flex lg:tw-flex-row tw-flex-col  tw-relative tw-mt-0.5">
-        <div class="lg:tw-w-5/12 tw-w-full tw-flex-col tw-h-[calc(100vh-4.0rem)]  tw-p-2 tw-bg-white p-16">
+        <div class="lg:tw-w-5/12 tw-w-full tw-flex-col tw-h-[calc(100vh-4.0rem)]  tw-p-2 tw-bg-white dark:tw-bg-[#1b2431] p-16">
             <div class="tw-flex tw-flex-col">
                 <div class="icon-field has-validation">
                     <span class="icon tw-translate-y-[2px]">
@@ -86,7 +86,7 @@
                 </div>
             </div>
         </div>
-        <div class=" tw-h-[calc(100vh-4rem)] tw-flex tw-flex-col tw-bg-white p-16"
+        <div class=" tw-h-[calc(100vh-4rem)] tw-flex tw-flex-col tw-bg-white dark:tw-bg-[#1b2431] p-16"
             :class="shown && detached ? 'tw-absolute tw-inset-0 tw-w-full' :
                 ' tw-hidden lg:tw-block lg:tw-w-7/12 tw-w-full tw-shrink-0 '">
             <div class="tw-flex tw-items-center tw-gap-8 tw-w-full">
@@ -145,7 +145,7 @@
                             required="" wire:model.live="customer_query">
                         @if ($customers && count($customers) > 0)
                             <div
-                                class="tw-absolute tw-top-[100%] tw-left-0 tw-w-full tw-z-20 tw-shadow-md tw-bg-white tw-rounded-lg ">
+                                class="tw-absolute tw-top-[100%] tw-left-0 tw-w-full tw-z-20 tw-shadow-md tw-bg-white dark:tw-bg-slate-800 tw-border dark:tw-border-slate-700 tw-rounded-lg ">
                                 @foreach ($customers as $row)
                                     <li class="dropdown-item px-16 py-8 rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900"
                                         wire:click="selectCustomer({{ $row->id }})">{{ $row->name }} -
@@ -311,7 +311,7 @@
                                                                x-transition:leave="tw-transition tw-ease-in tw-duration-75"
                                                                x-transition:leave-start="tw-transform tw-opacity-100 tw-scale-100"
                                                                x-transition:leave-end="tw-transform tw-opacity-0 tw-scale-95"
-                                                               class="tw-absolute tw-z-50 tw-bg-white tw-shadow-lg tw-border tw-border-gray-200"
+                                                               class="tw-absolute tw-z-50 tw-bg-white dark:tw-bg-slate-800 tw-shadow-lg tw-border tw-border-gray-200 dark:tw-border-slate-700"
                                                                style="display: none; top: 32px; left: 0px; width: 170px; border-radius: 12px; padding: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.15);">
                                                               
                                                               <div class="tw-flex tw-justify-between tw-items-center" style="margin-bottom: 10px;">
