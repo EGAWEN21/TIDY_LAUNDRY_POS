@@ -85,7 +85,6 @@
 
 
     <Teleport to="body">
-        <InstallPrompt />
         <ServiceTypeModal :availableServiceTypes="availableServiceTypes" :currency="pos.settings.currency" @add-items="addItems" />
         <NotesModal />
         <DiscountModal />
@@ -107,7 +106,6 @@ import NotesModal from './components/NotesModal.vue';
 import DiscountModal from './components/DiscountModal.vue';
 import AddonModal from './components/AddonModal.vue';
 import CartTable from './components/CartTable.vue';
-import InstallPrompt from './components/InstallPrompt.vue';
 import ReAuthModal from './components/ReAuthModal.vue';
 import SyncQueueModal from './components/SyncQueueModal.vue';
 import { toast } from 'vue3-toastify';
