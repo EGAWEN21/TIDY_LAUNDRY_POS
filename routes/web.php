@@ -4,6 +4,18 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Middleware\Admin;
 use App\Http\Middleware\Store;
 
+Route::get('/sw.js', function () {
+    return response()->file(public_path('build/sw.js'), [
+        'Content-Type' => 'application/javascript',
+        'Service-Worker-Allowed' => '/',
+    ]);
+});
+
+Route::get('/manifest.webmanifest', function () {
+    return response()->file(public_path('build/manifest.webmanifest'), [
+        'Content-Type' => 'application/manifest+json',
+    ]);
+});
 Route::get('/license', \App\Livewire\Installer\LicenseExpired::class)->name('license');
 Route::get('/install', \App\Livewire\Installer\InstallApp::class)->name('install');
 Route::get('/update', \App\Livewire\Installer\UpdaterApp::class)->name('update');

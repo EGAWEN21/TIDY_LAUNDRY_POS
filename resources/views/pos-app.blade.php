@@ -32,7 +32,7 @@
     
     <!-- PWA Manifest & Theme Color -->
     <meta name="theme-color" content="#ffffff">
-    <link rel="manifest" href="/build/manifest.webmanifest">
+    <link rel="manifest" href="/manifest.webmanifest">
     
     <title>Offline POS</title>
     <script>
@@ -74,7 +74,7 @@
         // Register PWA Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/build/sw.js', { scope: '/admin/pos/' })
+                navigator.serviceWorker.register('/sw.js', { scope: '/admin/pos/' })
                 .then(registration => {
                     console.log('PWA ServiceWorker registered successfully');
                 })
