@@ -76,14 +76,16 @@ export default defineConfig({
                 start_url: '/admin/pos',
                 icons: [
                     {
-                        src: '/assets/images/logo.png',
+                        src: '/assets/images/logo-192.png',
                         sizes: '192x192',
-                        type: 'image/png'
+                        type: 'image/png',
+                        purpose: 'any maskable'
                     },
                     {
-                        src: '/assets/images/logo.png',
+                        src: '/assets/images/logo-512.png',
                         sizes: '512x512',
-                        type: 'image/png'
+                        type: 'image/png',
+                        purpose: 'any maskable'
                     }
                 ]
             }
