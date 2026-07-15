@@ -65,6 +65,10 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
                 </svg>
             </button>
+            <button v-if="showInstallButton" @click="installApp" class="tw-ml-2 tw-p-2 tw-rounded-full tw-transition-colors hover:tw-bg-slate-200 dark:hover:tw-bg-slate-700 tw-text-primary-600 dark:tw-text-primary-400 tw-bg-primary-50 dark:tw-bg-primary-900/30 tw-flex tw-items-center tw-gap-1.5" title="Install App">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <span class="tw-hidden sm:tw-inline tw-text-sm tw-font-bold tw-pr-1">Install App</span>
+            </button>
             <button data-bs-toggle="modal" data-bs-target="#syncQueueModal" class="tw-ml-2 tw-p-2 tw-rounded-full tw-transition-colors hover:tw-bg-slate-200 dark:hover:tw-bg-slate-700 tw-text-slate-600 dark:tw-text-slate-300" title="Sync Manager" aria-label="Open Sync Manager">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21v-5h5"/></svg>
             </button>
@@ -137,6 +141,20 @@ const shown = ref(false);
 const detached = ref(false);
 const isMobileCartView = ref(false);
 
+// PWA Install State
+const showInstallButton = ref(false);
+const deferredPrompt = ref(null);
+
+const installApp = async () => {
+  if (!deferredPrompt.value) return;
+  deferredPrompt.value.prompt();
+  const { outcome } = await deferredPrompt.value.userChoice;
+  if (outcome === 'accepted') {
+    showInstallButton.value = false;
+  }
+  deferredPrompt.value = null;
+};
+
 const checkDetached = () => {
     detached.value = window.innerWidth < 1024;
 };
@@ -178,6 +196,18 @@ onMounted(async () => {
               document.documentElement.removeAttribute('data-theme');
           }
       }
+  });
+
+  // Check if app is already installed
+  if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+      showInstallButton.value = false;
+  }
+
+  // Listen for the browser's signal that the PWA can be installed
+  window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt.value = e;
+      showInstallButton.value = true;
   });
 
   checkDetached();
