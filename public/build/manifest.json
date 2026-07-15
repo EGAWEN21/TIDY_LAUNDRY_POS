@@ -4,7 +4,7 @@
     "name": "index"
   },
   "resources/css/app.css": {
-    "file": "assets/app-42zkI5qr.css",
+    "file": "assets/app-CFvKOFX3.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
@@ -18,7 +18,7 @@
     ]
   },
   "resources/js/pos-app.js": {
-    "file": "assets/pos-app-CpkxqtO9.js",
+    "file": "assets/pos-app-BYFgvmiH.js",
     "name": "pos-app",
     "src": "resources/js/pos-app.js",
     "isEntry": true,
