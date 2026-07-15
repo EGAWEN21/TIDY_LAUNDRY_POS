@@ -73,7 +73,7 @@ export default defineConfig({
                 theme_color: '#ffffff',
                 background_color: '#ffffff',
                 display: 'standalone',
-                start_url: '/admin/pos',
+                start_url: '/admin/pos/',
                 icons: [
                     {
                         src: '/assets/images/logo-192.png',
