@@ -20,11 +20,12 @@
                 </button>
             </a>
             
+            <template v-if="detached">
                 <button
                     class="tw-px-2 tw-py-1.5 bg-primary-600 tw-w-fit tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md"
                     @click="shown = !shown">
                     
-                        <div class="tw-flex  tw-items-center tw-gap-2">
+                        <div v-if="!shown" class="tw-flex  tw-items-center tw-gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                                 stroke-width="1.5" stroke="currentColor" class="tw-size-4">
                                 <path stroke-linecap="round" stroke-linejoin="round"
@@ -34,7 +35,7 @@
                         </div>
                     
                     
-                        <div class="tw-flex tw-items-center tw-gap-2">
+                        <div v-else class="tw-flex tw-items-center tw-gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                                 stroke-width="1.5" stroke="currentColor" class="tw-size-4">
                                 <path stroke-linecap="round" stroke-linejoin="round"
@@ -45,6 +46,7 @@
                         </div>
                     
                 </button>
+            </template>
             
             <div class="tw-ml-4 tw-flex tw-items-center">
                 <span v-if="pos.isOnline" class="tw-bg-green-100 tw-text-green-800 tw-text-xs tw-font-bold tw-px-3 tw-py-1.5 tw-rounded tw-shadow-sm tw-flex tw-items-center tw-gap-1">
@@ -93,7 +95,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, onErrorCaptured } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, onErrorCaptured } from 'vue';
 import { usePosStore } from '../stores/posStore';
 import { db } from '../db';
 import PaymentModal from './components/PaymentModal.vue';
@@ -136,6 +138,10 @@ const shown = ref(false);
 const detached = ref(false);
 const isMobileCartView = ref(false);
 
+const checkDetached = () => {
+    detached.value = window.innerWidth < 1024;
+};
+
 // Service Selection State
 const showServiceTypeModal = ref(false);
 const selectedService = ref(null);
@@ -162,7 +168,13 @@ onMounted(async () => {
   if (isDarkMode.value) {
       document.documentElement.setAttribute('data-theme', 'dark');
   }
+  checkDetached();
+  window.addEventListener('resize', checkDetached);
   await pos.initialize();
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkDetached);
 });
 
 // Computed properties
