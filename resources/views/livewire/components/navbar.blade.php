@@ -15,9 +15,9 @@
         </div>
         <div class="col-auto">
             <div class="d-flex flex-wrap align-items-center tw-gap-2 sm:tw-gap-3" wire:ignore>
-                @can('order_create')
                 <button type="button" data-theme-toggle
-                    class="w-40-px h-40-px bg-neutral-200 rounded-circle  justify-content-center align-items-center tw-hidden"></button>
+                    class="tw-p-2 tw-rounded-full tw-transition-colors hover:tw-bg-neutral-300 dark:hover:tw-bg-slate-700 tw-text-neutral-600 dark:tw-text-slate-300 tw-flex tw-items-center tw-justify-center tw-w-8 tw-h-8 sm:tw-w-10 sm:tw-h-10 tw-bg-neutral-100 dark:tw-bg-slate-800" aria-label="Toggle dark mode"></button>
+                @can('order_create')
                 <a href="{{route('orders.pos')}}" type="button" 
                     class="tw-w-8 tw-h-8 sm:tw-w-10 sm:tw-h-10 btn-primary-600 text-white rounded-circle d-flex justify-content-center align-items-center tw-relative tw-group"
                   
