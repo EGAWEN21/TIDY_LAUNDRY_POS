@@ -59,28 +59,22 @@
           </div>
       </div>
       <div class="tw-w-full tw-flex tw-flex-col tw-flex-1 tw-min-h-0 tw-mt-6 tw-rounded-2xl tw-overflow-clip tw-border tw-border-white/60 dark:tw-border-white/10 tw-shadow-lg tw-bg-white/60 dark:tw-bg-slate-800/60 tw-backdrop-blur-md">
-          <div class="tw-flex tw-flex-col tw-flex-1 tw-min-h-0 lg:tw-w-full tw-overflow-x-auto custom-scroll tw-shadow-[inset_-12px_0_15px_-15px_rgba(0,0,0,0.15)] tw-pr-2">
-              <div class="tw-flex tw-flex-col tw-flex-1 tw-min-h-0 lg:tw-w-full tw-w-full tw-min-w-[60rem]">
-                  <div class="tw-flex tw-flex-col tw-w-full tw-shrink-0">
-                      <table class="tw-w-full tw-text-xs tw-shrink-0 tw-h-fit tw-whitespace-nowrap">
-                          <thead class="tw-bg-slate-100/50 dark:tw-bg-slate-700/50 tw-text-slate-600 dark:tw-text-slate-300 tw-uppercase tw-tracking-wider tw-font-semibold tw-border-b tw-border-white/40 dark:tw-border-white/10">
-                              <tr>
-                                  <th class="tw-py-3 tw-px-3 tw-text-xs tw-w-[10rem] lg:tw-w-[10%] tw-text-left tw-sticky tw-left-0 tw-bg-slate-100 dark:tw-bg-slate-700 tw-z-10 tw-shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Service</th>
-                                  <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[15%] tw-text-center">Color</th>
-                                  <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[15%] tw-text-center">Price</th>
-                                  <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[15%] tw-text-center">Rate</th>
-                                  <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[15%] tw-text-center">QTY</th>
-                                  <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[10%] tw-text-center">Tax ({{ pos.settings.tax_percentage }}%)</th>
-                                  <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[10%] tw-text-center">Total</th>
-                                  <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[5%] tw-text-center"></th>
-                              </tr>
-                          </thead>
-                      </table>
-                  </div>
-
-                  <div class="tw-flex tw-flex-1 tw-min-h-0 tw-overflow-y-auto tw-w-full tw-shrink-0">
-                      <table class="tw-w-full tw-text-xs tw-shrink-0 tw-h-fit tw-whitespace-nowrap">
-                          <TransitionGroup name="cart-list" tag="tbody">
+          <div class="tw-flex tw-flex-col tw-flex-1 tw-min-h-0 lg:tw-w-full tw-overflow-auto custom-scroll tw-shadow-[inset_-12px_0_15px_-15px_rgba(0,0,0,0.15)] tw-pr-2">
+              <div class="tw-flex tw-flex-col lg:tw-w-full tw-w-full tw-min-w-[60rem]">
+                  <table class="tw-w-full tw-text-xs tw-whitespace-nowrap">
+                      <thead class="tw-sticky tw-top-0 tw-z-20 tw-bg-slate-100/90 dark:tw-bg-slate-700/90 tw-backdrop-blur-sm tw-text-slate-600 dark:tw-text-slate-300 tw-uppercase tw-tracking-wider tw-font-semibold tw-border-b tw-border-white/40 dark:tw-border-white/10 tw-shadow-sm">
+                          <tr>
+                              <th class="tw-py-3 tw-px-3 tw-text-xs tw-w-[10rem] lg:tw-w-[10%] tw-text-left tw-sticky tw-left-0 tw-bg-slate-100 dark:tw-bg-slate-700 tw-z-30 tw-shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Service</th>
+                              <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[15%] tw-text-center">Color</th>
+                              <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[15%] tw-text-center">Price</th>
+                              <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[15%] tw-text-center">Rate</th>
+                              <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[15%] tw-text-center">QTY</th>
+                              <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[10%] tw-text-center">Tax ({{ pos.settings.tax_percentage }}%)</th>
+                              <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[10%] tw-text-center">Total</th>
+                              <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[5%] tw-text-center"></th>
+                          </tr>
+                      </thead>
+                      <TransitionGroup name="cart-list" tag="tbody">
                               <tr v-for="(item, key) in pos.cart" :key="key" class="tw-border-b tw-border-neutral-200 dark:tw-border-neutral-800/50 tw-border-solid tw-transition-all tw-duration-200">
                                   <td class="tw-py-2 tw-px-2 lg:tw-w-[10%] tw-w-[10rem] tw-text-left tw-sticky tw-left-0 tw-bg-white dark:tw-bg-slate-800 tw-z-10 tw-shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                       <div class="tw-flex tw-flex-col">
@@ -152,9 +146,8 @@
                                       </div>
                                   </td>
                               </tr>
-                          </TransitionGroup>
-                      </table>
-                  </div>
+                      </TransitionGroup>
+                  </table>
               </div>
           </div>
           <div class="tw-mt-2 tw-flex tw-justify-between tw-text-sm tw-p-4 tw-bg-slate-50/50 dark:tw-bg-slate-800/80 tw-border-t tw-border-white/40 dark:tw-border-white/10 tw-rounded-b-2xl dark:tw-text-slate-200">
@@ -197,22 +190,22 @@
               </div>
           </div>
       </div>
-      <div class="tw-grid tw-grid-cols-2 lg:tw-flex tw-items-center tw-gap-2 tw-mt-1 tw-p-2 tw-w-full lg:tw-h-14">
-          <button class="tw-px-2 tw-justify-center tw-font-semibold tw-py-2 tw-h-full bg-success-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-w-full tw-border-0 tw-shadow-md" data-bs-toggle="modal" data-bs-target="#payment">
+      <div class="tw-flex tw-flex-wrap lg:tw-flex-nowrap tw-items-center tw-gap-2 tw-mt-1 tw-p-2 tw-w-full lg:tw-h-14">
+          <button class="tw-w-[calc(50%-0.25rem)] lg:tw-w-auto lg:tw-flex-1 tw-justify-center tw-font-semibold tw-py-2 lg:tw-h-full bg-success-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md" data-bs-toggle="modal" data-bs-target="#payment">
               <span>Payment</span>
           </button>
-          <button class="tw-px-2 tw-justify-center tw-font-semibold tw-py-2 tw-h-full bg-info-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-w-full tw-border-0 tw-shadow-md" @click.prevent="$emit('save', 'cash')">
+          <button class="tw-w-[calc(50%-0.25rem)] lg:tw-w-auto lg:tw-flex-1 tw-justify-center tw-font-semibold tw-py-2 lg:tw-h-full bg-info-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md" @click.prevent="$emit('save', 'cash')">
               <span>Cash</span>
           </button>
-          <button class="tw-px-2 tw-justify-center tw-font-semibold tw-py-2 tw-h-full tw-bg-orange-500 hover:tw-bg-orange-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-w-full tw-border-0 tw-shadow-md" @click.prevent="$emit('saveOffline')">
+          <button class="tw-flex-1 tw-justify-center tw-font-semibold tw-py-2 lg:tw-h-full tw-bg-orange-500 hover:tw-bg-orange-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md" @click.prevent="$emit('saveOffline')">
               <span>Save</span>
           </button>
-          <button :disabled="isSyncing" class="tw-px-2 tw-justify-center tw-font-semibold tw-py-2 tw-h-full bg-primary-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-w-full tw-border-0 tw-shadow-md disabled:tw-opacity-50" @click.prevent="$emit('syncAndPrint')">
+          <button :disabled="isSyncing" class="tw-flex-1 tw-justify-center tw-font-semibold tw-py-2 lg:tw-h-full bg-primary-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md disabled:tw-opacity-50" @click.prevent="$emit('syncAndPrint')">
               <svg v-if="isSyncing" class="tw-animate-spin -tw-ml-1 tw-mr-2 tw-h-4 tw-w-4 tw-text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="tw-opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="tw-opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-              <span>{{ isSyncing ? 'Syncing...' : 'Sync & Print' }}</span>
+              <span class="tw-text-xs sm:tw-text-sm">{{ isSyncing ? 'Syncing...' : 'Sync & Print' }}</span>
           </button>
-          <button class="tw-px-2 tw-py-2 bg-danger-600 tw-rounded-md tw-text-white tw-h-full tw-flex tw-items-center tw-justify-center tw-gap-1.5 tw-border-0 tw-shadow-md tw-col-span-2 lg:tw-col-span-1 tw-min-h-[2.5rem]" @click.prevent="$emit('clearAll')">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-arrow-repeat" viewBox="0 0 16 16"><path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41m-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9" /><path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5 5 0 0 0 8 3M3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9z" /></svg>
+          <button class="tw-w-12 tw-shrink-0 tw-py-2 lg:tw-h-full bg-danger-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-justify-center tw-gap-1.5 tw-border-0 tw-shadow-md tw-min-h-[2.5rem]" @click.prevent="$emit('clearAll')">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z" /><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z" /></svg>
           </button>
       </div>
   </div>

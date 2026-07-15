@@ -170,13 +170,12 @@
             </div>
             <div
                 class="tw-w-full tw-flex-1 tw-min-h-0 tw-flex tw-flex-col tw-mt-4 tw-rounded-lg tw-overflow-clip tw-border @error('error') tw-border-red-500 @else tw-border-neutral-200 dark:tw-border-[#1b2431] @enderror tw-border-solid">
-                <div class="tw-flex tw-flex-col tw-flex-1 tw-min-h-0 lg:tw-w-full tw-overflow-x-auto custom-scroll">
-                    <div class="tw-flex tw-flex-col tw-flex-1 tw-min-h-0 lg:tw-w-full tw-w-full tw-min-w-[60rem]">
-                        <div class="tw-flex tw-flex-col  tw-overflow-x-auto tw-w-full tw-shrink-0">
-                            <table class="tw-w-full tw-text-xs tw-shrink-0 tw-h-fit tw-whitespace-nowrap">
-                                <thead class="tw-bg-[#e9ecef] dark:tw-bg-[#1b2431]">
+                <div class="tw-flex tw-flex-col tw-flex-1 tw-min-h-0 lg:tw-w-full tw-overflow-auto custom-scroll">
+                    <div class="tw-flex tw-flex-col lg:tw-w-full tw-w-full tw-min-w-[60rem]">
+                        <table class="tw-w-full tw-text-xs tw-whitespace-nowrap">
+                                <thead class="tw-sticky tw-top-0 tw-z-20 tw-bg-[#e9ecef] dark:tw-bg-[#1b2431] tw-shadow-sm">
                                     <tr>
-                                        <th class="tw-py-2 tw-px-2 tw-text-xs tw-w-[10rem] lg:tw-w-[10%] tw-text-left tw-sticky tw-left-0 tw-bg-[#e9ecef] dark:tw-bg-[#1b2431] tw-z-10 tw-shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                                        <th class="tw-py-2 tw-px-2 tw-text-xs tw-w-[10rem] lg:tw-w-[10%] tw-text-left tw-sticky tw-left-0 tw-bg-[#e9ecef] dark:tw-bg-[#1b2431] tw-z-30 tw-shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                             {{ $lang->data['service'] ?? 'Service' }}</th>
                                         <th
                                             class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[15%] tw-text-center">
@@ -202,12 +201,6 @@
                                         </th>
                                     </tr>
                                 </thead>
-                            </table>
-                        </div>
-
-                        <div
-                            class="tw-flex tw-flex-1 tw-min-h-0 tw-overflow-y-auto tw-overflow-x-auto tw-w-full tw-shrink-0">
-                            <table class="  tw-w-full tw-text-xs tw-shrink-0  tw-h-fit tw-whitespace-nowrap">
                                 <tbody>
                                     @php
                                         $currentcount = 0;
@@ -443,12 +436,10 @@
                                             </td>
                                         </tr>
                                     @endforeach
-
                                 </tbody>
                             </table>
                         </div>
                     </div>
-                </div>
                 <div
                     class="tw-mt-4 tw-flex tw-justify-between tw-text-sm  tw-p-2 tw-border-t dark:tw-border-[#1b2431] tw-border-dashed tw-border-neutral-200 tw-border-b-0 tw-border-l-0 tw-border-r-0">
                     <div class="tw-flex tw-flex-col tw-gap-2">
@@ -519,32 +510,26 @@
                     </div>
                 </div>
             </div>
-            <div class="tw-flex tw-items-center tw-gap-2 tw-mt-1 tw-p-2 tw-w-full tw-h-14">
+            <div class="tw-flex tw-flex-wrap lg:tw-flex-nowrap tw-items-center tw-gap-2 tw-mt-1 tw-p-2 tw-w-full lg:tw-h-14">
                 <button
-                    class="tw-px-2 tw-justify-center tw-font-semibold tw-py-2 tw-h-full bg-success-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-w-full tw-border-0 tw-shadow-md "
+                    class="tw-w-[calc(50%-0.25rem)] lg:tw-w-auto lg:tw-flex-1 tw-justify-center tw-font-semibold tw-py-2 lg:tw-h-full bg-success-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md"
                     data-bs-toggle="modal" data-bs-target="#payment">
                     <span>{{ $lang->data['payment'] ?? 'Payment' }}</span>
                 </button>
                 <button
-                    class="tw-px-2 tw-justify-center tw-font-semibold tw-py-2 tw-h-full bg-info-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-w-full tw-border-0 tw-shadow-md "
+                    class="tw-w-[calc(50%-0.25rem)] lg:tw-w-auto lg:tw-flex-1 tw-justify-center tw-font-semibold tw-py-2 lg:tw-h-full bg-info-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md"
                     wire:click.prevent="save('cash')">
                     <span>{{ $lang->data['cash'] ?? 'Cash' }}</span>
                 </button>
                 <button
-                    class="tw-px-2 tw-justify-center tw-font-semibold tw-py-2 tw-h-full bg-primary-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-w-full tw-border-0 tw-shadow-md "
+                    class="tw-flex-1 tw-justify-center tw-font-semibold tw-py-2 lg:tw-h-full bg-primary-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md"
                     wire:click.prevent="save">
                     <span>{{ $lang->data['save_print'] ?? 'Save & Print' }}</span>
                 </button>
                 <button
-                    class="tw-px-2 tw-py-2.5 tw-bg-red-500 tw-rounded-md tw-text-white tw-h-full tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md  "
+                    class="tw-w-12 tw-shrink-0 tw-py-2 lg:tw-h-full bg-danger-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-justify-center tw-gap-1.5 tw-border-0 tw-shadow-md tw-min-h-[2.5rem]"
                     wire:click.prevent="clearAll">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
-                        class="bi bi-arrow-repeat" viewBox="0 0 16 16">
-                        <path
-                            d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41m-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9" />
-                        <path fill-rule="evenodd"
-                            d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5 5 0 0 0 8 3M3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9z" />
-                    </svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z" /><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z" /></svg>
                 </button>
             </div>
         </div>
