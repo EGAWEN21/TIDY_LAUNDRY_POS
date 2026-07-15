@@ -59,13 +59,13 @@
           </div>
       </div>
       <div class="tw-w-full tw-flex tw-flex-col tw-flex-1 tw-min-h-0 tw-mt-6 tw-rounded-2xl tw-overflow-clip tw-border tw-border-white/60 dark:tw-border-white/10 tw-shadow-lg tw-bg-white/60 dark:tw-bg-slate-800/60 tw-backdrop-blur-md">
-          <div class="tw-flex tw-flex-col lg:tw-w-full tw-overflow-x-auto custom-scroll tw-shadow-[inset_-12px_0_15px_-15px_rgba(0,0,0,0.15)] tw-pr-2">
-              <div class="tw-flex tw-flex-col lg:tw-w-full tw-w-full tw-min-w-[60rem]">
-                  <div class="tw-flex tw-flex-col tw-overflow-x-auto tw-w-full tw-shrink-0">
-                      <table class="tw-w-full tw-text-xs tw-shrink-0 tw-h-fit">
+          <div class="tw-flex tw-flex-col tw-flex-1 tw-min-h-0 lg:tw-w-full tw-overflow-x-auto custom-scroll tw-shadow-[inset_-12px_0_15px_-15px_rgba(0,0,0,0.15)] tw-pr-2">
+              <div class="tw-flex tw-flex-col tw-flex-1 tw-min-h-0 lg:tw-w-full tw-w-full tw-min-w-[60rem]">
+                  <div class="tw-flex tw-flex-col tw-w-full tw-shrink-0">
+                      <table class="tw-w-full tw-text-xs tw-shrink-0 tw-h-fit tw-whitespace-nowrap">
                           <thead class="tw-bg-slate-100/50 dark:tw-bg-slate-700/50 tw-text-slate-600 dark:tw-text-slate-300 tw-uppercase tw-tracking-wider tw-font-semibold tw-border-b tw-border-white/40 dark:tw-border-white/10">
                               <tr>
-                                  <th class="tw-py-3 tw-px-3 tw-text-xs tw-w-[10rem] lg:tw-w-[10%] tw-text-left">Service</th>
+                                  <th class="tw-py-3 tw-px-3 tw-text-xs tw-w-[10rem] lg:tw-w-[10%] tw-text-left tw-sticky tw-left-0 tw-bg-slate-100 dark:tw-bg-slate-700 tw-z-10 tw-shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Service</th>
                                   <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[15%] tw-text-center">Color</th>
                                   <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[15%] tw-text-center">Price</th>
                                   <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[15%] tw-text-center">Rate</th>
@@ -78,11 +78,11 @@
                       </table>
                   </div>
 
-                  <div class="tw-flex tw-h-[calc(100dvh-28rem)] tw-overflow-y-auto tw-overflow-x-auto tw-w-full tw-shrink-0">
-                      <table class="tw-w-full tw-text-xs tw-shrink-0 tw-h-fit">
+                  <div class="tw-flex tw-flex-1 tw-min-h-0 tw-overflow-y-auto tw-w-full tw-shrink-0">
+                      <table class="tw-w-full tw-text-xs tw-shrink-0 tw-h-fit tw-whitespace-nowrap">
                           <TransitionGroup name="cart-list" tag="tbody">
                               <tr v-for="(item, key) in pos.cart" :key="key" class="tw-border-b tw-border-neutral-200 dark:tw-border-neutral-800/50 tw-border-solid tw-transition-all tw-duration-200">
-                                  <td class="tw-py-2 tw-px-2 lg:tw-w-[10%] tw-w-[10rem] tw-text-left">
+                                  <td class="tw-py-2 tw-px-2 lg:tw-w-[10%] tw-w-[10rem] tw-text-left tw-sticky tw-left-0 tw-bg-white dark:tw-bg-slate-800 tw-z-10 tw-shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                       <div class="tw-flex tw-flex-col">
                                           <div class="tw-text-xs tw-font-semibold">{{ item.service_name }}</div>
                                           <div class="tw-text-xs tw-font-normal text-primary-600">[{{ item.service_type_name }}]</div>

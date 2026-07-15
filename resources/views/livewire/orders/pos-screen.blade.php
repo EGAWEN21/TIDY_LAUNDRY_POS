@@ -8,7 +8,7 @@
                         stroke="currentColor" class="tw-size-4">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
                     </svg>
-                    <span>{{ $lang->data['back'] ?? 'Back' }}</span>
+                    <span class="tw-hidden sm:tw-inline">{{ $lang->data['back'] ?? 'Back' }}</span>
                 </button>
             </a>
             <template x-if="detached">
@@ -22,18 +22,16 @@
                                 <path stroke-linecap="round" stroke-linejoin="round"
                                     d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
                             </svg>
-                            <span class="text-sm ">{{ $lang->data['cart'] ?? 'Cart' }}</span>
+                            <span class="text-sm tw-hidden sm:tw-inline">{{ $lang->data['cart'] ?? 'Cart' }}</span>
                         </div>
                     </template>
                     <template x-if="shown">
                         <div class="tw-flex tw-items-center tw-gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                stroke-width="1.5" stroke="currentColor" class="tw-size-4">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="tw-size-4">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
                             </svg>
 
-                            <span class="text-sm ">{{ $lang->data['products'] ?? 'Products' }}</span>
+                            <span class="text-sm tw-hidden sm:tw-inline">{{ $lang->data['products'] ?? 'Products' }}</span>
                         </div>
                     </template>
                 </button>
@@ -67,12 +65,12 @@
                                     <div
                                         class="card-body tw-flex tw-items-center tw-justify-center tw-flex-col tw-rounded-md  tw-overflow-clip tw-ring-1 tw-ring-neutral-200">
                                         @if(str_contains($item->icon, ':'))
-                                            <div class="tw-h-24 tw-w-24 tw-flex tw-items-center tw-justify-center tw-bg-neutral-50 tw-rounded-md tw-py-2 tw-mt-2">
-                                                <iconify-icon icon="{{ $item->icon }}" class="tw-text-5xl text-primary"></iconify-icon>
+                                            <div class="tw-w-[40%] md:tw-w-24 tw-aspect-square tw-flex tw-items-center tw-justify-center tw-bg-neutral-50 tw-rounded-md tw-p-2 tw-mt-2">
+                                                <iconify-icon icon="{{ $item->icon }}" class="tw-text-5xl text-primary tw-w-full tw-h-full tw-flex tw-items-center tw-justify-center tw-object-contain"></iconify-icon>
                                             </div>
                                         @else
-                                            <div class="tw-h-24 tw-w-24 tw-flex tw-items-center tw-justify-center tw-bg-neutral-50 tw-rounded-md tw-p-2 tw-mt-2">
-                                                <img src="{{ asset('assets/img/service-icons/' . $item->icon) }}" class="tw-h-full tw-w-full tw-object-cover tw-rounded-md">
+                                            <div class="tw-w-[40%] md:tw-w-24 tw-aspect-square tw-flex tw-items-center tw-justify-center tw-bg-neutral-50 tw-rounded-md tw-p-2 tw-mt-2">
+                                                <img src="{{ asset('assets/img/service-icons/' . $item->icon) }}" class="tw-h-full tw-w-full tw-object-contain tw-rounded-md">
                                             </div>
                                         @endif
                                         <div
@@ -172,13 +170,13 @@
             </div>
             <div
                 class="tw-w-full tw-flex-1 tw-min-h-0 tw-flex tw-flex-col tw-mt-4 tw-rounded-lg tw-overflow-clip tw-border @error('error') tw-border-red-500 @else tw-border-neutral-200 dark:tw-border-[#1b2431] @enderror tw-border-solid">
-                <div class="tw-flex tw-flex-col lg:tw-w-full tw-overflow-x-auto">
-                    <div class="tw-flex tw-flex-col lg:tw-w-full tw-w-full tw-min-w-[60rem]">
+                <div class="tw-flex tw-flex-col tw-flex-1 tw-min-h-0 lg:tw-w-full tw-overflow-x-auto custom-scroll">
+                    <div class="tw-flex tw-flex-col tw-flex-1 tw-min-h-0 lg:tw-w-full tw-w-full tw-min-w-[60rem]">
                         <div class="tw-flex tw-flex-col  tw-overflow-x-auto tw-w-full tw-shrink-0">
-                            <table class="tw-w-full tw-text-xs tw-shrink-0 tw-h-fit ">
+                            <table class="tw-w-full tw-text-xs tw-shrink-0 tw-h-fit tw-whitespace-nowrap">
                                 <thead class="tw-bg-[#e9ecef] dark:tw-bg-[#1b2431]">
                                     <tr>
-                                        <th class="tw-py-2 tw-px-2 tw-text-xs tw-w-[10rem] lg:tw-w-[10%] tw-text-left">
+                                        <th class="tw-py-2 tw-px-2 tw-text-xs tw-w-[10rem] lg:tw-w-[10%] tw-text-left tw-sticky tw-left-0 tw-bg-[#e9ecef] dark:tw-bg-[#1b2431] tw-z-10 tw-shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                             {{ $lang->data['service'] ?? 'Service' }}</th>
                                         <th
                                             class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[15%] tw-text-center">
@@ -208,8 +206,8 @@
                         </div>
 
                         <div
-                            class="tw-flex tw-h-[calc(100dvh-28rem)] tw-overflow-y-auto tw-overflow-x-auto tw-w-full tw-shrink-0">
-                            <table class="  tw-w-full tw-text-xs tw-shrink-0  tw-h-fit">
+                            class="tw-flex tw-flex-1 tw-min-h-0 tw-overflow-y-auto tw-overflow-x-auto tw-w-full tw-shrink-0">
+                            <table class="  tw-w-full tw-text-xs tw-shrink-0  tw-h-fit tw-whitespace-nowrap">
                                 <tbody>
                                     @php
                                         $currentcount = 0;
@@ -217,7 +215,7 @@
                                     @foreach ($selservices as $key => $item)
                                         <tr
                                             class="tw-border-b tw-border-neutral-200 dark:tw-border-neutral-800/50 tw-border-solid">
-                                            <td class="tw-py-2 tw-px-2 lg:tw-w-[10%] tw-w-[10rem] tw-text-left">
+                                            <td class="tw-py-2 tw-px-2 lg:tw-w-[10%] tw-w-[10rem] tw-text-left tw-sticky tw-left-0 tw-bg-white dark:tw-bg-slate-800 tw-z-10 tw-shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                                 <div class="tw-flex tw-flex-col ">
                                                     @php
                                                         $serviceinline = null;
