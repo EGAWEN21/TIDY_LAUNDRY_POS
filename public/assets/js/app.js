@@ -105,14 +105,24 @@ updateThemeOnHtmlEl({ theme: currentThemeSetting });
 /**
 * 4. Add an event listener to toggle the theme
 */
-button.addEventListener("click", (event) => {
-  const newTheme = currentThemeSetting === "dark" ? "light" : "dark";
+if (button) {
+  button.addEventListener("click", (event) => {
+    const newTheme = currentThemeSetting === "dark" ? "light" : "dark";
 
-  localStorage.setItem("theme", newTheme);
-  updateButton({ buttonEl: button, isDark: newTheme === "dark" });
-  updateThemeOnHtmlEl({ theme: newTheme });
+    localStorage.setItem("theme", newTheme);
+    updateButton({ buttonEl: button, isDark: newTheme === "dark" });
+    updateThemeOnHtmlEl({ theme: newTheme });
 
-  currentThemeSetting = newTheme;
+    currentThemeSetting = newTheme;
+  }); 
+}
+
+window.addEventListener("storage", (e) => {
+  if (e.key === "theme") {
+    currentThemeSetting = e.newValue || "light";
+    updateButton({ buttonEl: button, isDark: currentThemeSetting === "dark" });
+    updateThemeOnHtmlEl({ theme: currentThemeSetting });
+  }
 }); 
 
 // =========================== Table Header Checkbox checked all js Start ================================

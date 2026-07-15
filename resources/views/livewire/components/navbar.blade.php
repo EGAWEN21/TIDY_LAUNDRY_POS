@@ -15,9 +15,9 @@
         </div>
         <div class="col-auto">
             <div class="d-flex flex-wrap align-items-center tw-gap-2 sm:tw-gap-3" wire:ignore>
-                @can('order_create')
                 <button type="button" data-theme-toggle
-                    class="w-40-px h-40-px bg-neutral-200 rounded-circle  justify-content-center align-items-center tw-hidden"></button>
+                    class="w-40-px h-40-px bg-neutral-200 rounded-circle d-flex justify-content-center align-items-center"></button>
+                @can('order_create')
                 <a href="{{route('orders.pos')}}" type="button" 
                     class="tw-w-8 tw-h-8 sm:tw-w-10 sm:tw-h-10 btn-primary-600 text-white rounded-circle d-flex justify-content-center align-items-center tw-relative tw-group"
                   
@@ -30,7 +30,7 @@
                 @endcan
                 @can('service_create')
                 <a href="{{route('service')}}"
-                    class="tw-w-8 tw-h-8 sm:tw-w-10 sm:tw-h-10 btn-primary-600 text-white rounded-circle d-flex justify-content-center align-items-center tw-relative tw-group">
+                    class="tw-w-8 tw-h-8 sm:tw-w-10 sm:tw-h-10 btn-primary-600 text-white rounded-circle d-none d-sm-flex justify-content-center align-items-center tw-relative tw-group">
                     <iconify-icon icon="mdi:tag" class="icon text-xl"></iconify-icon>
                     <div class="group-hover:tw-flex tw-hidden tw-bg-black hover:tw-bg-neutral-300 tw-rounded-lg tw-px-2 tw-py-1 tw-text-xs tw-absolute tw-text-white tw-min-w-max  -tw-bottom-8">
                       {{ $lang->data['manage_services'] ?? 'Manage Services' }}
@@ -39,7 +39,7 @@
                 @endcan
                 @can('customer_create')
                 <a href="{{route('customers')}}"
-                    class="tw-w-8 tw-h-8 sm:tw-w-10 sm:tw-h-10 btn-primary-600 text-white rounded-circle d-flex justify-content-center align-items-center tw-relative tw-group hover:tw-bg-neutral-300">
+                    class="tw-w-8 tw-h-8 sm:tw-w-10 sm:tw-h-10 btn-primary-600 text-white rounded-circle d-none d-sm-flex justify-content-center align-items-center tw-relative tw-group hover:tw-bg-neutral-300">
                     <iconify-icon icon="ion:people" class="icon text-xl"></iconify-icon>
                     <div class="group-hover:tw-flex tw-hidden tw-bg-black  tw-rounded-lg tw-px-2 tw-py-1 tw-text-xs tw-absolute tw-min-w-max  tw-text-white -tw-bottom-8">
                       {{ $lang->data['manage_customers'] ?? 'Manage Customers' }}

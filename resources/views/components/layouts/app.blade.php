@@ -27,6 +27,16 @@
     @vite('resources/css/app.css')
     <title>{{ $title ?? 'Page Title' }}</title>
    
+    <script>
+        (function() {
+            try {
+                var theme = localStorage.getItem('theme');
+                if (theme === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
+            } catch (e) {}
+        })();
+    </script>
 
    <x-theme-component/>
    

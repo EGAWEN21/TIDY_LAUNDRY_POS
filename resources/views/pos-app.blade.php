@@ -35,6 +35,16 @@
     <link rel="manifest" href="/build/manifest.webmanifest">
     
     <title>Offline POS</title>
+    <script>
+        (function() {
+            try {
+                var theme = localStorage.getItem('theme');
+                if (theme === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
+            } catch (e) {}
+        })();
+    </script>
     <x-theme-component/>
     
     @php
