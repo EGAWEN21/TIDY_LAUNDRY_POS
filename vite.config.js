@@ -18,7 +18,7 @@ export default defineConfig({
             },
         }),
         VitePWA({
-            outDir: 'public/build',
+            outDir: 'public',
             buildBase: '/build/',
             scope: '/admin/pos/',
             registerType: 'autoUpdate',
@@ -63,7 +63,8 @@ export default defineConfig({
                             // Workbox backgroundSync removed to prevent conflicts with custom Dexie queue
                         }
                     }
-                ]
+                ],
+                maximumFileSizeToCacheInBytes: 5000000
             },
             manifest: {
                 name: 'TidyPOS Offline',
@@ -75,12 +76,12 @@ export default defineConfig({
                 start_url: '/admin/pos',
                 icons: [
                     {
-                        src: '/assets/img/logo-ct.png',
+                        src: '/assets/images/logo.png',
                         sizes: '192x192',
                         type: 'image/png'
                     },
                     {
-                        src: '/assets/img/logo-ct.png',
+                        src: '/assets/images/logo.png',
                         sizes: '512x512',
                         type: 'image/png'
                     }

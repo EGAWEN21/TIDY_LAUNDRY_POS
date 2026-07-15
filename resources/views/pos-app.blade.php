@@ -32,7 +32,7 @@
     
     <!-- PWA Manifest & Theme Color -->
     <meta name="theme-color" content="#ffffff">
-    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="manifest" href="/build/manifest.webmanifest">
     
     <title>Offline POS</title>
     <script>
