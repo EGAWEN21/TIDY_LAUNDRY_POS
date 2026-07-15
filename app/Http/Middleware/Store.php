@@ -21,4 +21,4 @@ class Store
         // This "Master Key" tells the app to ignore all license checks and just let you in.
         return $next($request);
     }
-}
+}git session_status

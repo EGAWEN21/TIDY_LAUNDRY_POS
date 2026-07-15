@@ -228,6 +228,10 @@ const clearAll = () => {
   pos.cart = [];
   pos.cartCustomer = null;
   pos.customerQuery = '';
+  pos.payments = [];
+  pos.cartAddons = [];
+  pos.discount = 0;
+  pos.paymentNotes = '';
 };
 
 const isSyncingPrint = ref(false);
