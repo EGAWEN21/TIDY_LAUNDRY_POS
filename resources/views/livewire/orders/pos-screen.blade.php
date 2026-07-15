@@ -171,7 +171,7 @@
             <div
                 class="tw-w-full tw-flex-1 tw-min-h-0 tw-flex tw-flex-col tw-mt-4 tw-rounded-lg tw-overflow-clip tw-border @error('error') tw-border-red-500 @else tw-border-neutral-200 dark:tw-border-[#1b2431] @enderror tw-border-solid">
                 <div class="tw-flex tw-flex-col tw-flex-1 tw-min-h-0 lg:tw-w-full tw-overflow-auto custom-scroll">
-                    <div class="tw-flex tw-flex-col lg:tw-w-full tw-w-full tw-min-w-[60rem]">
+                    <div class="tw-flex tw-flex-col tw-flex-1 tw-min-h-0 lg:tw-w-full tw-w-full tw-min-w-[60rem]">
                         <table class="tw-w-full tw-text-xs tw-whitespace-nowrap">
                                 <thead class="tw-sticky tw-top-0 tw-z-20 tw-bg-[#e9ecef] dark:tw-bg-[#1b2431] tw-shadow-sm">
                                     <tr>
