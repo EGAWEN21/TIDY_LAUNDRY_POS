@@ -89,7 +89,7 @@
         <div class=" tw-h-[calc(100vh-4rem)] tw-flex tw-flex-col tw-bg-white dark:tw-bg-[#1b2431] p-16"
             :class="shown && detached ? 'tw-absolute tw-inset-0 tw-w-full' :
                 ' tw-hidden lg:tw-block lg:tw-w-7/12 tw-w-full tw-shrink-0 '">
-            <div class="tw-flex tw-items-center tw-gap-8 tw-w-full">
+            <div class="tw-flex lg:tw-flex-row tw-flex-col lg:tw-items-center tw-items-start tw-gap-4 lg:tw-gap-8 tw-w-full tw-shrink-0">
                 <div class="tw-flex tw-min-w-fit tw-shrink tw-flex-col" x-data="{}">
                     <div class="tw-text-sm">{{ $lang->data['order'] ?? 'Order' }} : <span
                             class="tw-font-bold">#{{ $order_id }}</span></div>
