@@ -153,10 +153,10 @@ const showNewCustomerModal = ref(false);
 const newCustomer = ref({ name: '', phone: '' });
 
 // Theme Logic
-const isDarkMode = ref(localStorage.getItem('theme') === 'dark');
+const isDarkMode = ref(localStorage.getItem('pos-theme') === 'dark');
 const toggleTheme = () => {
     isDarkMode.value = !isDarkMode.value;
-    localStorage.setItem('theme', isDarkMode.value ? 'dark' : 'light');
+    localStorage.setItem('pos-theme', isDarkMode.value ? 'dark' : 'light');
     if (isDarkMode.value) {
         document.documentElement.setAttribute('data-theme', 'dark');
     } else {
@@ -168,19 +168,6 @@ onMounted(async () => {
   if (isDarkMode.value) {
       document.documentElement.setAttribute('data-theme', 'dark');
   }
-  
-  // Listen for cross-tab theme changes
-  window.addEventListener('storage', (e) => {
-      if (e.key === 'theme') {
-          isDarkMode.value = e.newValue === 'dark';
-          if (isDarkMode.value) {
-              document.documentElement.setAttribute('data-theme', 'dark');
-          } else {
-              document.documentElement.removeAttribute('data-theme');
-          }
-      }
-  });
-
   checkDetached();
   window.addEventListener('resize', checkDetached);
   await pos.initialize();
