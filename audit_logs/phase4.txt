@@ -1,0 +1,2880 @@
+﻿diff --git a/app/Livewire/Orders/OrderRequestsList.php b/app/Livewire/Orders/OrderRequestsList.php
+new file mode 100644
+index 0000000..9499287
+--- /dev/null
++++ b/app/Livewire/Orders/OrderRequestsList.php
+@@ -0,0 +1,98 @@
++<?php
++
++namespace App\Livewire\Orders;
++
++use Livewire\Component;
++use App\Models\OrderRequest;
++use App\Models\Translation;
++use Illuminate\Support\Facades\Auth;
++use Livewire\Attributes\Title;
++
++class OrderRequestsList extends Component
++{
++    public $requests, $lang, $rejection_note, $reject_id;
++
++    #[Title('Order Requests')]
++    public function render()
++    {
++        return view('livewire.orders.order-requests-list');
++    }
++
++    public function mount()
++    {
++        if (session()->has('selected_language')) {
++            $this->lang = Translation::where('id', session()->get('selected_language'))->first();
++        } else {
++            $this->lang = Translation::where('default', 1)->first();
++        }
++        $this->loadRequests();
++    }
++
++    public function loadRequests()
++    {
++        if (Auth::user()->hasPermission('accept_reject_order') || Auth::user()->hasPermission('view_all_requests')) {
++            $this->requests = OrderRequest::latest()->get();
++        } else {
++            $this->requests = OrderRequest::where('created_by', Auth::id())->latest()->get();
++        }
++    }
++
++    public function acceptOrder($id)
++    {
++        if (!Auth::user()->hasPermission('accept_reject_order')) {
++            abort(403);
++        }
++
++        $req = OrderRequest::findOrFail($id);
++        
++        $order = \App\Services\OrderService::establishOrder($req->payload, $req->created_by);
++        
++        if ($order->customer_id) {
++            $message = sendOrderCreateSMS($order->id, $order->customer_id);
++            if ($message) {
++                $this->dispatch('alert', ['type' => 'error',  'message' => $message, 'title' => 'SMS Error']);
++            }
++        }
++        
++        $req->delete();
++        $this->loadRequests();
++        $this->dispatch('alert', ['type' => 'success',  'message' => 'Order Request Accepted!']);
++    }
++
++    public function rejectModal($id)
++    {
++        $this->reject_id = $id;
++        $this->rejection_note = '';
++    }
++
++    public function rejectOrder()
++    {
++        if (!Auth::user()->hasPermission('accept_reject_order')) {
++            abort(403);
++        }
++
++        $this->validate([
++            'rejection_note' => 'required|string|max:1000'
++        ]);
++
++        $req = OrderRequest::findOrFail($this->reject_id);
++        $req->status = 1;
++        $req->rejection_note = $this->rejection_note;
++        $req->save();
++
++        $this->dispatch('closemodal');
++        $this->loadRequests();
++        $this->dispatch('alert', ['type' => 'success',  'message' => 'Order Request Rejected.']);
++    }
++
++    public function deleteRequest($id)
++    {
++        $req = OrderRequest::findOrFail($id);
++        if (!Auth::user()->hasPermission('delete_order_requests') && !Auth::user()->hasPermission('accept_reject_order') && $req->created_by != Auth::id()) {
++            abort(403);
++        }
++        $req->delete();
++        $this->loadRequests();
++        $this->dispatch('alert', ['type' => 'success',  'message' => 'Order Request Deleted.']);
++    }
++}
+diff --git a/app/Livewire/Reports/BusinessInsights.php b/app/Livewire/Reports/BusinessInsights.php
+new file mode 100644
+index 0000000..0623f75
+--- /dev/null
++++ b/app/Livewire/Reports/BusinessInsights.php
+@@ -0,0 +1,118 @@
++<?php
++
++namespace App\Livewire\Reports;
++
++use Livewire\Component;
++use Livewire\Attributes\Title;
++use App\Models\Translation;
++use Illuminate\Support\Facades\DB;
++use Carbon\Carbon;
++use Illuminate\Support\Facades\Cache;
++
++class BusinessInsights extends Component
++{
++    public $lang, $from_date, $to_date;
++    public $kpi = [];
++    public $chartData = [];
++
++    #[Title('Business Insights')]
++    public function render()
++    {
++        return view('livewire.reports.business-insights');
++    }
++
++    public function mount()
++    {
++        if(!\Illuminate\Support\Facades\Gate::allows('report_insights')){
++            abort(404);
++        }
++        
++        if (session()->has('selected_language')) {
++            $this->lang = Translation::where('id', session()->get('selected_language'))->first();
++        } else {
++            $this->lang = Translation::where('default', 1)->first();
++        }
++        
++        // Default to 'This Month' for performance
++        $this->from_date = Carbon::now()->startOfMonth()->toDateString();
++        $this->to_date = Carbon::now()->endOfMonth()->toDateString();
++        
++        $this->generateInsights();
++    }
++
++    public function updated($name, $value)
++    {
++        if (in_array($name, ['from_date', 'to_date'])) {
++            $this->generateInsights();
++        }
++    }
++
++    public function generateInsights()
++    {
++        // 1. TAT (Turnaround Time) Efficiency
++        $orders = DB::table('orders')
++            ->select('status', 'order_date', 'delivery_date')
++            ->whereDate('order_date', '>=', $this->from_date)
++            ->whereDate('order_date', '<=', $this->to_date)
++            ->get();
++            
++        $totalOrders = $orders->count();
++        $deliveredOnTime = 0;
++        $delayed = 0;
++        $pending = 0;
++        
++        foreach($orders as $o) {
++            if ($o->status == 3) { // Delivered
++                $deliveredOnTime++; // Simplifying for now, assuming delivered = on time
++            } else if ($o->delivery_date && Carbon::parse($o->delivery_date)->isPast() && $o->status != 3 && $o->status != 4) {
++                $delayed++;
++            } else {
++                $pending++;
++            }
++        }
++        
++        $this->kpi['tat'] = [
++            'total' => $totalOrders,
++            'on_time' => $deliveredOnTime,
++            'delayed' => $delayed,
++            'pending' => $pending
++        ];
++
++        // 2. Churn & Customer Health (At-Risk > 21 days)
++        $atRiskThreshold = Carbon::today()->subDays(21)->toDateString();
++        $allCustomers = DB::table('customers')
++            ->leftJoin('orders', 'customers.id', '=', 'orders.customer_id')
++            ->select('customers.id', DB::raw('MAX(orders.order_date) as last_visit'))
++            ->groupBy('customers.id')
++            ->get();
++            
++        $activeCount = 0;
++        $atRiskCount = 0;
++        
++        foreach($allCustomers as $c) {
++            if($c->last_visit && Carbon::parse($c->last_visit)->gte($atRiskThreshold)) {
++                $activeCount++;
++            } else if ($c->last_visit) {
++                $atRiskCount++;
++            }
++        }
++        
++        $this->kpi['health'] = [
++            'active' => $activeCount,
++            'at_risk' => $atRiskCount
++        ];
++        
++        // 3. Staff Leaderboard (Revenue by User)
++        $staffPerformance = DB::table('orders')
++            ->join('users', 'orders.created_by', '=', 'users.id')
++            ->select('users.name', DB::raw('SUM(orders.total) as total_revenue'), DB::raw('COUNT(orders.id) as total_orders'))
++            ->whereDate('orders.order_date', '>=', $this->from_date)
++            ->whereDate('orders.order_date', '<=', $this->to_date)
++            ->groupBy('users.id', 'users.name')
++            ->orderByDesc('total_revenue')
++            ->limit(5)
++            ->get();
++            
++        $this->kpi['staff'] = $staffPerformance->toArray();
++    }
++}
+diff --git a/app/Livewire/Reports/CustomerReport.php b/app/Livewire/Reports/CustomerReport.php
+new file mode 100644
+index 0000000..e26ffd9
+--- /dev/null
++++ b/app/Livewire/Reports/CustomerReport.php
+@@ -0,0 +1,111 @@
++<?php
++
++namespace App\Livewire\Reports;
++
++use Livewire\Component;
++use Livewire\Attributes\Title;
++use App\Models\Translation;
++use Illuminate\Support\Facades\DB;
++use Carbon\Carbon;
++use Barryvdh\DomPDF\Facade\Pdf;
++
++class CustomerReport extends Component
++{
++    public $lang, $customersData = [], $statusFilter = 'all';
++
++    #[Title('Customer Report')]
++    public function render()
++    {
++        return view('livewire.reports.customer-report');
++    }
++
++    public function mount()
++    {
++        if(!\Illuminate\Support\Facades\Gate::allows('report_customer')){
++            abort(404);
++        }
++        
++        if (session()->has('selected_language')) {
++            $this->lang = Translation::where('id', session()->get('selected_language'))->first();
++        } else {
++            $this->lang = Translation::where('default', 1)->first();
++        }
++        $this->report();
++    }
++
++    public function updatedStatusFilter()
++    {
++        $this->report();
++    }
++
++    public function report()
++    {
++        /** 
++         * OPTIMIZATION (Preventing N+1 & Memory Exhaustion):
++         * Instead of loading all customers and iterating over their orders via Eloquent relationships
++         * which would crash on large datasets, we use a single aggregate SQL query to sum up 
++         * lifetime spend, 30-day velocity, and 7-day velocity.
++         */
++        $thirtyDaysAgo = Carbon::today()->subDays(30)->toDateString();
++        $sevenDaysAgo = Carbon::today()->subDays(7)->toDateString();
++        $atRiskThreshold = Carbon::today()->subDays(21); // 21 Days as requested by user
++
++        // Aggregate Orders per customer
++        $customersAggregates = DB::table('customers')
++            ->select(
++                'customers.id',
++                'customers.name',
++                'customers.phone',
++                'customers.created_at as registration_date',
++                DB::raw('COUNT(orders.id) as total_orders'),
++                DB::raw('COALESCE(SUM(orders.total), 0) as total_spend'),
++                DB::raw("COALESCE(SUM(CASE WHEN orders.order_date >= '{$thirtyDaysAgo}' THEN orders.total ELSE 0 END), 0) as spend_30"),
++                DB::raw("COALESCE(SUM(CASE WHEN orders.order_date >= '{$sevenDaysAgo}' THEN orders.total ELSE 0 END), 0) as spend_7"),
++                DB::raw('MAX(orders.order_date) as last_visit')
++            )
++            ->leftJoin('orders', 'customers.id', '=', 'orders.customer_id')
++            ->groupBy('customers.id', 'customers.name', 'customers.phone', 'customers.created_at')
++            ->having('total_orders', '>', 0) // Only show customers who actually have orders
++            ->get();
++            
++        // Aggregate Payments per customer for Outstanding Balances
++        $payments = DB::table('payments')
++            ->select('customer_id', DB::raw('SUM(received_amount) as total_paid'))
++            ->groupBy('customer_id')
++            ->get()
++            ->keyBy('customer_id');
++
++        $data = [];
++        foreach($customersAggregates as $c) {
++            $totalPaid = isset($payments[$c->id]) ? $payments[$c->id]->total_paid : 0;
++            $outstanding = $c->total_spend - $totalPaid;
++            $aov = $c->total_orders > 0 ? $c->total_spend / $c->total_orders : 0;
++            
++            // Status Logic (21 Days)
++            $status = 'Active';
++            if ($c->last_visit && Carbon::parse($c->last_visit)->lt($atRiskThreshold)) {
++                $status = 'At-Risk';
++            }
++            
++            // Filtering
++            if ($this->statusFilter == 'all' || strtolower($this->statusFilter) == strtolower($status)) {
++                $data[] = [
++                    'name' => $c->name,
++                    'phone' => $c->phone,
++                    'registration_date' => Carbon::parse($c->registration_date)->format('d/m/Y'),
++                    'total_orders' => $c->total_orders,
++                    'total_spend' => $c->total_spend,
++                    'spend_30' => $c->spend_30,
++                    'spend_7' => $c->spend_7,
++                    'aov' => $aov,
++                    'outstanding' => $outstanding,
++                    'last_visit' => $c->last_visit ? Carbon::parse($c->last_visit)->format('d/m/Y') : 'N/A',
++                    'status' => $status
++                ];
++            }
++        }
++        
++        // Sort by highest lifetime spend
++        $this->customersData = collect($data)->sortByDesc('total_spend')->values()->all();
++    }
++}
+diff --git a/app/Livewire/Reports/DailyReport.php b/app/Livewire/Reports/DailyReport.php
+index 439efb1..ced3ef1 100644
+--- a/app/Livewire/Reports/DailyReport.php
++++ b/app/Livewire/Reports/DailyReport.php
+@@ -5,9 +5,17 @@
+ use Livewire\Component;
+ use Barryvdh\DomPDF\Facade\Pdf;
+ use Livewire\Attributes\Title;
++use Illuminate\Support\Facades\DB;
++
+ class DailyReport extends Component
+ {
+-    public $today, $new_order, $delivered_orders, $total_payment, $total_expense, $total_sales,$lang;
++    public $today, $new_order, $delivered_orders, $total_payment, $total_expense, $total_sales, $lang;
++    
++    // New Metrics
++    public $paymentSplit = [];
++    public $itemVolume = 0;
++    public $trendLabels = [];
++    public $trendData = [];
+     /* render the page */
+     #[Title('Daily Report')]
+     public function render()
+@@ -40,11 +48,56 @@ public function updated($name,$value) {
+     }
+     /* report section */ 
+     public function report(){
+-             $this->new_order = \App\Models\Order::whereDate('order_date',$this->today)->count();
+-             $this->delivered_orders = \App\Models\Order::whereDate('order_date',$this->today)->where('status',3)->count();
+-             $this->total_payment = \App\Models\Payment::whereDate('payment_date',$this->today)->sum('received_amount');
+-             $this->total_expense = \App\Models\Expense::whereDate('expense_date',$this->today)->sum('expense_amount');
+-             $this->total_sales = \App\Models\Order::whereDate('order_date',$this->today)->where('status',3)->sum('total');
++         $this->new_order = \App\Models\Order::whereDate('order_date',$this->today)->count();
++         $this->delivered_orders = \App\Models\Order::whereDate('order_date',$this->today)->where('status',3)->count();
++         $this->total_payment = \App\Models\Payment::whereDate('payment_date',$this->today)->sum('received_amount');
++         $this->total_expense = \App\Models\Expense::whereDate('expense_date',$this->today)->sum('expense_amount');
++         $this->total_sales = \App\Models\Order::whereDate('order_date',$this->today)->where('status',3)->sum('total');
++
++         // 1. Payment Split
++         $paymentRaw = \App\Models\Payment::whereDate('payment_date', $this->today)
++                ->selectRaw('payment_type, SUM(received_amount) as amount')
++                ->groupBy('payment_type')
++                ->get();
++         $this->paymentSplit = [];
++         foreach($paymentRaw as $p) {
++             $this->paymentSplit[] = [
++                 'name' => getpaymentMode($p->payment_type),
++                 'amount' => $p->amount
++             ];
++         }
++
++         // 2. Item Volume
++         $this->itemVolume = DB::table('order_details')
++             ->join('orders', 'order_details.order_id', '=', 'orders.id')
++             ->whereDate('orders.order_date', $this->today)
++             ->sum('order_details.service_quantity');
++
++         // 3. 7-Day Trend Chart
++         $sevenDaysAgo = \Carbon\Carbon::parse($this->today)->subDays(6)->toDateString();
++         $trend = DB::table('orders')
++             ->select(DB::raw('DATE(order_date) as date'), DB::raw('COUNT(id) as total_orders'))
++             ->whereDate('order_date', '>=', $sevenDaysAgo)
++             ->whereDate('order_date', '<=', $this->today)
++             ->groupBy(DB::raw('DATE(order_date)'))
++             ->orderBy('date')
++             ->get()
++             ->keyBy('date');
++
++         $this->trendData = [];
++         $this->trendLabels = [];
++         for($i = 6; $i >= 0; $i--) {
++             $date = \Carbon\Carbon::parse($this->today)->subDays($i)->toDateString();
++             $this->trendLabels[] = \Carbon\Carbon::parse($date)->format('D'); // e.g. Mon, Tue
++             $this->trendData[] = isset($trend[$date]) ? $trend[$date]->total_orders : 0;
++         }
++         
++         // Trigger front-end event to re-render charts
++         $this->dispatch('update-daily-charts', [
++             'labels' => $this->trendLabels, 
++             'data' => $this->trendData,
++             'payment' => $this->paymentSplit
++         ]);
+     }
+ 
+         /* download report */
+diff --git a/app/Livewire/Reports/ExpenseReport.php b/app/Livewire/Reports/ExpenseReport.php
+index 816ff82..32d5b8f 100644
+--- a/app/Livewire/Reports/ExpenseReport.php
++++ b/app/Livewire/Reports/ExpenseReport.php
+@@ -6,10 +6,16 @@
+ use Livewire\Attributes\Title;
+ use Barryvdh\DomPDF\Facade\Pdf;
+ use App\Models\Translation;
++use Illuminate\Support\Facades\DB;
++use Carbon\Carbon;
+ 
+ class ExpenseReport extends Component
+ {
+     public $from_date, $to_date, $expenses, $lang;
++    
++    // New Metrics
++    public $kpi = [];
++    public $categoryBreakdown = [];
+     /* render the page */
+     #[Title('Expense Report')]
+     public function render()
+@@ -22,14 +28,16 @@ public function mount()
+         if(!\Illuminate\Support\Facades\Gate::allows('report_expense')){
+             abort(404);
+         }
+-         $this->from_date = \Carbon\Carbon::today()->toDateString();
+-         $this->to_date = \Carbon\Carbon::today()->toDateString();
+-         $this->report();
++         $this->from_date = Carbon::now()->startOfMonth()->toDateString();
++         $this->to_date = Carbon::now()->endOfMonth()->toDateString();
++         
+          if (session()->has('selected_language')) {
+              $this->lang = Translation::where('id', session()->get('selected_language'))->first();
+          } else {
+              $this->lang = Translation::where('default', 1)->first();
+          }
++         
++         $this->report();
+      }
+      /*processed on update of the element */
+      public function updated($name, $value)
+@@ -39,7 +47,47 @@ public function updated($name, $value)
+      /* report section */
+      public function report()
+      {
+-         $this->expenses = \App\Models\Expense::whereDate('expense_date', '>=', $this->from_date)->whereDate('expense_date', '<=', $this->to_date)->latest()->get();
++         // Calculate KPIs at the database level
++         $totalExpenses = \App\Models\Expense::whereDate('expense_date', '>=', $this->from_date)
++             ->whereDate('expense_date', '<=', $this->to_date)
++             ->sum('expense_amount');
++         
++         $totalIncome = \App\Models\Payment::whereDate('payment_date', '>=', $this->from_date)
++             ->whereDate('payment_date', '<=', $this->to_date)
++             ->sum('received_amount');
++             
++         $this->kpi = [
++             'expenses' => $totalExpenses,
++             'income' => $totalIncome,
++             'net_profit' => $totalIncome - $totalExpenses
++         ];
++         
++         // Fetch expenses for the table display
++         $this->expenses = \App\Models\Expense::whereDate('expense_date', '>=', $this->from_date)
++             ->whereDate('expense_date', '<=', $this->to_date)
++             ->latest()
++             ->get();
++         
++         $categories = DB::table('expenses')
++             ->join('expense_categories', 'expenses.expense_category_id', '=', 'expense_categories.id')
++             ->select('expense_categories.expense_category_name', DB::raw('SUM(expenses.expense_amount) as amount'))
++             ->whereDate('expenses.expense_date', '>=', $this->from_date)
++             ->whereDate('expenses.expense_date', '<=', $this->to_date)
++             ->groupBy('expense_categories.expense_category_name')
++             ->orderByDesc('amount')
++             ->get();
++             
++         $this->categoryBreakdown = [];
++         foreach($categories as $c) {
++             $this->categoryBreakdown[] = [
++                 'name' => $c->expense_category_name,
++                 'amount' => $c->amount
++             ];
++         }
++         
++         $this->dispatch('update-expense-charts', [
++             'categories' => $this->categoryBreakdown
++         ]);
+      }
+      /* download pdf file */
+      public function downloadFile()
+diff --git a/app/Livewire/Reports/LedgerReport.php b/app/Livewire/Reports/LedgerReport.php
+index 1d33f70..048c0d8 100644
+--- a/app/Livewire/Reports/LedgerReport.php
++++ b/app/Livewire/Reports/LedgerReport.php
+@@ -9,10 +9,12 @@
+ use App\Models\Payment;
+ use App\Models\Translation;
+ use Carbon\Carbon;
++use Illuminate\Support\Facades\DB;
+ 
+ class LedgerReport extends Component
+ {
+     public $selected_customer,$customers,$customer_query,$start_date,$end_date,$first_data,$lang,$data;
++    public $ageingData = [];
+     #[Title('Ledger Report')]
+     public function render()
+     {
+@@ -30,9 +32,52 @@ public function mount()
+         else{
+             $this->lang = Translation::where('default',1)->first();
+         }
+-        $this->start_date = \Carbon\Carbon::today()->toDateString();
+-        $this->end_date = \Carbon\Carbon::today()->toDateString();
++        $this->start_date = Carbon::now()->startOfMonth()->toDateString();
++        $this->end_date = Carbon::now()->endOfMonth()->toDateString();
+         $this->data = collect();
++        $this->customers = collect();
++        $this->calculateAgeing();
++    }
++
++    public function calculateAgeing()
++    {
++        $today = Carbon::today();
++        
++        $paymentsSub = DB::table('payments')
++            ->select('order_id', DB::raw('SUM(received_amount) as total_paid'))
++            ->groupBy('order_id');
++
++        $orders = DB::table('orders')
++            ->leftJoinSub($paymentsSub, 'paid_orders', function ($join) {
++                $join->on('orders.id', '=', 'paid_orders.order_id');
++            })
++            ->select('orders.id', 'orders.order_date', 'orders.total', DB::raw('COALESCE(paid_orders.total_paid, 0) as paid'))
++            ->whereRaw('orders.total > COALESCE(paid_orders.total_paid, 0)')
++            ->get();
++            
++        $ageing = [ '0_30' => 0, '31_60' => 0, '61_90' => 0, '90_plus' => 0 ];
++        
++        foreach($orders as $o) {
++            $balance = $o->total - $o->paid;
++            $days = Carbon::parse($o->order_date)->diffInDays($today);
++            
++            if ($days <= 30) {
++                $ageing['0_30'] += $balance;
++            } else if ($days <= 60) {
++                $ageing['31_60'] += $balance;
++            } else if ($days <= 90) {
++                $ageing['61_90'] += $balance;
++            } else {
++                $ageing['90_plus'] += $balance;
++            }
++        }
++        
++        $this->ageingData = [
++            $ageing['0_30'],
++            $ageing['31_60'],
++            $ageing['61_90'],
++            $ageing['90_plus']
++        ];
+     }
+ 
+     public function updated($name,$value)
+@@ -65,29 +110,20 @@ public function getData()
+                 'alert', ['type' => 'error','title' => 'Fetching failed',  'message' => 'You have not selected a customer!']);
+             return;
+         }
+-        $this->data = collect();
+-        if(!$this->selected_customer)
+-        {
+-            return abort(404);
+-        }
+-        $debits = collect(Order::where('customer_id',$this->selected_customer->id)->whereDate('order_date','>=',Carbon::parse($this->start_date)->toDateString())->whereDate('order_date','<=',Carbon::parse($this->end_date)->toDateString())->get());
+-        foreach($debits as $row)
+-        {
+-            $row['date'] = $row['order_date'];
+-            $row['type'] = 'debit';
+-        }  
+-        $credits = collect(Payment::where('customer_id',$this->selected_customer->id)->whereDate('payment_date','>=',Carbon::parse($this->start_date)->toDateString())->whereDate('payment_date','<=',Carbon::parse($this->end_date)->toDateString())->get());
+-        foreach($credits as $row)
+-        {
+-            $row['date'] = $row['created_at'];
+-            $row['type'] = 'credit';
+-        }   
+-        $this->data = $debits->concat($credits);
+-      
+-        $this->data = $this->data->toArray();
+-        usort($this->data,function ($a,$b) {
+-            return Carbon::parse($a['date'])->greaterThan(Carbon::parse($b['date'])) ;
+-        });
++        $customerId = $this->selected_customer->id;
++        $startDate = Carbon::parse($this->start_date)->toDateString();
++        $endDate = Carbon::parse($this->end_date)->toDateString();
++
++        $this->data = array_map(function($row) { return (array) $row; }, DB::select("
++            SELECT order_date as date, 'debit' as type, order_number, total, 0 as received_amount
++            FROM orders 
++            WHERE customer_id = ? AND DATE(order_date) >= ? AND DATE(order_date) <= ?
++            UNION ALL
++            SELECT payment_date as date, 'credit' as type, NULL as order_number, 0 as total, received_amount
++            FROM payments 
++            WHERE customer_id = ? AND DATE(payment_date) >= ? AND DATE(payment_date) <= ?
++            ORDER BY date ASC
++        ", [$customerId, $startDate, $endDate, $customerId, $startDate, $endDate]));
+         $this->first_data = [
+             'debits'    => Order::where('customer_id',$this->selected_customer->id)->whereDate('order_date','<',Carbon::parse($this->start_date)->toDateString())->sum('total'),
+             'credits'    => Payment::where('customer_id',$this->selected_customer->id)->whereDate('payment_date','<',Carbon::parse($this->start_date)->toDateString())->sum('received_amount'),
+diff --git a/app/Livewire/Reports/OrderReport.php b/app/Livewire/Reports/OrderReport.php
+index 3b0df48..bfe0666 100644
+--- a/app/Livewire/Reports/OrderReport.php
++++ b/app/Livewire/Reports/OrderReport.php
+@@ -6,10 +6,16 @@
+ use Livewire\Attributes\Title;
+ use App\Models\Translation;
+ use Barryvdh\DomPDF\Facade\Pdf;
++use Illuminate\Support\Facades\DB;
++use Carbon\Carbon;
+ 
+ class OrderReport extends Component
+ {
+     public $from_date, $to_date, $orders, $status = -1, $lang;
++    
++    // New Metrics
++    public $kpi = [];
++    public $serviceBreakdown = [];
+     #[Title('Order Report')]
+     public function render()
+     {
+@@ -21,8 +27,9 @@ public function mount()
+         if(!\Illuminate\Support\Facades\Gate::allows('report_order')){
+             abort(404);
+         }
+-         $this->from_date = \Carbon\Carbon::today()->toDateString();
+-         $this->to_date = \Carbon\Carbon::today()->toDateString();
++         $this->from_date = Carbon::now()->startOfMonth()->toDateString();
++         $this->to_date = Carbon::now()->endOfMonth()->toDateString();
++         
+          if (session()->has('selected_language')) {
+              $this->lang = Translation::where('id', session()->get('selected_language'))->first();
+          } else {
+@@ -38,11 +45,70 @@ public function updated($name, $value)
+      /* report section */
+      public function report()
+      {
+-         if ($this->status == -1) {
+-             $this->orders = \App\Models\Order::whereDate('order_date', '>=', $this->from_date)->whereDate('order_date', '<=', $this->to_date)->latest()->get();
+-         } else {
+-             $this->orders = \App\Models\Order::whereDate('order_date', '>=', $this->from_date)->whereDate('order_date', '<=', $this->to_date)->where('status', $this->status)->latest()->get();
++         $query = \App\Models\Order::whereDate('order_date', '>=', $this->from_date)
++             ->whereDate('order_date', '<=', $this->to_date);
++             
++         if ($this->status != -1) {
++             $query->where('status', $this->status);
++         }
++         
++         $this->orders = $query->latest()->get();
++         
++         // Calculate Current Period KPIs
++         $currentOrders = $this->orders->count();
++         
++         // Calculate Previous Period
++         $daysDiff = Carbon::parse($this->from_date)->diffInDays(Carbon::parse($this->to_date)) + 1;
++         $prev_to_date = Carbon::parse($this->from_date)->subDay()->toDateString();
++         $prev_from_date = Carbon::parse($this->from_date)->subDays($daysDiff)->toDateString();
++         
++         $prevQuery = \App\Models\Order::whereDate('order_date', '>=', $prev_from_date)
++             ->whereDate('order_date', '<=', $prev_to_date);
++             
++         if ($this->status != -1) {
++             $prevQuery->where('status', $this->status);
++         }
++         
++         $prevOrders = $prevQuery->count();
++         
++         $orderGrowth = 0;
++         if ($prevOrders > 0) {
++             $orderGrowth = (($currentOrders - $prevOrders) / $prevOrders) * 100;
++         } else if ($currentOrders > 0) {
++             $orderGrowth = 100;
++         }
++         
++         $this->kpi = [
++             'orders' => $currentOrders,
++             'growth' => round($orderGrowth, 1)
++         ];
++         
++         // Service Breakdown (100% Stacked Horizontal Bar)
++         $serviceQuery = DB::table('order_details')
++             ->join('orders', 'order_details.order_id', '=', 'orders.id')
++             ->select('order_details.service_name', DB::raw('SUM(order_details.service_quantity) as volume'))
++             ->whereDate('orders.order_date', '>=', $this->from_date)
++             ->whereDate('orders.order_date', '<=', $this->to_date);
++             
++         if ($this->status != -1) {
++             $serviceQuery->where('orders.status', $this->status);
++         }
++             
++         $services = $serviceQuery->groupBy('order_details.service_name')
++             ->orderByDesc('volume')
++             ->get();
++             
++         $this->serviceBreakdown = [];
++         foreach($services as $s) {
++             $this->serviceBreakdown[] = [
++                 'name' => $s->service_name,
++                 'amount' => $s->volume // Using Volume for Order report instead of Revenue
++             ];
+          }
++         
++         $this->dispatch('update-order-charts', [
++             'services' => $this->serviceBreakdown
++         ]);
+      }
+      /* download report */
+      public function downloadFile()
+diff --git a/app/Livewire/Reports/SalesReport.php b/app/Livewire/Reports/SalesReport.php
+index 282fa73..cf53b5b 100644
+--- a/app/Livewire/Reports/SalesReport.php
++++ b/app/Livewire/Reports/SalesReport.php
+@@ -6,10 +6,16 @@
+ use Livewire\Attributes\Title;
+ use Barryvdh\DomPDF\Facade\Pdf;
+ use App\Models\Translation;
++use Illuminate\Support\Facades\DB;
++use Carbon\Carbon;
+ 
+ class SalesReport extends Component
+ {
+     public $from_date, $to_date, $orders, $lang;
++    
++    // New Metrics
++    public $kpi = [];
++    public $serviceBreakdown = [];
+     /* render the page */
+     #[Title('Sales Report')]
+     public function render()
+@@ -22,8 +28,9 @@ public function mount()
+         if(!\Illuminate\Support\Facades\Gate::allows('report_sales')){
+             abort(404);
+         }
+-          $this->from_date = \Carbon\Carbon::today()->toDateString();
+-          $this->to_date = \Carbon\Carbon::today()->toDateString();
++          $this->from_date = Carbon::now()->startOfMonth()->toDateString();
++          $this->to_date = Carbon::now()->endOfMonth()->toDateString();
++          
+           if (session()->has('selected_language')) {
+               $this->lang = Translation::where('id', session()->get('selected_language'))->first();
+           } else {
+@@ -39,7 +46,73 @@ public function updated($name, $value)
+       /* report section */
+       public function report()
+       {
+-          $this->orders = \App\Models\Order::whereDate('order_date', '>=', $this->from_date)->whereDate('order_date', '<=', $this->to_date)->where('status', 3)->latest()->get();
++          // Calculate Current Period KPIs at the database level
++          $currentKpi = \App\Models\Order::whereDate('order_date', '>=', $this->from_date)
++              ->whereDate('order_date', '<=', $this->to_date)
++              ->where('status', 3)
++              ->selectRaw('COALESCE(SUM(total), 0) as sales, COALESCE(SUM(discount), 0) as discount, COUNT(*) as orders')
++              ->first();
++          
++          $currentSales = $currentKpi->sales;
++          $currentDiscount = $currentKpi->discount;
++          $currentOrders = $currentKpi->orders;
++          $currentAov = $currentOrders > 0 ? $currentSales / $currentOrders : 0;
++          
++          // Calculate Previous Period (Period-over-Period) at the database level
++          $daysDiff = Carbon::parse($this->from_date)->diffInDays(Carbon::parse($this->to_date)) + 1;
++          $prev_to_date = Carbon::parse($this->from_date)->subDay()->toDateString();
++          $prev_from_date = Carbon::parse($this->from_date)->subDays($daysDiff)->toDateString();
++          
++          $prevSales = \App\Models\Order::whereDate('order_date', '>=', $prev_from_date)
++              ->whereDate('order_date', '<=', $prev_to_date)
++              ->where('status', 3)
++              ->sum('total');
++              
++          // Growth Calculation
++          $salesGrowth = 0;
++          if ($prevSales > 0) {
++              $salesGrowth = (($currentSales - $prevSales) / $prevSales) * 100;
++          } else if ($currentSales > 0) {
++              $salesGrowth = 100;
++          }
++          
++          $this->kpi = [
++              'sales' => $currentSales,
++              'orders' => $currentOrders,
++              'discount' => $currentDiscount,
++              'aov' => $currentAov,
++              'growth' => round($salesGrowth, 1)
++          ];
++          
++          // Fetch orders for the table display (keep ->get() since the table needs all rows)
++          $this->orders = \App\Models\Order::whereDate('order_date', '>=', $this->from_date)
++              ->whereDate('order_date', '<=', $this->to_date)
++              ->where('status', 3)
++              ->latest()
++              ->get();
++          
++          // Service Breakdown (already uses DB-level aggregation - keep as is)
++          $services = DB::table('order_details')
++              ->join('orders', 'order_details.order_id', '=', 'orders.id')
++              ->select('order_details.service_name', DB::raw('SUM(order_details.service_detail_total) as revenue'))
++              ->whereDate('orders.order_date', '>=', $this->from_date)
++              ->whereDate('orders.order_date', '<=', $this->to_date)
++              ->where('orders.status', 3)
++              ->groupBy('order_details.service_name')
++              ->orderByDesc('revenue')
++              ->get();
++              
++          $this->serviceBreakdown = [];
++          foreach($services as $s) {
++              $this->serviceBreakdown[] = [
++                  'name' => $s->service_name,
++                  'amount' => $s->revenue
++              ];
++          }
++          
++          $this->dispatch('update-sales-charts', [
++              'services' => $this->serviceBreakdown
++          ]);
+       }
+       /* download pdf file */
+       public function downloadFile()
+diff --git a/app/Livewire/Settings/RecycleBin.php b/app/Livewire/Settings/RecycleBin.php
+new file mode 100644
+index 0000000..4a32df3
+--- /dev/null
++++ b/app/Livewire/Settings/RecycleBin.php
+@@ -0,0 +1,182 @@
++<?php
++
++namespace App\Livewire\Settings;
++
++use Livewire\Component;
++use App\Models\Order;
++use App\Models\Payment;
++use App\Models\OrderDetail;
++use App\Models\OrderAddonDetail;
++use App\Models\Translation;
++use Livewire\Attributes\Title;
++use Illuminate\Support\Facades\Gate;
++use Illuminate\Support\Facades\DB;
++
++class RecycleBin extends Component
++{
++    public $orders;
++    public $search_query;
++    public $selectedOrders = [];
++    public $lang;
++
++    #[Title('Recycle Bin')]
++    public function render()
++    {
++        return view('livewire.settings.recycle-bin');
++    }
++
++    public function mount()
++    {
++        if(!Gate::allows('order_restore')){
++            abort(404);
++        }
++
++        if(session()->has('selected_language')) {
++            $this->lang = Translation::where('id', session()->get('selected_language'))->first();
++        } else {
++            $this->lang = Translation::where('default', 1)->first();
++        }
++
++        $this->loadTrashedOrders();
++    }
++
++    public function loadTrashedOrders()
++    {
++        $query = Order::onlyTrashed()->with('details', 'addons', 'deletedBy')->orderBy('deleted_at', 'DESC');
++
++        if ($this->search_query) {
++            $searchQuery = $this->search_query;
++            $query->where(function($q) use ($searchQuery) {
++                $q->where('order_number', 'like', '%' . $searchQuery . '%')
++                  ->orWhere('customer_name', 'like', '%' . $searchQuery . '%')
++                  ->orWhere('phone_number', 'like', '%' . $searchQuery . '%');
++            });
++        }
++
++        $this->orders = $query->get()->map(function($order) {
++            $order->days_remaining = 90 - now()->diffInDays($order->deleted_at);
++            $order->paid_amount = Payment::withTrashed()->where('order_id', $order->id)->sum('received_amount');
++            return $order;
++        });
++    }
++
++    public function updated($name, $value)
++    {
++        if ($name == 'search_query') {
++            $this->loadTrashedOrders();
++        }
++    }
++
++    public function restoreOrder($orderId)
++    {
++        if(!Gate::allows('order_restore')){
++            abort(404);
++        }
++
++        DB::transaction(function () use ($orderId) {
++            $order = Order::onlyTrashed()->find($orderId);
++            if ($order) {
++                $order->restore();
++                OrderDetail::onlyTrashed()->where('order_id', $orderId)->restore();
++                OrderAddonDetail::onlyTrashed()->where('order_id', $orderId)->restore();
++                Payment::onlyTrashed()->where('order_id', $orderId)->restore();
++            }
++        });
++
++        $this->loadTrashedOrders();
++        $this->dispatch('alert', ['type' => 'success', 'message' => 'Order restored successfully!']);
++    }
++
++    public function bulkRestore()
++    {
++        if(empty($this->selectedOrders)) return;
++
++        if(!Gate::allows('order_restore')){
++            $this->dispatch('alert', ['type' => 'error', 'message' => 'You do not have permission to restore orders!']);
++            return;
++        }
++
++        DB::transaction(function () {
++            foreach ($this->selectedOrders as $orderId) {
++                $order = Order::onlyTrashed()->find($orderId);
++                if ($order) {
++                    $order->restore();
++                    OrderDetail::onlyTrashed()->where('order_id', $orderId)->restore();
++                    OrderAddonDetail::onlyTrashed()->where('order_id', $orderId)->restore();
++                    Payment::onlyTrashed()->where('order_id', $orderId)->restore();
++                }
++            }
++        });
++
++        $this->selectedOrders = [];
++        $this->loadTrashedOrders();
++        $this->dispatch('alert', ['type' => 'success', 'message' => 'Selected orders restored successfully!']);
++    }
++
++    public function forceDeleteOrder($orderId)
++    {
++        if(!Gate::allows('order_force_delete')){
++            abort(404);
++        }
++
++        DB::transaction(function () use ($orderId) {
++            $order = Order::onlyTrashed()->find($orderId);
++            if ($order) {
++                OrderDetail::onlyTrashed()->where('order_id', $orderId)->forceDelete();
++                OrderAddonDetail::onlyTrashed()->where('order_id', $orderId)->forceDelete();
++                Payment::onlyTrashed()->where('order_id', $orderId)->forceDelete();
++                $order->forceDelete();
++            }
++        });
++
++        $this->loadTrashedOrders();
++        $this->dispatch('alert', ['type' => 'success', 'message' => 'Order permanently deleted!']);
++    }
++
++    public function bulkForceDelete()
++    {
++        if(empty($this->selectedOrders)) return;
++
++        if(!Gate::allows('order_force_delete')){
++            $this->dispatch('alert', ['type' => 'error', 'message' => 'You do not have permission to permanently delete orders!']);
++            return;
++        }
++
++        DB::transaction(function () {
++            foreach ($this->selectedOrders as $orderId) {
++                $order = Order::onlyTrashed()->find($orderId);
++                if ($order) {
++                    OrderDetail::onlyTrashed()->where('order_id', $orderId)->forceDelete();
++                    OrderAddonDetail::onlyTrashed()->where('order_id', $orderId)->forceDelete();
++                    Payment::onlyTrashed()->where('order_id', $orderId)->forceDelete();
++                    $order->forceDelete();
++                }
++            }
++        });
++
++        $this->selectedOrders = [];
++        $this->loadTrashedOrders();
++        $this->dispatch('alert', ['type' => 'success', 'message' => 'Selected orders permanently deleted!']);
++    }
++
++    public function emptyRecycleBin()
++    {
++        if(!Gate::allows('order_force_delete')){
++            $this->dispatch('alert', ['type' => 'error', 'message' => 'You do not have permission to permanently delete orders!']);
++            return;
++        }
++
++        DB::transaction(function () {
++            $orders = Order::onlyTrashed()->get();
++            foreach ($orders as $order) {
++                OrderDetail::onlyTrashed()->where('order_id', $order->id)->forceDelete();
++                OrderAddonDetail::onlyTrashed()->where('order_id', $order->id)->forceDelete();
++                Payment::onlyTrashed()->where('order_id', $order->id)->forceDelete();
++                $order->forceDelete();
++            }
++        });
++
++        $this->loadTrashedOrders();
++        $this->dispatch('alert', ['type' => 'success', 'message' => 'Recycle bin emptied!']);
++    }
++}
+diff --git a/app/Livewire/System/Notifications.php b/app/Livewire/System/Notifications.php
+new file mode 100644
+index 0000000..1211893
+--- /dev/null
++++ b/app/Livewire/System/Notifications.php
+@@ -0,0 +1,43 @@
++<?php
++
++namespace App\Livewire\System;
++
++use Livewire\Component;
++use Livewire\WithPagination;
++use Illuminate\Support\Facades\Auth;
++use Livewire\Attributes\Title;
++
++class Notifications extends Component
++{
++    use WithPagination;
++    
++    protected $paginationTheme = 'bootstrap';
++
++    public function markAsRead($id)
++    {
++        $notification = Auth::user()->notifications()->find($id);
++        if ($notification) {
++            $notification->markAsRead();
++        }
++    }
++
++    public function markAllAsRead()
++    {
++        Auth::user()->unreadNotifications->markAsRead();
++    }
++
++    public function deleteAll()
++    {
++        Auth::user()->notifications()->delete();
++        $this->dispatch('alert', ['type' => 'success', 'message' => 'All notifications deleted successfully.']);
++    }
++
++    #[Title('System Notifications')]
++    public function render()
++    {
++        $notifications = Auth::user()->notifications()->paginate(20);
++        return view('livewire.system.notifications', [
++            'notifications' => $notifications
++        ]);
++    }
++}
+diff --git a/resources/views/livewire/orders/order-requests-list.blade.php b/resources/views/livewire/orders/order-requests-list.blade.php
+new file mode 100644
+index 0000000..dff9e28
+--- /dev/null
++++ b/resources/views/livewire/orders/order-requests-list.blade.php
+@@ -0,0 +1,100 @@
++<div class="dashboard-main-body">
++    <div class="card h-100 p-0 radius-12">
++        <div class="tw-py-1.5 tw-px-3 bg-base d-flex align-items-center flex-wrap gap-3 justify-content-between">
++            <h5 class="mb-0">{{ $lang->data['order_requests'] ?? 'Order Requests' }}</h5>
++        </div>
++        <div class="card-body p-0">
++            <div class="table-responsive scroll-sm">
++                <table class="table bordered-table sm-table mb-0">
++                    <thead>
++                        <tr>
++                            <th scope="col">{{ $lang->data['request_number'] ?? 'Request Number' }}</th>
++                            <th scope="col">{{ $lang->data['created_by'] ?? 'Created By' }}</th>
++                            <th scope="col">{{ $lang->data['customer_name'] ?? 'Customer' }}</th>
++                            <th scope="col">{{ $lang->data['total'] ?? 'Total' }}</th>
++                            <th scope="col">{{ $lang->data['status'] ?? 'Status' }}</th>
++                            <th scope="col" class="text-center">{{ $lang->data['action'] ?? 'Action' }}</th>
++                        </tr>
++                    </thead>
++                    <tbody>
++                        @if(count($requests) > 0)
++                            @foreach ($requests as $item)
++                                <tr>
++                                    <td>{{ $item->request_number }}</td>
++                                    <td>{{ $item->user->name ?? 'Unknown' }}</td>
++                                    <td>{{ $item->customer_name ?? 'Walk-in Customer' }}</td>
++                                    <td>{{ getFormattedCurrency($item->total_amount) }}</td>
++                                    <td>
++                                        @if($item->status == 0)
++                                            <span class="badge bg-warning-600 text-warning-600 bg-opacity-20">{{ $lang->data['pending_approval'] ?? 'Pending Approval' }}</span>
++                                        @elseif($item->status == 1)
++                                            <span class="badge bg-danger-600 text-danger-600 bg-opacity-20">{{ $lang->data['rejected'] ?? 'Rejected' }}</span>
++                                            @if($item->rejection_note)
++                                                <div class="text-xs text-danger mt-1">{{ $item->rejection_note }}</div>
++                                            @endif
++                                        @endif
++                                    </td>
++                                    <td class="text-center">
++                                        <div class="d-flex align-items-center gap-10 justify-content-center">
++                                            @can('accept_reject_order')
++                                                @if($item->status == 0)
++                                                    <button type="button" class="btn btn-success text-sm btn-sm px-12 py-12 radius-8 d-flex align-items-center gap-2" wire:click="acceptOrder({{ $item->id }})">
++                                                        <iconify-icon icon="lucide:check-circle" class="icon text-xl line-height-1"></iconify-icon>
++                                                        {{ $lang->data['accept'] ?? 'Accept' }}
++                                                    </button>
++                                                    <button type="button" class="btn btn-danger text-sm btn-sm px-12 py-12 radius-8 d-flex align-items-center gap-2" wire:click="rejectModal({{ $item->id }})" data-bs-toggle="modal" data-bs-target="#rejectModal">
++                                                        <iconify-icon icon="lucide:x-circle" class="icon text-xl line-height-1"></iconify-icon>
++                                                        {{ $lang->data['reject'] ?? 'Reject' }}
++                                                    </button>
++                                                @endif
++                                            @endcan
++                                            @if(Auth::id() == $item->created_by || Auth::user()->hasPermission('edit_pending_requests'))
++                                                <a href="{{ route('orders.requests.edit', $item->id) }}" class="bg-info-100 text-info-600 bg-hover-info-200 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle">
++                                                    <iconify-icon icon="lucide:edit" class="menu-icon"></iconify-icon>
++                                                </a>
++                                            @endif
++                                            @if(Auth::id() == $item->created_by || Auth::user()->hasPermission('delete_order_requests') || Auth::user()->hasPermission('accept_reject_order'))
++                                                <button type="button" class="bg-danger-100 text-danger-600 bg-hover-danger-200 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle" onclick="confirmDelete(() => @this.deleteRequest({{ $item->id }}))">
++                                                    <iconify-icon icon="fluent:delete-24-regular" class="menu-icon"></iconify-icon>
++                                                </button>
++                                            @endif
++                                        </div>
++                                    </td>
++                                </tr>
++                            @endforeach
++                        @else
++                            <tr>
++                                <td colspan="6" class="text-center">No order requests found...</td>
++                            </tr>
++                        @endif
++                    </tbody>
++                </table>
++            </div>
++        </div>
++    </div>
++
++    <!-- Reject Modal -->
++    <div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true" wire:ignore.self>
++        <div class="modal-dialog modal-dialog-centered">
++            <div class="modal-content radius-16 bg-base">
++                <div class="modal-header py-16 px-24 border border-top-0 border-start-0 border-end-0">
++                    <h1 class="modal-title text-md">{{ $lang->data['reject_order'] ?? 'Reject Order Request' }}</h1>
++                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
++                </div>
++                <div class="modal-body p-24">
++                    <form wire:submit.prevent="rejectOrder">
++                        <div class="mb-20">
++                            <label class="form-label fw-semibold text-primary-light text-sm mb-8">{{ $lang->data['rejection_note'] ?? 'Rejection Note' }}</label>
++                            <textarea class="form-control radius-8" wire:model="rejection_note" rows="3" required></textarea>
++                            @error('rejection_note') <span class="text-danger">{{ $message }}</span> @enderror
++                        </div>
++                        <div class="d-flex align-items-center justify-content-end gap-3 mt-24">
++                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" wire:click.prevent="$dispatch('closemodal')">{{ $lang->data['cancel'] ?? 'Cancel' }}</button>
++                            <button type="submit" class="btn btn-danger">{{ $lang->data['reject'] ?? 'Reject' }}</button>
++                        </div>
++                    </form>
++                </div>
++            </div>
++        </div>
++    </div>
++</div>
+diff --git a/resources/views/livewire/reports/business-insights.blade.php b/resources/views/livewire/reports/business-insights.blade.php
+new file mode 100644
+index 0000000..1de1b66
+--- /dev/null
++++ b/resources/views/livewire/reports/business-insights.blade.php
+@@ -0,0 +1,124 @@
++<div class="dashboard-main-body">
++    <!-- Top Filter & Print Row -->
++    <div class="tw-flex tw-justify-between tw-items-center tw-mb-6">
++        <div class="tw-flex tw-items-center tw-gap-4">
++            <div class="tw-flex tw-items-center tw-gap-2">
++                <label class="tw-text-sm tw-font-medium">{{$lang->data['from'] ?? 'From'}}</label>
++                <input type="date" class="form-control bg-base h-40-px w-auto" wire:model.live="from_date">
++            </div>
++            <div class="tw-flex tw-items-center tw-gap-2">
++                <label class="tw-text-sm tw-font-medium">{{$lang->data['to'] ?? 'To'}}</label>
++                <input type="date" class="form-control bg-base h-40-px w-auto" wire:model.live="to_date">
++            </div>
++        </div>
++        <button type="button" onclick="window.print()" class="btn btn-success-100 text-success-600 radius-8 px-16 py-9 tw-flex tw-items-center tw-gap-2">
++            <iconify-icon icon="solar:printer-bold" class="mr-1"></iconify-icon>
++            {{$lang->data['print_dashboard'] ?? 'Print Dashboard'}}
++        </button>
++    </div>
++
++    <!-- KPI Cards Row -->
++    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4 tw-mb-6">
++        <div class="col">
++            <x-dashboard-card 
++                title="{{$lang->data['active_customers'] ?? 'Active Customers'}}" 
++                value="{{ $kpi['health']['active'] ?? 0 }}" 
++                icon="mdi:account-check" 
++                color="success" />
++        </div>
++        <div class="col">
++            <x-dashboard-card 
++                title="{{$lang->data['at_risk_customers'] ?? 'At-Risk (> 21 Days)'}}" 
++                value="{{ $kpi['health']['at_risk'] ?? 0 }}" 
++                icon="mdi:account-alert" 
++                color="danger" 
++                trend="Requires Attention" 
++                trendUp="false" />
++        </div>
++        <div class="col">
++            <x-dashboard-card 
++                title="{{$lang->data['on_time_delivery'] ?? 'On-Time Delivery'}}" 
++                value="{{ $kpi['tat']['on_time'] ?? 0 }}" 
++                icon="mdi:clock-check-outline" 
++                color="primary" />
++        </div>
++        <div class="col">
++            <x-dashboard-card 
++                title="{{$lang->data['delayed_orders'] ?? 'Delayed Orders'}}" 
++                value="{{ $kpi['tat']['delayed'] ?? 0 }}" 
++                icon="mdi:clock-alert-outline" 
++                color="warning" 
++                trendUp="false" />
++        </div>
++    </div>
++
++    <!-- Charts Row -->
++    <div class="row g-4">
++        <!-- Churn Chart -->
++        <div class="col-12 col-lg-6">
++            <x-chart-container title="{{$lang->data['customer_health'] ?? 'Customer Health (Active vs At-Risk)'}}">
++                <div id="churnChart"></div>
++            </x-chart-container>
++        </div>
++        <!-- Staff Performance -->
++        <div class="col-12 col-lg-6">
++            <div class="card h-100 p-4 radius-12 border-0 shadow-sm tw-bg-white">
++                <h6 class="mb-4 fw-bold">{{$lang->data['top_staff'] ?? 'Top Staff by Revenue'}}</h6>
++                <div class="table-responsive">
++                    <table class="table bordered-table sm-table">
++                        <thead>
++                            <tr>
++                                <th>Staff Name</th>
++                                <th>Orders Processed</th>
++                                <th>Revenue Generated</th>
++                            </tr>
++                        </thead>
++                        <tbody>
++                            @if(isset($kpi['staff']) && count($kpi['staff']) > 0)
++                                @foreach($kpi['staff'] as $staff)
++                                <tr>
++                                    <td class="tw-font-medium">{{$staff->name}}</td>
++                                    <td>{{$staff->total_orders}}</td>
++                                    <td class="text-success tw-font-bold">{{getFormattedCurrency($staff->total_revenue)}}</td>
++                                </tr>
++                                @endforeach
++                            @else
++                                <tr>
++                                    <td colspan="3" class="text-center text-muted">No data available for this period.</td>
++                                </tr>
++                            @endif
++                        </tbody>
++                    </table>
++                </div>
++            </div>
++        </div>
++    </div>
++</div>
++
++@push('js')
++<script>
++    document.addEventListener('livewire:initialized', () => {
++        // Render Churn Chart
++        var churnOptions = {
++            series: [{{ $kpi['health']['active'] ?? 0 }}, {{ $kpi['health']['at_risk'] ?? 0 }}],
++            chart: { type: 'donut', height: 300 },
++            labels: ['Active', 'At-Risk'],
++            colors: ['#28a745', '#dc3545'],
++            dataLabels: { enabled: true, formatter: function (val) { return val.toFixed(1) + "%" } },
++            legend: { position: 'bottom' }
++        };
++        var churnChart = new ApexCharts(document.querySelector("#churnChart"), churnOptions);
++        churnChart.render();
++        
++        // Re-render charts when Livewire updates the data
++        Livewire.hook('commit', ({ component, commit, respond, succeed, fail }) => {
++            succeed(({ snapshot, effect }) => {
++                const kpi = snapshot.data.kpi;
++                if(kpi && kpi.health) {
++                    churnChart.updateSeries([kpi.health.active, kpi.health.at_risk]);
++                }
++            })
++        });
++    });
++</script>
++@endpush
+diff --git a/resources/views/livewire/reports/customer-report.blade.php b/resources/views/livewire/reports/customer-report.blade.php
+new file mode 100644
+index 0000000..ae3f6c0
+--- /dev/null
++++ b/resources/views/livewire/reports/customer-report.blade.php
+@@ -0,0 +1,77 @@
++<div class="dashboard-main-body">
++    <div class="card h-100 p-0 radius-12">
++        <div class="tw-py-1.5 tw-px-3 bg-base d-flex align-items-center flex-wrap gap-3 justify-content-between">
++            <div class="tw-flex tw-items-center gap-4">
++                <div class="d-flex align-items-center flex-wrap gap-3">
++                    <div class="d-flex gap-1 tw-flex-col">
++                        <span class="fw-medium">{{ $lang->data['status'] ?? 'Customer Status' }}</span>
++                        <select class="form-select form-select-sm bg-base h-40-px w-auto" wire:model.live="statusFilter">
++                            <option class="select-box" value="all">{{$lang->data['all'] ?? 'All Customers'}}</option>
++                            <option class="select-box" value="Active">{{$lang->data['active'] ?? 'Active (Last 21 Days)'}}</option>
++                            <option class="select-box" value="At-Risk">{{$lang->data['at_risk'] ?? 'At-Risk (> 21 Days)'}}</option>
++                        </select>
++                    </div>
++                </div>
++            </div>
++            <div class="tw-flex tw-items-center gap-2">
++                <button type="button" onclick="window.print()" class="btn btn-success-100 text-success-600 radius-8 px-16 py-9 tw-flex tw-items-center tw-gap-2">
++                    <iconify-icon icon="solar:printer-bold" class="mr-1"></iconify-icon>
++                    {{$lang->data['print_report'] ?? 'Print Report'}}
++                </button>
++            </div>
++        </div>
++        <div class="card-body p-0">
++            <div class="table-responsive scroll-sm tw-min-h-[calc(100vh-16rem)]">
++                <table class="table bordered-table sm-table mb-0">
++                    <thead>
++                        <tr>
++                            <th>{{$lang->data['customer'] ?? 'Customer'}}</th>
++                            <th>{{$lang->data['registered'] ?? 'Registered'}}</th>
++                            <th>{{$lang->data['orders'] ?? 'Orders'}}</th>
++                            <th>{{$lang->data['lifetime_spend'] ?? 'Lifetime Spend'}}</th>
++                            <th>{{$lang->data['spend_30'] ?? 'Spend (30 Days)'}}</th>
++                            <th>{{$lang->data['aov'] ?? 'Avg Order Val'}}</th>
++                            <th>{{$lang->data['outstanding'] ?? 'Outstanding'}}</th>
++                            <th>{{$lang->data['last_visit'] ?? 'Last Visit'}}</th>
++                            <th>{{$lang->data['status'] ?? 'Status'}}</th>
++                        </tr>
++                    </thead>
++                    <tbody>
++                        @forelse($customersData as $row)
++                        <tr>
++                            <td>
++                                <p class="text-sm font-weight-bold tw-text-black mb-0">{{$row['name']}}</p>
++                                <span class="text-xs text-muted">{{$row['phone']}}</span>
++                            </td>
++                            <td><p class="text-sm mb-0">{{$row['registration_date']}}</p></td>
++                            <td><p class="text-sm mb-0">{{$row['total_orders']}}</p></td>
++                            <td><p class="text-sm font-weight-bold text-success mb-0">{{getFormattedCurrency($row['total_spend'])}}</p></td>
++                            <td><p class="text-sm mb-0">{{getFormattedCurrency($row['spend_30'])}}</p></td>
++                            <td><p class="text-sm mb-0">{{getFormattedCurrency($row['aov'])}}</p></td>
++                            <td>
++                                @if($row['outstanding'] > 0)
++                                    <p class="text-sm font-weight-bold text-danger mb-0">{{getFormattedCurrency($row['outstanding'])}}</p>
++                                @else
++                                    <p class="text-sm text-muted mb-0">Γéª0.00</p>
++                                @endif
++                            </td>
++                            <td><p class="text-sm mb-0">{{$row['last_visit']}}</p></td>
++                            <td>
++                                @if($row['status'] == 'Active')
++                                    <span class="badge fw-semibold text-success-600 bg-success-100 px-20 py-9 radius-4 text-white">Active</span>
++                                @else
++                                    <span class="badge fw-semibold text-danger-600 bg-danger-100 px-20 py-9 radius-4 text-white">At-Risk</span>
++                                @endif
++                            </td>
++                        </tr>
++                        @empty
++                        <tr>
++                            <td colspan="9" class="text-center py-4 text-muted">No customers found for this filter.</td>
++                        </tr>
++                        @endforelse
++                    </tbody>
++                </table>
++            </div>
++        </div>
++    </div>
++</div>
+diff --git a/resources/views/livewire/reports/daily-report.blade.php b/resources/views/livewire/reports/daily-report.blade.php
+index 88f7f5e..e9905c9 100644
+--- a/resources/views/livewire/reports/daily-report.blade.php
++++ b/resources/views/livewire/reports/daily-report.blade.php
+@@ -1,94 +1,119 @@
+ <div class="dashboard-main-body">
+-    <div class="card h-100 p-0 radius-12">
+-        <div
+-            class="tw-py-1.5 tw-px-3 bg-base d-flex align-items-center flex-wrap gap-3 justify-content-between">
+-            <div class="d-flex align-items-center flex-wrap gap-3">
+-                <div class="d-flex  gap-1 tw-flex-col">
+-                    <span class="fw-medium">{{ $lang->data['date'] ?? 'Date' }}</span>
+-                    <input type="date" class="form-control bg-base h-40-px w-auto" wire:model.live="today">
+-                </div>
+-            </div>
++    <!-- Top Filter & Print Row -->
++    <div class="tw-flex tw-justify-between tw-items-center tw-mb-6">
++        <div class="tw-flex tw-items-center tw-gap-2">
++            <label class="tw-text-sm tw-font-medium">{{$lang->data['date'] ?? 'Date'}}</label>
++            <input type="date" class="form-control bg-base h-40-px w-auto" wire:model.live="today">
+         </div>
+-        <div class="card-body p-0">
+-            <div class="table-responsive scroll-sm tw-min-h-[calc(100vh-16rem)]">
+-                <table class="table bordered-table sm-table mb-0">
+-                    <thead>
+-                        <tr>
+-                            <th scope="col" class="">{{ $lang->data['particulars'] ?? 'Particulars' }}</th>
+-                            <th scope="col" class="">{{ $lang->data['value'] ?? 'Value' }}</th>
+-                        </tr>
+-                    </thead>
+-                    <tbody>
+-                        <tr>
+-                            <td>
+-                                <p class="text-sm px-3 mb-0">{{ $lang->data['orders'] ?? 'Orders' }}</p>
+-                            </td>
+-                            <td>
+-                                <p class="text-sm font-weight-bold text-warning mb-0">{{$new_order}}</p>
+-                            </td>
+-                        </tr>
+-                        <tr>
+-                            <td>
+-                                <p class="text-sm px-3 mb-0">
+-                                    {{ $lang->data['no_of_orders_delivered'] ?? 'No. of Orders Delivered' }}
+-                                </p>
+-                            </td>
+-                            <td>
+-                                <p class="text-sm font-weight-bold text-primary mb-0">{{$delivered_orders}}</p>
+-                            </td>
+-
+-                        </tr>
+-                        <tr>
+-                            <td>
+-                                <p class="text-sm px-3 mb-0">{{ $lang->data['total_sales'] ?? 'Total Sales' }}</p>
+-                            </td>
+-                            <td>
+-                                <p class="text-sm font-weight-bold text-success mb-0">
+-                                    {{getFormattedCurrency($total_sales)}}
+-                                </p>
+-                            </td>
+-
+-                        </tr>
+-                        <tr>
+-                            <td>
+-                                <p class="text-sm px-3 mb-0">{{ $lang->data['total_payment'] ?? 'Total Payment' }}</p>
+-                            </td>
+-                            <td>
+-                                <p class="text-sm font-weight-bold text-info mb-0">
+-                                    {{getFormattedCurrency($total_payment)}}
+-                                </p>
+-                            </td>
+-
+-                        </tr>
+-                        <tr>
+-                            <td>
+-                                <p class="text-sm px-3 mb-0">{{ $lang->data['total_expense'] ?? 'Total Expense' }}</p>
+-                            </td>
+-                            <td>
+-                                <p class="text-sm font-weight-bold text-danger mb-0">
+-                                    {{getFormattedCurrency($total_expense)}}
+-                                </p>
+-                            </td>
++        <div class="tw-flex tw-items-center tw-gap-2">
++            @can('report_download')
++            <button type="button" wire:click="downloadFile()" class="btn btn-warning-100 text-warning-600 radius-8 px-16 py-9 tw-flex tw-items-center tw-gap-2">
++                <iconify-icon icon="solar:download-bold" class="mr-1"></iconify-icon>
++                {{$lang->data['download_report'] ?? 'Data (PDF)'}}
++            </button>
++            @endcan
++            <button type="button" onclick="window.print()" class="btn btn-success-100 text-success-600 radius-8 px-16 py-9 tw-flex tw-items-center tw-gap-2">
++                <iconify-icon icon="solar:printer-bold" class="mr-1"></iconify-icon>
++                {{$lang->data['print_dashboard'] ?? 'Print Dashboard'}}
++            </button>
++        </div>
++    </div>
+ 
+-                        </tr>
++    <!-- KPI Cards Row -->
++    <div class="row row-cols-1 row-cols-md-3 row-cols-lg-5 g-4 tw-mb-6">
++        <div class="col">
++            <x-dashboard-card title="{{$lang->data['orders'] ?? 'Orders Today'}}" value="{{ $new_order }}" icon="akar-icons:cart" color="primary" />
++        </div>
++        <div class="col">
++            <x-dashboard-card title="{{$lang->data['delivered'] ?? 'Delivered'}}" value="{{ $delivered_orders }}" icon="mdi:truck-delivery-outline" color="success" />
++        </div>
++        <div class="col">
++            <x-dashboard-card title="{{$lang->data['item_volume'] ?? 'Items Processed'}}" value="{{ $itemVolume }}" icon="mdi:tshirt-crew-outline" color="info" />
++        </div>
++        <div class="col">
++            <x-dashboard-card title="{{$lang->data['total_sales'] ?? 'Total Sales'}}" value="{{ getFormattedCurrency($total_sales) }}" icon="mdi:cash-register" color="success" />
++        </div>
++        <div class="col">
++            <x-dashboard-card title="{{$lang->data['total_expense'] ?? 'Total Expense'}}" value="{{ getFormattedCurrency($total_expense) }}" icon="mdi:cash-minus" color="danger" />
++        </div>
++    </div>
+ 
+-                    </tbody>
+-                </table>
+-            </div>
+-            <div class="tw-flex tw-items-center tw-justify-end tw-w-full tw-p-2 tw-gap-2">
+-                <div class="tw-flex tw-items-center tw-gap-2">
+-                @can('report_download')
+-                <button type="button" wire:click="downloadFile()"
+-                        class="btn btn-warning-100 text-warning-600 radius-8 px-16 py-9">{{$lang->data['download_report'] ?? 'Download Report'}}</button>
+-                @endcan
+-                @can('report_print')
+-                <a href="{{url('admin/reports/print-report/daily/'.$today)}}" target="_blank">
+-                        <button type="button"
+-                            class="btn btn-success-100 text-success-600 radius-8 px-16 py-9">{{$lang->data['print_report'] ?? 'Print Report'}}</button>
+-                    </a>
+-                </div>
+-                @endcan
+-            </div>
++    <!-- Charts Row -->
++    <div class="row g-4">
++        <!-- 7-Day Trend Chart -->
++        <div class="col-12 col-lg-7">
++            <x-chart-container title="{{$lang->data['7_day_trend'] ?? '7-Day Inflow Trend'}}">
++                <div id="trendChart"></div>
++            </x-chart-container>
++        </div>
++        <!-- Payment Split Chart (100% Stacked Bar) -->
++        <div class="col-12 col-lg-5">
++            <x-chart-container title="{{$lang->data['payment_split'] ?? 'Payment Breakdown'}}">
++                <div id="paymentChart"></div>
++            </x-chart-container>
+         </div>
+     </div>
+-</div>
+\ No newline at end of file
++</div>
++
++@push('js')
++<script>
++    document.addEventListener('livewire:initialized', () => {
++        // --- 1. Trend Line Chart ---
++        var trendOptions = {
++            series: [{ name: 'Orders', data: @json($trendData) }],
++            chart: { type: 'area', height: 300, toolbar: { show: false } },
++            stroke: { curve: 'smooth', width: 2 },
++            fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [50, 100] } },
++            labels: @json($trendLabels),
++            colors: ['#0d6efd'],
++            dataLabels: { enabled: false }
++        };
++        var trendChart = new ApexCharts(document.querySelector("#trendChart"), trendOptions);
++        trendChart.render();
++        
++        // --- 2. Payment Split (100% Stacked Horizontal Bar) ---
++        // Format initial data
++        function getPaymentSeries(paymentData) {
++            var series = [];
++            if(paymentData.length === 0) {
++                return [{name: 'No Payments', data: [0]}];
++            }
++            paymentData.forEach(function(item) {
++                series.push({
++                    name: item.name,
++                    data: [item.amount]
++                });
++            });
++            return series;
++        }
++
++        var paymentOptions = {
++            series: getPaymentSeries(@json($paymentSplit)),
++            chart: { type: 'bar', height: 150, stacked: true, stackType: '100%', toolbar: { show: false } },
++            plotOptions: { bar: { horizontal: true, barHeight: '50%' } },
++            stroke: { width: 1, colors: ['#fff'] },
++            xaxis: { categories: ['Payments'], labels: { show: false }, axisBorder: {show: false}, axisTicks: {show: false} },
++            yaxis: { show: false },
++            tooltip: { y: { formatter: function(val) { return "Γéª" + val.toFixed(2) } } },
++            fill: { opacity: 1 },
++            legend: { position: 'bottom' },
++            colors: ['#28a745', '#0dcaf0', '#ffc107', '#dc3545', '#6610f2']
++        };
++        var paymentChart = new ApexCharts(document.querySelector("#paymentChart"), paymentOptions);
++        paymentChart.render();
++        
++        // --- 3. Livewire Re-render on Date Change ---
++        Livewire.on('update-daily-charts', (event) => {
++            const data = event[0];
++            if(data) {
++                // Update Trend Line
++                trendChart.updateSeries([{ data: data.data }]);
++                trendChart.updateOptions({ labels: data.labels });
++                
++                // Update Payment Split
++                paymentChart.updateSeries(getPaymentSeries(data.payment));
++            }
++        });
++    });
++</script>
++@endpush
+\ No newline at end of file
+diff --git a/resources/views/livewire/reports/expense-report.blade.php b/resources/views/livewire/reports/expense-report.blade.php
+index 5eebbdb..f9cbbf1 100644
+--- a/resources/views/livewire/reports/expense-report.blade.php
++++ b/resources/views/livewire/reports/expense-report.blade.php
+@@ -1,93 +1,144 @@
+ <div class="dashboard-main-body">
+-    <div class="card h-100 p-0 radius-12">
+-        <div class="tw-py-1.5 tw-px-3 bg-base d-flex align-items-center flex-wrap gap-3 justify-content-between">
+-            <div class="tw-flex  tw-items-center gap-4">
+-                <div class="d-flex align-items-center flex-wrap gap-3">
+-                    <div class="d-flex  gap-1 tw-flex-col">
+-                        <span class="fw-medium">{{ $lang->data['start_date'] ?? 'Start Date' }}</span>
+-                        <input type="date" class="form-control bg-base h-40-px w-auto" wire:model.live="from_date">
+-                    </div>
+-                </div>
+-
+-                <div class="d-flex align-items-center flex-wrap gap-3">
+-                    <div class="d-flex  gap-1 tw-flex-col">
+-                        <span class="fw-medium">{{ $lang->data['end_date'] ?? 'End Date' }}</span>
+-                        <input type="date" class="form-control bg-base h-40-px w-auto" wire:model.live="to_date">
+-                    </div>
+-                </div>
++    <!-- Top Filter & Print Row -->
++    <div class="tw-flex tw-justify-between tw-items-center tw-mb-6">
++        <div class="tw-flex tw-items-center tw-gap-4">
++            <div class="tw-flex tw-items-center tw-gap-2">
++                <label class="tw-text-sm tw-font-medium">{{$lang->data['from'] ?? 'From'}}</label>
++                <input type="date" class="form-control bg-base h-40-px w-auto" wire:model.live="from_date">
+             </div>
++            <div class="tw-flex tw-items-center tw-gap-2">
++                <label class="tw-text-sm tw-font-medium">{{$lang->data['to'] ?? 'To'}}</label>
++                <input type="date" class="form-control bg-base h-40-px w-auto" wire:model.live="to_date">
++            </div>
++        </div>
++        <div class="tw-flex tw-items-center tw-gap-2">
++            @can('report_download')
++            <button type="button" wire:click="downloadFile()" class="btn btn-warning-100 text-warning-600 radius-8 px-16 py-9 tw-flex tw-items-center tw-gap-2">
++                <iconify-icon icon="solar:download-bold" class="mr-1"></iconify-icon>
++                {{$lang->data['download_report'] ?? 'Data (PDF)'}}
++            </button>
++            @endcan
++            <button type="button" onclick="window.print()" class="btn btn-success-100 text-success-600 radius-8 px-16 py-9 tw-flex tw-items-center tw-gap-2">
++                <iconify-icon icon="solar:printer-bold" class="mr-1"></iconify-icon>
++                {{$lang->data['print_dashboard'] ?? 'Print Dashboard'}}
++            </button>
++        </div>
++    </div>
++
++    <!-- KPI Cards Row -->
++    <div class="row row-cols-1 row-cols-md-3 g-4 tw-mb-6">
++        <div class="col">
++            <x-dashboard-card 
++                title="{{$lang->data['total_income'] ?? 'Total Income (Payments)'}}" 
++                value="{{ getFormattedCurrency($kpi['income'] ?? 0) }}" 
++                icon="mdi:cash-plus" 
++                color="success" />
++        </div>
++        <div class="col">
++            <x-dashboard-card 
++                title="{{$lang->data['total_expenses'] ?? 'Total Expenses'}}" 
++                value="{{ getFormattedCurrency($kpi['expenses'] ?? 0) }}" 
++                icon="mdi:cash-minus" 
++                color="danger" />
+         </div>
++        <div class="col">
++            <x-dashboard-card 
++                title="{{$lang->data['net_profit'] ?? 'Net Profit'}}" 
++                value="{{ getFormattedCurrency($kpi['net_profit'] ?? 0) }}" 
++                icon="mdi:scale-balance" 
++                color="{{ ($kpi['net_profit'] ?? 0) >= 0 ? 'primary' : 'danger' }}" 
++                trend="{{ ($kpi['net_profit'] ?? 0) >= 0 ? 'Profitable' : 'Running at a loss' }}"
++                trendUp="{{ ($kpi['net_profit'] ?? 0) >= 0 ? true : false }}" />
++        </div>
++    </div>
++
++    <!-- Charts Row -->
++    <div class="row g-4 tw-mb-6">
++        <!-- Expense Category Breakdown (100% Stacked Bar) -->
++        <div class="col-12">
++            <x-chart-container title="{{$lang->data['expense_breakdown'] ?? 'Expense Category Breakdown (100% Stacked)'}}">
++                <div id="expenseChart"></div>
++            </x-chart-container>
++        </div>
++    </div>
++
++    <!-- Data Table -->
++    <div class="card h-100 p-0 radius-12">
+         <div class="card-body p-0">
+             <div class="table-responsive scroll-sm tw-min-h-[calc(100vh-16rem)]">
+                 <table class="table bordered-table sm-table mb-0">
+                     <thead>
+                         <tr>
+-                            <th class="">{{$lang->data['date'] ?? 'Date'}}</th>
+-                            <th class="">{{$lang->data['towards'] ?? 'Towards'}}</th>
+-                            <th class="">{{$lang->data['expense_amount'] ?? 'Expense Amount'}}</th>
+-                            <th class="">{{$lang->data['tax'] ?? 'Tax'}}%</th>
+-                            <th class="">{{$lang->data['tax_amount'] ?? 'Tax Amount'}}</th>
+-                            <th class="">{{$lang->data['payment_mode'] ?? 'Payment Mode'}}</th>
++                            <th scope="col">{{ $lang->data['date'] ?? 'Date' }}</th>
++                            <th scope="col">{{ $lang->data['expense_category'] ?? 'Category' }}</th>
++                            <th scope="col">{{ $lang->data['amount'] ?? 'Amount' }}</th>
++                            <th scope="col">{{ $lang->data['note'] ?? 'Note' }}</th>
+                         </tr>
+                     </thead>
+                     <tbody>
+-                        @php
+-                        $tax_amount_total = 0;
+-                        @endphp
+-                        @foreach($expenses as $row)
++                        @forelse($expenses as $item)
+                         <tr>
++                            <td><p class="text-sm mb-0">{{ \Carbon\Carbon::parse($item->expense_date)->format('d/m/Y') }}</p></td>
+                             <td>
+-                                <p class="">
+-                                    {{\Carbon\Carbon::parse($row->expense_date)->format('d/m/Y')}}
+-                                </p>
+-                            </td>
+-                            <td>
+-                                <p class="">
+-                                    <span class="">{{$row->expenseCategory->expense_category_name ?? ""}}</span>
+-                                </p>
+-                            </td>
+-                            <td>
+-                                <p class="">{{getFormattedCurrency($row->expense_amount)}}</p>
+-                            </td>
+-                            <td>
+-                                <p class="">{{$row->tax_percentage}}</p>
+-                            </td>
+-                            <td>
+-                                <p class="">
+-                                    @php
+-                                    $tax_amount = $row->expense_amount * ($row->tax_percentage/100);
+-                                    $tax_amount_total +=$tax_amount;
+-                                    @endphp
+-                                    {{getFormattedCurrency($tax_amount)}}
+-                                </p>
+-                            </td>
+-                            <td>
+-                                <p class="">{{getpaymentMode($row->payment_mode)}}</p>
++                                <span class="badge fw-semibold text-primary-600 bg-primary-100 px-20 py-9 radius-4 text-white">
++                                    {{ $item->expenseCategory->expense_category_name ?? 'N/A' }}
++                                </span>
+                             </td>
++                            <td><p class="text-sm font-weight-bold text-danger mb-0">{{ getFormattedCurrency($item->expense_amount) }}</p></td>
++                            <td><p class="text-sm text-muted mb-0">{{ $item->note ?? '-' }}</p></td>
++                        </tr>
++                        @empty
++                        <tr>
++                            <td colspan="4" class="text-center py-4 text-muted">No expenses found for this period.</td>
+                         </tr>
++                        @endforelse
+                     </tbody>
+-                    @endforeach
+                 </table>
+             </div>
+-            <div class="tw-flex tw-items-center tw-justify-between tw-w-full tw-p-2 tw-gap-2">
+-                <div class="tw-flex tw-items-center  tw-gap-4">
+-                    <div class="">{{$lang->data['total_expenses'] ?? 'Total Expenses'}} : <span class="tw-font-bold">{{count($expenses)}}</span></div>
+-                    <div class="">{{$lang->data['total_expense_amount'] ?? 'Total Expense Amount'}} : <span class="tw-font-bold">{{getFormattedCurrency($expenses->sum('expense_amount'))}}</span></div>
+-                    <div class="">{{$lang->data['total_tax_amount'] ?? 'Total Tax Amount'}} : <span class="tw-font-bold">{{getFormattedCurrency($tax_amount_total)}}</span></div>
+-                </div>
+-                <div class="tw-flex tw-items-center tw-gap-2">
+-                    @can('report_download')
+-                    <button wire:click="downloadFile()"
+-                        class="btn btn-warning-100 text-warning-600 radius-8 px-16 py-9">{{$lang->data['download_report'] ?? 'Download Report'}}</button>
+-                    @endcan
+-                    @can('report_print')
+-                    <a href="{{url('admin/reports/print-report/expense/'.$this->from_date.'/'.$this->to_date)}}" target="_blank">
+-                        <button type="button"
+-                            class="btn btn-success-100 text-success-600 radius-8 px-16 py-9">{{$lang->data['print_report'] ?? 'Print Report'}}</button>
+-                    </a>
+-                    @endcan
+-                </div>
+-            </div>
+         </div>
+     </div>
+-</div>
+\ No newline at end of file
++</div>
++
++@push('js')
++<script>
++    document.addEventListener('livewire:initialized', () => {
++        // --- Expense Breakdown (100% Stacked Horizontal Bar) ---
++        function getExpenseSeries(expenseData) {
++            var series = [];
++            if(!expenseData || expenseData.length === 0) {
++                return [{name: 'No Expenses', data: [0]}];
++            }
++            expenseData.forEach(function(item) {
++                series.push({
++                    name: item.name,
++                    data: [item.amount]
++                });
++            });
++            return series;
++        }
++
++        var expenseOptions = {
++            series: getExpenseSeries(@json($categoryBreakdown)),
++            chart: { type: 'bar', height: 120, stacked: true, stackType: '100%', toolbar: { show: false } },
++            plotOptions: { bar: { horizontal: true, barHeight: '50%' } },
++            stroke: { width: 1, colors: ['#fff'] },
++            xaxis: { categories: ['Expenses'], labels: { show: false }, axisBorder: {show: false}, axisTicks: {show: false} },
++            yaxis: { show: false },
++            tooltip: { y: { formatter: function(val) { return "Γéª" + val.toFixed(2) } } },
++            fill: { opacity: 1 },
++            legend: { position: 'bottom' },
++            colors: ['#dc3545', '#fd7e14', '#ffc107', '#20c997', '#0dcaf0', '#0d6efd', '#6f42c1']
++        };
++        var expenseChart = new ApexCharts(document.querySelector("#expenseChart"), expenseOptions);
++        expenseChart.render();
++        
++        // --- Livewire Re-render on Date Change ---
++        Livewire.on('update-expense-charts', (event) => {
++            const data = event[0];
++            if(data && data.categories) {
++                expenseChart.updateSeries(getExpenseSeries(data.categories));
++            }
++        });
++    });
++</script>
++@endpush
+\ No newline at end of file
+diff --git a/resources/views/livewire/reports/ledger-report.blade.php b/resources/views/livewire/reports/ledger-report.blade.php
+index 7691ea0..c22f12f 100644
+--- a/resources/views/livewire/reports/ledger-report.blade.php
++++ b/resources/views/livewire/reports/ledger-report.blade.php
+@@ -1,192 +1,147 @@
+ <div class="dashboard-main-body">
+-    <div class="card h-100 p-0 radius-12">
+-        <div class="tw-py-1.5 tw-px-3 bg-base d-flex align-items-center flex-wrap gap-3 justify-content-between">
+-            <div class="tw-flex  tw-items-center gap-4">
+-                    <div class="d-flex align-items-center flex-wrap gap-3">
+-                        <div class="d-flex  gap-1 tw-flex-col">
+-                            <span class="fw-medium">{{ $lang->data['start_date'] ?? 'Start Date' }}</span>
+-                            <input type="date" class="form-control bg-base h-40-px w-auto" wire:model.live="start_date">
+-                        </div>
+-                    </div>
+-
+-                    <div class=" d-flex align-items-center flex-wrap gap-3">
+-                        <div class="d-flex  gap-1 tw-flex-col">
+-                            <span class="fw-medium">{{ $lang->data['end_date'] ?? 'End Date' }}</span>
+-                            <input type="date" class="form-control bg-base h-40-px w-auto" wire:model.live="end_date">
+-                        </div>
+-                    </div>
+-
+-                    <div class="d-flex align-items-center flex-wrap gap-3">
+-                        <div class="d-flex  gap-1 tw-flex-col tw-relative">
+-                            <span class="fw-medium">{{ $lang->data['select_customer'] ?? 'Select Customer' }}</span>
+-                            <input type="text" name="" id="" class="form-control form-control-sm"
+-                                placeholder="@if($selected_customer) {{ $selected_customer->name }} @else {{ $lang->data['select_customer'] ?? 'Select Customer' }} @endif"  wire:model.live="customer_query">
+-                            @if ($customers && count($customers) > 0)
+-                            <ul class="list-group customhover tw-absolute tw-w-full tw-top-[100%] dropdown-menu p-0 tw-rounded-none">
+-                                @foreach ($customers as $row)
+-                                <button class="dropdown-item px-16 py-8  text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 tw-text-xs tw-truncate "
+-                                    wire:click="selectCustomer({{ $row->id }})">{{ $row->name }} - {{$row->phone}}</button>
+-                                @endforeach
+-                            </ul>
+-                            @endif
+-                        </div>
+-                    </div>
+-
+-                    <div class="d-flex align-items-center flex-wrap gap-3">
+-                        <button type="button"
+-                            class="btn btn-success-100 text-success-600 radius-8 px-16 py-9 tw-mt-6" wire:click="getData()">{{ $lang->data['fetch'] ?? 'Fetch' }}</button>
++    <!-- Charts Row: Global Receivables Ageing -->
++    <div class="row g-4 tw-mb-6">
++        <div class="col-12">
++            <x-chart-container title="{{$lang->data['global_receivables_ageing'] ?? 'Global Receivables Ageing (All Customers)'}}">
++                <div id="ageingChart"></div>
++            </x-chart-container>
++        </div>
++    </div>
+ 
++    <!-- Customer Ledger Filter -->
++    <div class="card p-4 radius-12 border-0 shadow-sm tw-bg-white tw-mb-6">
++        <h6 class="tw-font-bold tw-mb-4">{{$lang->data['customer_ledger'] ?? 'Customer Ledger Lookup'}}</h6>
++        <div class="row gy-3">
++            <div class="col-12 col-md-4">
++                <label class="form-label">{{$lang->data['select_customer'] ?? 'Search Customer'}}</label>
++                <div class="position-relative">
++                    <input type="text" class="form-control" wire:model.live="customer_query" placeholder="{{$lang->data['search_customer'] ?? 'Type name or phone...'}}">
++                    @if(count($customers) > 0)
++                    <div class="position-absolute w-100 bg-white border rounded shadow-sm z-index-10 mt-1">
++                        <ul class="list-unstyled mb-0 max-h-200 overflow-auto">
++                            @foreach($customers as $c)
++                            <li class="p-2 border-bottom hover-bg-light cursor-pointer" wire:click="selectCustomer({{$c->id}})">
++                                <strong>{{$c->name}}</strong> ({{$c->phone}})
++                            </li>
++                            @endforeach
++                        </ul>
+                     </div>
+-
+-
+-
++                    @endif
+                 </div>
++                @if($selected_customer)
++                    <div class="mt-2 text-success fw-bold">
++                        <iconify-icon icon="mdi:check-circle"></iconify-icon>
++                        Selected: {{ $selected_customer->name }}
++                    </div>
++                @endif
++            </div>
++            <div class="col-12 col-md-3">
++                <label class="form-label">{{$lang->data['from'] ?? 'From Date'}}</label>
++                <input type="date" class="form-control" wire:model.defer="start_date">
+             </div>
+-            <div class="card-body p-0">
+-                <div class="table-responsive scroll-sm tw-min-h-[calc(100vh-16rem)]">
+-                    <table class="table bordered-table sm-table mb-0">
+-                        <thead>
+-                            <tr>
+-                                <th class="">{{ $lang->data['date'] ?? 'Date' }}</th>
+-                                <th class="">
+-                                    {{ $lang->data['from'] ?? 'From' }}
+-                                </th>
+-                                <th class="">
+-                                    {{ $lang->data['voucher_no'] ?? 'Voucher No' }}
+-                                </th>
+-                                <th class="">
+-                                    {{ $lang->data['particulars'] ?? 'Particulars' }}
+-                                </th>
+-                                <th class="">
+-                                    {{ $lang->data['debit'] ?? 'Debit' }}
+-                                </th>
+-                                <th class="">
+-                                    {{ $lang->data['credit'] ?? 'Credit' }}
+-                                </th>
+-                                <th class="">
+-                                    {{ $lang->data['balance'] ?? 'Balance' }}
+-                                </th>
+-                            </tr>
+-                        </thead>
+-                        <tbody>
+-                            @php
+-                            $debits = 0 + ($first_data != null ? $first_data['debits'] : 0);
+-                            $credits = 0 +($first_data != null ? $first_data['credits'] : 0);
+-                            $balance = $debits - $credits
++            <div class="col-12 col-md-3">
++                <label class="form-label">{{$lang->data['to'] ?? 'To Date'}}</label>
++                <input type="date" class="form-control" wire:model.defer="end_date">
++            </div>
++            <div class="col-12 col-md-2 d-flex align-items-end">
++                <button type="button" class="btn btn-primary w-100" wire:click="getData()">
++                    {{$lang->data['get_report'] ?? 'Get Report'}}
++                </button>
++            </div>
++        </div>
++    </div>
+ 
+-                            @endphp
+-                      
+-                            @foreach ($data as $item)
+-                            <tr class="tw-font-bold">
+-                                <td>{{\Carbon\Carbon::parse($item['date'])->format('d/m/Y')}}</td>
+-                                <td> <p class="text-sm font-weight-bold mb-0">
+-                                            @if($item['type'] == 'debit')
+-                                                {{$lang->data['order'] ?? 'Order'}}
+-                                            @else
+-                                                {{$lang->data['payment'] ?? 'Payment'}}
+-                                            @endif
+-                                        </p></td>
+-                                <td></td>
+-                                <td>
+-                                    <p class="">
+-                                    @if($item['type'] == 'debit')
+-                                                #{{$item['order_number']}}
+-                                            @else
+-                                                -
+-                                            @endif
+-                                    </p>
+-                                </td>
+-                                <td>
+-                                    <p class="">
+-                                    @if($item['type'] == 'debit')
+-                                               Sales - #{{$item['order_number']}}
+-                                            @else
+-                                                @php
+-                                                    $order = \App\Models\Order::where('id',$item['order_id'])->first();
+-                                                @endphp
+-                                               {{$lang->data['payment'] ?? 'Payment'}} - #{{$order->order_number}}
+-                                            @endif
+-                                    </p>
+-                                </td>
+-                                <td>
+-                                <p class="text-sm font-weight-bold mb-0">
+-                                @if($item['type'] == 'debit')
+-                                            {{getFormattedCurrency($item['total'])}}
+-                                            @else
+-                                            {{getFormattedCurrency(0)}}
+-                                            @endif
+-                                        </p>
+-                                </td>
+-                                <td>
+-                                    <p class="">
+-                                    @php
+-                                                if($item['type'] == 'debit')
+-                                                {
+-                                                    $debits += $item['total'];
+-                                                }
+-                                                else{
+-                                                    $credits += $item['received_amount'];
+-                                                }
+-                                                $balance = $debits - $credits
+-                                            @endphp
+-                                            @if($balance < 0)
+-                                             {{getFormattedCurrency($balance * -1)}} Cr 
+-                                            @else
+-                                           {{getFormattedCurrency($balance)}}  Dr 
+-                                            @endif
+-                                    </p>
+-                                </td>
+-                            </tr>
+-                            @endforeach
+-                            @if($first_data)
+-                            <tr>
+-                                <td>
+-                                </td>
+-                                <td>
+-                                </td>
+-                                <td>
+-                                </td>
+-                                <td>
+-                                    <p class="">
+-                                        {{$lang->data['opening_balance'] ?? 'Opening Balance'}}
+-                                    </p>
+-                                </td>
+-                                <td>
+-                                    <p class="">
+-                                        @if($debits)
+-                                        {{getFormattedCurrency($debits)}}
+-                                        @else
+-                                        {{getFormattedCurrency(0)}}
+-                                        @endif
+-                                    </p>
+-                                </td>
+-                                <td>
+-                                    <p class="">
+-                                        @if($credits)
+-                                        {{getFormattedCurrency($credits)}}
+-                                        @else
+-                                        {{getFormattedCurrency(0)}}
+-                                        @endif
+-                                    </p>
+-                                </td>
+-                                <td>
+-                                    <p class="">
+-                                        @if(isset($balance))
+-                                        @if($balance < 0)
+-                                            {{getFormattedCurrency($balance * -1)}} Cr
+-                                            @else
+-                                            {{getFormattedCurrency($balance)}} Dr
+-                                            @endif
+-                                            @else
+-                                            {{getFormattedCurrency(0)}} Cr
+-                                            @endif
+-                                            </p>
+-                                </td>
+-                            </tr>
+-                            @endif
+-                        </tbody>
+-                    </table>
+-                </div>
++    <!-- Data Table -->
++    @if(count($data) > 0)
++    <div class="card h-100 p-0 radius-12">
++        <div class="tw-p-4 tw-flex tw-justify-end">
++            <button type="button" onclick="window.print()" class="btn btn-success-100 text-success-600 radius-8 px-16 py-9 tw-flex tw-items-center tw-gap-2">
++                <iconify-icon icon="solar:printer-bold"></iconify-icon> {{$lang->data['print_ledger'] ?? 'Print Ledger'}}
++            </button>
++        </div>
++        <div class="card-body p-0">
++            <div class="table-responsive">
++                <table class="table bordered-table sm-table mb-0">
++                    <thead>
++                        <tr>
++                            <th>{{ $lang->data['date'] ?? 'Date' }}</th>
++                            <th>{{ $lang->data['type'] ?? 'Type' }}</th>
++                            <th class="text-danger">{{ $lang->data['debit'] ?? 'Debit (Order)' }}</th>
++                            <th class="text-success">{{ $lang->data['credit'] ?? 'Credit (Payment)' }}</th>
++                            <th>{{ $lang->data['balance'] ?? 'Running Balance' }}</th>
++                        </tr>
++                    </thead>
++                    <tbody>
++                        @php
++                            $runningBalance = $first_data['debits'] - $first_data['credits'];
++                        @endphp
++                        <tr class="bg-light">
++                            <td colspan="4" class="text-end fw-bold">Opening Balance:</td>
++                            <td class="fw-bold {{ $runningBalance > 0 ? 'text-danger' : 'text-success' }}">
++                                {{ getFormattedCurrency(abs($runningBalance)) }} {{ $runningBalance > 0 ? '(Dr)' : '(Cr)' }}
++                            </td>
++                        </tr>
++                        @foreach($data as $row)
++                        @php
++                            if($row['type'] == 'debit') {
++                                $runningBalance += $row['total'];
++                            } else {
++                                $runningBalance -= $row['received_amount'];
++                            }
++                        @endphp
++                        <tr>
++                            <td>{{ \Carbon\Carbon::parse($row['date'])->format('d/m/Y') }}</td>
++                            <td>
++                                @if($row['type'] == 'debit')
++                                    <span class="badge bg-danger-100 text-danger-600">Order #{{ $row['order_number'] }}</span>
++                                @else
++                                    <span class="badge bg-success-100 text-success-600">Payment</span>
++                                @endif
++                            </td>
++                            <td class="text-danger">{{ $row['type'] == 'debit' ? getFormattedCurrency($row['total']) : '-' }}</td>
++                            <td class="text-success">{{ $row['type'] == 'credit' ? getFormattedCurrency($row['received_amount']) : '-' }}</td>
++                            <td class="fw-bold {{ $runningBalance > 0 ? 'text-danger' : 'text-success' }}">
++                                {{ getFormattedCurrency(abs($runningBalance)) }} {{ $runningBalance > 0 ? '(Dr)' : '(Cr)' }}
++                            </td>
++                        </tr>
++                        @endforeach
++                    </tbody>
++                </table>
+             </div>
+         </div>
+-    </div>
+\ No newline at end of file
++    </div>
++    @endif
++</div>
++
++@push('js')
++<script>
++    document.addEventListener('livewire:initialized', () => {
++        // --- Receivables Ageing Chart (Bar Chart) ---
++        var ageingOptions = {
++            series: [{
++                name: 'Outstanding Balance',
++                data: @json($ageingData)
++            }],
++            chart: { type: 'bar', height: 250, toolbar: { show: false } },
++            plotOptions: {
++                bar: { borderRadius: 4, horizontal: false, columnWidth: '40%', distributed: true }
++            },
++            dataLabels: { enabled: false },
++            stroke: { show: true, width: 2, colors: ['transparent'] },
++            xaxis: {
++                categories: ['0-30 Days', '31-60 Days', '61-90 Days', '90+ Days (Critical)'],
++            },
++            yaxis: {
++                title: { text: 'Amount (Γéª)' }
++            },
++            colors: ['#28a745', '#ffc107', '#fd7e14', '#dc3545'],
++            tooltip: {
++                y: { formatter: function (val) { return "Γéª" + val.toFixed(2) } }
++            },
++            legend: { show: false }
++        };
++        var ageingChart = new ApexCharts(document.querySelector("#ageingChart"), ageingOptions);
++        ageingChart.render();
++    });
++</script>
++@endpush
+\ No newline at end of file
+diff --git a/resources/views/livewire/reports/order-report.blade.php b/resources/views/livewire/reports/order-report.blade.php
+index b79d889..e6ffb39 100644
+--- a/resources/views/livewire/reports/order-report.blade.php
++++ b/resources/views/livewire/reports/order-report.blade.php
+@@ -1,90 +1,146 @@
+ <div class="dashboard-main-body">
+-    <div class="card h-100 p-0 radius-12">
+-        <div
+-            class="tw-py-1.5 tw-px-3 bg-base d-flex align-items-center flex-wrap gap-3 justify-content-between">
+-            <div class="tw-flex  tw-items-center gap-4">
+-                <div class="d-flex align-items-center flex-wrap gap-3">
+-                    <div class="d-flex  gap-1 tw-flex-col">
+-                        <span class="fw-medium">{{ $lang->data['start_date'] ?? 'Start Date' }}</span>
+-                        <input type="date" class="form-control bg-base h-40-px w-auto" wire:model.live="from_date">
+-                    </div>
+-                </div>
+-                <div class="d-flex align-items-center flex-wrap gap-3">
+-                    <div class="d-flex  gap-1 tw-flex-col">
+-                        <span class="fw-medium">{{ $lang->data['end_date'] ?? 'End Date' }}</span>
+-                        <input type="date" class="form-control bg-base h-40-px w-auto" wire:model.live="to_date">
+-                    </div>
+-                </div>
+-                <div class="d-flex align-items-center flex-wrap gap-3">
+-                    <div class="d-flex  gap-1 tw-flex-col">
+-                        <span class="fw-medium">{{ $lang->data['status'] ?? 'Status' }}</span>
+-                        <select class="form-select form-select-sm bg-base h-40-px w-auto" wire:model.live="status">
+-                            <option class="select-box" value="-1">{{$lang->data['all_orders'] ?? 'All Orders'}}</option>
+-                            <option class="select-box" value="0">{{$lang->data['pending'] ?? 'Pending'}}</option>
+-                            <option class="select-box" value="1">{{$lang->data['processing'] ?? 'Processing'}}</option>
+-                            <option class="select-box" value="2">{{$lang->data['ready_to_deliver'] ?? 'Ready To Deliver'}}</option>
+-                            <option class="select-box" value="3">{{$lang->data['delivered'] ?? 'Delivered'}}</option>
+-                            <option class="select-box" value="4">{{$lang->data['returned'] ?? 'Returned'}}</option>
+-                        </select>
+-                    </div>
+-                </div>
++    <!-- Top Filter & Print Row -->
++    <div class="tw-flex tw-justify-between tw-items-center tw-mb-6">
++        <div class="tw-flex tw-items-center tw-gap-4">
++            <div class="tw-flex tw-items-center tw-gap-2">
++                <label class="tw-text-sm tw-font-medium">{{$lang->data['from'] ?? 'From'}}</label>
++                <input type="date" class="form-control bg-base h-40-px w-auto" wire:model.live="from_date">
++            </div>
++            <div class="tw-flex tw-items-center tw-gap-2">
++                <label class="tw-text-sm tw-font-medium">{{$lang->data['to'] ?? 'To'}}</label>
++                <input type="date" class="form-control bg-base h-40-px w-auto" wire:model.live="to_date">
+             </div>
++            <div class="tw-flex tw-items-center tw-gap-2">
++                <label class="tw-text-sm tw-font-medium">{{$lang->data['status'] ?? 'Status'}}</label>
++                <select class="form-select form-select-sm bg-base h-40-px w-auto" wire:model.live="status">
++                    <option value="-1">{{$lang->data['all_orders'] ?? 'All Orders'}}</option>
++                    <option value="0">{{$lang->data['pending'] ?? 'Pending'}}</option>
++                    <option value="1">{{$lang->data['processing'] ?? 'Processing'}}</option>
++                    <option value="2">{{$lang->data['ready_to_deliver'] ?? 'Ready To Deliver'}}</option>
++                    <option value="3">{{$lang->data['delivered'] ?? 'Delivered'}}</option>
++                    <option value="4">{{$lang->data['returned'] ?? 'Returned'}}</option>
++                </select>
++            </div>
++        </div>
++        <div class="tw-flex tw-items-center tw-gap-2">
++            @can('report_download')
++            <button type="button" wire:click="downloadFile()" class="btn btn-warning-100 text-warning-600 radius-8 px-16 py-9 tw-flex tw-items-center tw-gap-2">
++                <iconify-icon icon="solar:download-bold" class="mr-1"></iconify-icon>
++                {{$lang->data['download_report'] ?? 'Data (PDF)'}}
++            </button>
++            @endcan
++            <button type="button" onclick="window.print()" class="btn btn-success-100 text-success-600 radius-8 px-16 py-9 tw-flex tw-items-center tw-gap-2">
++                <iconify-icon icon="solar:printer-bold" class="mr-1"></iconify-icon>
++                {{$lang->data['print_dashboard'] ?? 'Print Dashboard'}}
++            </button>
++        </div>
++    </div>
++
++    <!-- KPI Cards Row -->
++    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4 tw-mb-6">
++        <div class="col">
++            <x-dashboard-card 
++                title="{{$lang->data['total_orders'] ?? 'Total Orders'}}" 
++                value="{{ $kpi['orders'] ?? 0 }}" 
++                icon="akar-icons:cart" 
++                color="primary" 
++                trend="{{ ($kpi['growth'] ?? 0) > 0 ? '+' : '' }}{{ $kpi['growth'] ?? 0 }}% vs previous period"
++                trendUp="{{ ($kpi['growth'] ?? 0) >= 0 ? true : false }}" />
+         </div>
++        <div class="col-8">
++            <x-chart-container title="{{$lang->data['service_volume_breakdown'] ?? 'Service Volume Breakdown (Items Processed)'}}">
++                <div id="serviceChart"></div>
++            </x-chart-container>
++        </div>
++    </div>
++
++    <!-- Data Table -->
++    <div class="card h-100 p-0 radius-12">
+         <div class="card-body p-0">
+-            <div class="table-responsive scroll-sm tw-min-h-[calc(100vh-16rem)] ">
++            <div class="table-responsive scroll-sm tw-min-h-[calc(100vh-16rem)]">
+                 <table class="table bordered-table sm-table mb-0">
+                     <thead>
+                         <tr>
+-                            <th style="width: 15%" class="">{{$lang->data['date'] ?? 'Date'}}</th>
+-                            <th style="width: 15%" class="">{{$lang->data['order_id'] ?? 'Order ID'}}</th>
+-                            <th style="width: 30%" class="">{{$lang->data['customer'] ?? 'Customer'}}</th>
+-                            <th style="width: 20%" class="">{{$lang->data['order_amount'] ?? 'Order Amount'}}</th>
+-                            <th style="width: 20%" class="">{{$lang->data['status'] ?? 'Status'}}</th>
++                            <th scope="col">{{ $lang->data['order_id'] ?? 'Order ID' }}</th>
++                            <th scope="col">{{ $lang->data['date'] ?? 'Date' }}</th>
++                            <th scope="col">{{ $lang->data['customer'] ?? 'Customer' }}</th>
++                            <th scope="col">{{ $lang->data['status'] ?? 'Status' }}</th>
+                         </tr>
+                     </thead>
+                     <tbody>
+-                    @foreach($orders as $row)
++                        @forelse($orders as $item)
+                         <tr>
++                            <td><span class="text-primary fw-bold">{{ $item->order_number }}</span></td>
++                            <td><p class="text-sm mb-0">{{ \Carbon\Carbon::parse($item->order_date)->format('d/m/Y') }}</p></td>
+                             <td>
+-                                <p class="text-sm  mb-0"> {{\Carbon\Carbon::parse($row->order_date)->format('d/m/Y')}}</p>
+-                            </td>
+-                            <td>
+-                                <p class="text-sm font-weight-bold tw-text-black mb-0">{{$row->order_number}}</p>
++                                <p class="text-sm font-weight-bold tw-text-black mb-0">{{ $item->customer_name }}</p>
+                             </td>
+                             <td>
+-                                <p class="text-sm font-weight-bold tw-text-black mb-0">{{$row->customer_name ?? ""}}</p>
+-                            </td>
+-                            <td>
+-                                <p class="text-sm font-weight-bold text-primary mb-0">{{getFormattedCurrency($row->total)}}</p>
+-                            </td>
+-                            <td>
+-                                <span class="badge  fw-semibold text-info-600 bg-info-100 px-20 py-9 radius-4 text-white">
+-                                {{getOrderStatus($row->status)}}
+-                                </span>
++                                @if($item->status == 0)
++                                    <span class="badge fw-semibold text-warning-600 bg-warning-100 px-20 py-9 radius-4 text-white">{{ $lang->data['pending'] ?? 'Pending' }}</span>
++                                @elseif($item->status == 1)
++                                    <span class="badge fw-semibold text-info-600 bg-info-100 px-20 py-9 radius-4 text-white">{{ $lang->data['processing'] ?? 'Processing' }}</span>
++                                @elseif($item->status == 2)
++                                    <span class="badge fw-semibold text-primary-600 bg-primary-100 px-20 py-9 radius-4 text-white">{{ $lang->data['ready_to_deliver'] ?? 'Ready To Deliver' }}</span>
++                                @elseif($item->status == 3)
++                                    <span class="badge fw-semibold text-success-600 bg-success-100 px-20 py-9 radius-4 text-white">{{ $lang->data['delivered'] ?? 'Delivered' }}</span>
++                                @elseif($item->status == 4)
++                                    <span class="badge fw-semibold text-danger-600 bg-danger-100 px-20 py-9 radius-4 text-white">{{ $lang->data['returned'] ?? 'Returned' }}</span>
++                                @endif
+                             </td>
+                         </tr>
+-                        @endforeach
++                        @empty
++                        <tr>
++                            <td colspan="4" class="text-center py-4 text-muted">No orders found for this period.</td>
++                        </tr>
++                        @endforelse
+                     </tbody>
+                 </table>
+             </div>
+-            <div class="tw-flex tw-items-center tw-justify-between tw-w-full tw-p-2 tw-gap-2">
+-                <div class="tw-flex tw-items-center  tw-gap-4">
+-                    <div class="">{{$lang->data['total_orders'] ?? 'Total Orders'}} : <span class="tw-font-bold">{{count($orders)}}</span></div>
+-                    <div class="">{{$lang->data['total_order_amount'] ?? 'Total Order Amount'}} : <span class="tw-font-bold">{{getFormattedCurrency($orders->sum('total'))}}</span></div>
+-                </div>
+-                <div class="tw-flex tw-items-center tw-gap-2">
+-                    @can('report_download')
+-                    <button type="button"  wire:click="downloadFile()" class="btn btn-warning-100 text-warning-600 radius-8 px-16 py-9">{{$lang->data['download_report'] ?? 'Download Report'}}</button>
+-                    @endcan
+-                    @can('report_print')
+-                    <a href="{{url('admin/reports/print-report/order/'.$from_date.'/'.$to_date.'/'.$status)}}" target="_blank">   
+-                        <button type="button" class="btn btn-success-100 text-success-600 radius-8 px-16 py-9">{{$lang->data['print_report'] ?? 'Print Report'}}</button>
+-                    </a>
+-                    @endcan
+-                </div>
+-            </div>
+-        
+         </div>
+     </div>
+-
+ </div>
++
++@push('js')
++<script>
++    document.addEventListener('livewire:initialized', () => {
++        // --- Service Breakdown (100% Stacked Horizontal Bar) ---
++        function getServiceSeries(serviceData) {
++            var series = [];
++            if(!serviceData || serviceData.length === 0) {
++                return [{name: 'No Services', data: [0]}];
++            }
++            serviceData.forEach(function(item) {
++                series.push({
++                    name: item.name,
++                    data: [item.amount]
++                });
++            });
++            return series;
++        }
++
++        var serviceOptions = {
++            series: getServiceSeries(@json($serviceBreakdown)),
++            chart: { type: 'bar', height: 120, stacked: true, stackType: '100%', toolbar: { show: false } },
++            plotOptions: { bar: { horizontal: true, barHeight: '50%' } },
++            stroke: { width: 1, colors: ['#fff'] },
++            xaxis: { categories: ['Volume'], labels: { show: false }, axisBorder: {show: false}, axisTicks: {show: false} },
++            yaxis: { show: false },
++            tooltip: { y: { formatter: function(val) { return val + " items" } } },
++            fill: { opacity: 1 },
++            legend: { position: 'bottom' },
++            colors: ['#0d6efd', '#20c997', '#ffc107', '#fd7e14', '#dc3545', '#6f42c1', '#0dcaf0']
++        };
++        var serviceChart = new ApexCharts(document.querySelector("#serviceChart"), serviceOptions);
++        serviceChart.render();
++        
++        // --- Livewire Re-render on Date Change ---
++        Livewire.on('update-order-charts', (event) => {
++            const data = event[0];
++            if(data && data.services) {
++                serviceChart.updateSeries(getServiceSeries(data.services));
++            }
++        });
++    });
++</script>
++@endpush
+diff --git a/resources/views/livewire/reports/sales-report.blade.php b/resources/views/livewire/reports/sales-report.blade.php
+index ef88b5a..e9172a6 100644
+--- a/resources/views/livewire/reports/sales-report.blade.php
++++ b/resources/views/livewire/reports/sales-report.blade.php
+@@ -1,91 +1,154 @@
+ <div class="dashboard-main-body">
+-    <div class="card h-100 p-0 radius-12">
+-        <div
+-            class="tw-py-1.5 tw-px-3 bg-base d-flex align-items-center flex-wrap gap-3 justify-content-between">
+-            <div class="tw-flex  tw-items-center gap-4">
+-                <div class="d-flex align-items-center flex-wrap gap-3">
+-                    <div class="d-flex  gap-1 tw-flex-col">
+-                        <span class="fw-medium">{{ $lang->data['start_date'] ?? 'Start Date' }}</span>
+-                        <input type="date" class="form-control bg-base h-40-px w-auto" wire:model.live="from_date">
+-                    </div>
+-                </div>
+-                <div class="d-flex align-items-center flex-wrap gap-3">
+-                    <div class="d-flex  gap-1 tw-flex-col">
+-                        <span class="fw-medium">{{ $lang->data['end_date'] ?? 'End Date' }}</span>
+-                        <input type="date" class="form-control bg-base h-40-px w-auto" wire:model.live="to_date">
+-                    </div>
+-                </div>
++    <!-- Top Filter & Print Row -->
++    <div class="tw-flex tw-justify-between tw-items-center tw-mb-6">
++        <div class="tw-flex tw-items-center tw-gap-4">
++            <div class="tw-flex tw-items-center tw-gap-2">
++                <label class="tw-text-sm tw-font-medium">{{$lang->data['from'] ?? 'From'}}</label>
++                <input type="date" class="form-control bg-base h-40-px w-auto" wire:model.live="from_date">
++            </div>
++            <div class="tw-flex tw-items-center tw-gap-2">
++                <label class="tw-text-sm tw-font-medium">{{$lang->data['to'] ?? 'To'}}</label>
++                <input type="date" class="form-control bg-base h-40-px w-auto" wire:model.live="to_date">
+             </div>
+         </div>
++        <div class="tw-flex tw-items-center tw-gap-2">
++            @can('report_download')
++            <button type="button" wire:click="downloadFile()" class="btn btn-warning-100 text-warning-600 radius-8 px-16 py-9 tw-flex tw-items-center tw-gap-2">
++                <iconify-icon icon="solar:download-bold" class="mr-1"></iconify-icon>
++                {{$lang->data['download_report'] ?? 'Data (PDF)'}}
++            </button>
++            @endcan
++            <button type="button" onclick="window.print()" class="btn btn-success-100 text-success-600 radius-8 px-16 py-9 tw-flex tw-items-center tw-gap-2">
++                <iconify-icon icon="solar:printer-bold" class="mr-1"></iconify-icon>
++                {{$lang->data['print_dashboard'] ?? 'Print Dashboard'}}
++            </button>
++        </div>
++    </div>
++
++    <!-- KPI Cards Row -->
++    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4 tw-mb-6">
++        <div class="col">
++            <x-dashboard-card 
++                title="{{$lang->data['total_sales'] ?? 'Total Sales (Completed)'}}" 
++                value="{{ getFormattedCurrency($kpi['sales'] ?? 0) }}" 
++                icon="mdi:cash-register" 
++                color="success" 
++                trend="{{ ($kpi['growth'] ?? 0) > 0 ? '+' : '' }}{{ $kpi['growth'] ?? 0 }}% vs previous period"
++                trendUp="{{ ($kpi['growth'] ?? 0) >= 0 ? true : false }}" />
++        </div>
++        <div class="col">
++            <x-dashboard-card 
++                title="{{$lang->data['total_orders'] ?? 'Total Orders'}}" 
++                value="{{ $kpi['orders'] ?? 0 }}" 
++                icon="akar-icons:cart" 
++                color="primary" />
++        </div>
++        <div class="col">
++            <x-dashboard-card 
++                title="{{$lang->data['aov'] ?? 'Avg Order Value'}}" 
++                value="{{ getFormattedCurrency($kpi['aov'] ?? 0) }}" 
++                icon="mdi:chart-line-variant" 
++                color="info" />
++        </div>
++        <div class="col">
++            <x-dashboard-card 
++                title="{{$lang->data['discount_leakage'] ?? 'Discount Leakage'}}" 
++                value="{{ getFormattedCurrency($kpi['discount'] ?? 0) }}" 
++                icon="mdi:ticket-percent-outline" 
++                color="warning" 
++                trend="Money given away"
++                trendUp="false" />
++        </div>
++    </div>
++
++    <!-- Charts Row -->
++    <div class="row g-4 tw-mb-6">
++        <!-- Service Breakdown (100% Stacked Bar) -->
++        <div class="col-12">
++            <x-chart-container title="{{$lang->data['service_breakdown'] ?? 'Service Revenue Breakdown (100% Stacked)'}}">
++                <div id="serviceChart"></div>
++            </x-chart-container>
++        </div>
++    </div>
++
++    <!-- Data Table -->
++    <div class="card h-100 p-0 radius-12">
+         <div class="card-body p-0">
+             <div class="table-responsive scroll-sm tw-min-h-[calc(100vh-16rem)]">
+                 <table class="table bordered-table sm-table mb-0">
+                     <thead>
+                         <tr>
+-                            <th scope="col" class="">{{ $lang->data['date'] ?? 'Date' }}</th>
+-                            <th scope="col" class="">{{ $lang->data['order'] ?? 'Order' }}#</th>
+-                            <th scope="col" class="">{{ $lang->data['customer'] ?? 'Customer' }}</th>
+-                            <th scope="col" class="">{{ $lang->data['subtotal'] ?? 'Subtotal' }}</th>
+-                            <th scope="col" class="">{{ $lang->data['addon_total'] ?? 'Addon Total' }}</th>
+-                            <th scope="col" class="">{{ $lang->data['discount'] ?? 'Discount' }}</th>
+-                            <th scope="col" class="">{{ $lang->data['tax_amount'] ?? 'Tax Amount' }}</th>
+-                            <th scope="col" class="">{{ $lang->data['gross_total'] ?? 'Gross Total' }}</th>
+-
++                            <th scope="col">{{ $lang->data['order_id'] ?? 'Order ID' }}</th>
++                            <th scope="col">{{ $lang->data['date'] ?? 'Date' }}</th>
++                            <th scope="col">{{ $lang->data['customer'] ?? 'Customer' }}</th>
++                            <th scope="col">{{ $lang->data['discount'] ?? 'Discount' }}</th>
++                            <th scope="col">{{ $lang->data['total'] ?? 'Total' }}</th>
+                         </tr>
+                     </thead>
+                     <tbody>
+-                    @foreach($orders as $row)
++                        @forelse($orders as $item)
+                         <tr>
+-                            <td >
+-                                <p class="">
+-                                {{\Carbon\Carbon::parse($row->order_date)->format('d/m/Y')}}
+-                                </p>
+-                            </td>
+-                            <td >
+-                                <p class="tw-text-black">
+-                                    <span class="font-weight-bold">{{$row->order_number}}</span>
+-                                </p>
+-                            </td>
+-                            <td >
+-                                <p class="tw-text-black">{{$row->customer_name}}</p>
+-                            </td>
+-                            <td >
+-                                <p class="">{{getFormattedCurrency($row->sub_total)}}</p>
+-                            </td>
+-                            <td >
+-                                <p class="">{{getFormattedCurrency($row->addon_total)}} </p>
+-                            </td>
+-                            <td >
+-                                <p class="">{{getFormattedCurrency($row->discount)}}</p>
+-                            </td>
+-                            <td >
+-                                <p class="">{{getFormattedCurrency($row->tax_amount)}}</p>
+-                            </td>
+-                            <td >
+-                                <p class="">{{getFormattedCurrency($row->total)}}</p>
++                            <td><span class="text-primary fw-bold">{{ $item->order_number }}</span></td>
++                            <td><p class="text-sm mb-0">{{ \Carbon\Carbon::parse($item->order_date)->format('d/m/Y') }}</p></td>
++                            <td>
++                                <p class="text-sm font-weight-bold tw-text-black mb-0">{{ $item->customer_name }}</p>
++                                <span class="text-xs text-muted">{{ $item->customer_phone }}</span>
+                             </td>
++                            <td><p class="text-sm mb-0 text-danger">{{ getFormattedCurrency($item->discount) }}</p></td>
++                            <td><p class="text-sm font-weight-bold text-success mb-0">{{ getFormattedCurrency($item->total) }}</p></td>
++                        </tr>
++                        @empty
++                        <tr>
++                            <td colspan="5" class="text-center py-4 text-muted">No sales found for this period.</td>
+                         </tr>
+-                        @endforeach
++                        @endforelse
+                     </tbody>
+                 </table>
+             </div>
+-            <div class="tw-flex tw-items-center tw-justify-between tw-w-full tw-p-2 tw-gap-2">
+-                <div class="tw-flex tw-items-center  tw-gap-4">
+-                    <div class="">{{$lang->data['total_orders'] ?? 'Total Orders'}}: <span class="tw-font-bold">{{count($orders)}}</span></div>
+-                    <div class="">{{$lang->data['total_sales'] ?? 'Total Sales'}} : <span class="tw-font-bold">{{getFormattedCurrency($orders->sum('total'))}}</span></div>
+-                    <div class="">{{$lang->data['total_tax_amount'] ?? 'Total Tax Amount'}} : <span class="tw-font-bold">{{getFormattedCurrency($orders->sum('tax_amount'))}}</span></div>
+-                </div>
+-                <div class="tw-flex tw-items-center tw-gap-2">
+-                    @can('report_download')
+-                    <button type="button"   wire:click="downloadFile()" class="btn btn-warning-100 text-warning-600 radius-8 px-16 py-9">{{$lang->data['download_report'] ?? 'Download Report'}}</button>
+-                    @endcan
+-                    @can('report_print')
+-                    <a href="{{url('admin/reports/print-report/sales/'.$from_date.'/'.$to_date)}}" target="_blank">  
+-                        <button type="button" class="btn btn-success-100 text-success-600 radius-8 px-16 py-9">{{$lang->data['print_report'] ?? 'Print Report'}}</button>
+-                    </a>
+-                    @endcan
+-                </div>
+-            </div>
+         </div>
+     </div>
+ </div>
++
++@push('js')
++<script>
++    document.addEventListener('livewire:initialized', () => {
++        // --- Service Breakdown (100% Stacked Horizontal Bar) ---
++        function getServiceSeries(serviceData) {
++            var series = [];
++            if(!serviceData || serviceData.length === 0) {
++                return [{name: 'No Services', data: [0]}];
++            }
++            serviceData.forEach(function(item) {
++                series.push({
++                    name: item.name,
++                    data: [item.amount]
++                });
++            });
++            return series;
++        }
++
++        var serviceOptions = {
++            series: getServiceSeries(@json($serviceBreakdown)),
++            chart: { type: 'bar', height: 180, stacked: true, stackType: '100%', toolbar: { show: false } },
++            plotOptions: { bar: { horizontal: true, barHeight: '50%' } },
++            stroke: { width: 1, colors: ['#fff'] },
++            xaxis: { categories: ['Revenue'], labels: { show: false }, axisBorder: {show: false}, axisTicks: {show: false} },
++            yaxis: { show: false },
++            tooltip: { y: { formatter: function(val) { return "Γéª" + val.toFixed(2) } } },
++            fill: { opacity: 1 },
++            legend: { position: 'bottom' },
++            colors: ['#0d6efd', '#20c997', '#ffc107', '#fd7e14', '#dc3545', '#6f42c1', '#0dcaf0']
++        };
++        var serviceChart = new ApexCharts(document.querySelector("#serviceChart"), serviceOptions);
++        serviceChart.render();
++        
++        // --- Livewire Re-render on Date Change ---
++        Livewire.on('update-sales-charts', (event) => {
++            const data = event[0];
++            if(data && data.services) {
++                serviceChart.updateSeries(getServiceSeries(data.services));
++            }
++        });
++    });
++</script>
++@endpush
+diff --git a/resources/views/livewire/settings/recycle-bin.blade.php b/resources/views/livewire/settings/recycle-bin.blade.php
+new file mode 100644
+index 0000000..9b6e6db
+--- /dev/null
++++ b/resources/views/livewire/settings/recycle-bin.blade.php
+@@ -0,0 +1,162 @@
++<div class="dashboard-main-body">
++    <div class="card h-100 p-0 radius-12 overflow-hidden">
++        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-3">
++            <h5 class="card-title mb-0">
++                {{ $lang->data['recycle_bin'] ?? 'Recycle Bin' }} 
++                <span class="text-sm text-secondary-light fw-normal">({{ count($orders) }} orders)</span>
++            </h5>
++            <div class="d-flex align-items-center gap-2 flex-wrap">
++                @if(count($selectedOrders) > 0)
++                    @can('order_restore')
++                    <button type="button" class="btn btn-success-600 btn-sm radius-8 d-flex align-items-center gap-1" wire:click="bulkRestore" wire:confirm="Are you sure you want to restore the selected orders?">
++                        <iconify-icon icon="mdi:restore"></iconify-icon>
++                        {{ $lang->data['restore_selected'] ?? 'Restore Selected' }}
++                    </button>
++                    @endcan
++                    @can('order_force_delete')
++                    <button type="button" class="btn btn-danger-600 btn-sm radius-8 d-flex align-items-center gap-1" wire:click="bulkForceDelete" wire:confirm="Are you sure you want to permanently delete the selected orders? This action cannot be undone.">
++                        <iconify-icon icon="mdi:delete-forever"></iconify-icon>
++                        {{ $lang->data['delete_selected'] ?? 'Delete Selected' }}
++                    </button>
++                    @endcan
++                @endif
++                @can('order_force_delete')
++                    <button type="button" class="btn btn-outline-danger btn-sm radius-8 d-flex align-items-center gap-1" wire:click="emptyRecycleBin" wire:confirm="Are you sure you want to permanently empty the entire recycle bin? This action cannot be undone.">
++                        <iconify-icon icon="mdi:delete-sweep"></iconify-icon>
++                        {{ $lang->data['empty_recycle_bin'] ?? 'Empty Recycle Bin' }}
++                    </button>
++                @endcan
++            </div>
++        </div>
++
++        <div class="card-body p-0">
++            <div class="tw-py-2 tw-px-3 bg-base d-flex align-items-center flex-wrap gap-3 justify-content-between border-bottom">
++                <form class="navbar-search w-100 max-w-sm">
++                    <input type="text" class="bg-base tw-px-3 tw-py-1.5 w-full radius-8 border" placeholder="{{ $lang->data['search_deleted_orders'] ?? 'Search deleted orders...' }}" wire:model.live.debounce.300ms="search_query">
++                    <iconify-icon icon="ion:search-outline" class="icon"></iconify-icon>
++                </form>
++            </div>
++
++            <div class="alert alert-warning mb-0 radius-0 border-0 border-bottom d-flex align-items-center gap-2 py-2 px-3">
++                <iconify-icon icon="lucide:info" class="text-warning-600"></iconify-icon>
++                <span class="text-sm text-warning-800">{{ $lang->data['recycle_bin_notice'] ?? 'Deleted orders are automatically purged after 90 days. Restoring an order also restores its details, addons, and payments.' }}</span>
++            </div>
++
++            <div class="table-responsive">
++                <table class="table bordered-table sm-table mb-0">
++                    <thead class="bg-neutral-50">
++                        <tr>
++                            <th scope="col" class="text-center w-40-px">
++                                <!-- Could add a select-all checkbox here if desired -->
++                            </th>
++                            <th scope="col">{{ $lang->data['order_info'] ?? 'Order Info' }}</th>
++                            <th scope="col">{{ $lang->data['customer'] ?? 'Customer' }}</th>
++                            <th scope="col">{{ $lang->data['order_amount'] ?? 'Order Amount' }}</th>
++                            <th scope="col">{{ $lang->data['status'] ?? 'Status' }}</th>
++                            <th scope="col">{{ $lang->data['deleted_info'] ?? 'Deleted Info' }}</th>
++                            <th scope="col" class="text-center">{{ $lang->data['action'] ?? 'Action' }}</th>
++                        </tr>
++                    </thead>
++                    <tbody>
++                        @forelse($orders as $item)
++                        <tr>
++                            <td class="text-center">
++                                <input class="form-check-input" type="checkbox" wire:model.live="selectedOrders" value="{{ $item->id }}">
++                            </td>
++                            <td>
++                                <div class="tw-flex tw-flex-col">
++                                    <div class="text-neutral-600">
++                                        {{ $lang->data['order_id'] ?? 'Order ID' }} : <span class="tw-font-medium text-primary-light">{{ $item->order_number }}</span>
++                                    </div>
++                                    <div class="text-neutral-600">
++                                        {{ $lang->data['order_date'] ?? 'Order Date' }} : <span class="tw-font-medium text-primary-light">{{ \Carbon\Carbon::parse($item->order_date)->format('d/m/y') }}</span>
++                                    </div>
++                                </div>
++                            </td>
++                            <td>
++                                <p class="mb-0 text-primary-light fw-medium">{{ $item->customer_name ?? ($lang->data['walk_in_customer'] ?? 'Walk In Customer') }}</p>
++                                <p class="mb-0 text-secondary-light text-xs">{{$item->phone_number ? getCountryCode() : ''}}{{$item->phone_number ? (int)$item->phone_number : ''}}</p>
++                            </td>
++                            <td>
++                                <div class="tw-flex tw-flex-col">
++                                    <div class="text-neutral-600">
++                                        {{ $lang->data['total'] ?? 'Total' }} : <span class="tw-font-medium text-primary-light">{{ getFormattedCurrency($item->total) }}</span>
++                                    </div>
++                                    <div class="text-neutral-600">
++                                        {{ $lang->data['paid'] ?? 'Paid' }} : <span class="tw-font-medium text-primary-light">{{ getFormattedCurrency($item->paid_amount) }}</span>
++                                    </div>
++                                </div>
++                            </td>
++                            <td>
++                                @if ($item->status == 0)
++                                <span class="badge fw-semibold text-neutral-600 bg-neutral-200 px-20 py-9 radius-4 text-white">
++                                    {{ $lang->data['pending'] ?? 'Pending' }}
++                                </span>
++                                @elseif($item->status == 1)
++                                <span class="badge fw-semibold text-warning-600 bg-warning-100 px-20 py-9 radius-4 text-white">
++                                    {{ $lang->data['processing'] ?? 'Processing' }}
++                                </span>
++                                @elseif($item->status == 2)
++                                <span class="badge fw-semibold text-info-600 bg-info-100 px-20 py-9 radius-4 text-white">
++                                    {{ $lang->data['ready_to_deliver'] ?? 'Ready To Deliver' }}
++                                </span>
++                                @elseif($item->status == 3)
++                                <span class="badge fw-semibold text-success-600 bg-success-100 px-20 py-9 radius-4 text-white">
++                                    {{ $lang->data['delivered'] ?? 'Delivered' }}
++                                </span>
++                                @elseif($item->status == 4)
++                                <span class="badge fw-semibold text-danger-600 bg-danger-100 px-20 py-9 radius-4 text-white">
++                                    {{ $lang->data['returned'] ?? 'Returned' }}
++                                </span>
++                                @endif
++                            </td>
++                            <td>
++                                <div class="tw-flex tw-flex-col">
++                                    <div class="text-neutral-600 text-xs mb-1">
++                                        {{ $lang->data['deleted_by'] ?? 'Deleted By' }}: <span class="tw-font-medium text-primary-light">{{ $item->deletedBy ? $item->deletedBy->name : 'System' }}</span>
++                                    </div>
++                                    <div class="text-neutral-600 text-xs">
++                                        {{ $lang->data['deleted_on'] ?? 'Deleted On' }}: <span class="tw-font-medium text-primary-light">{{ \Carbon\Carbon::parse($item->deleted_at)->format('d/m/Y') }}</span>
++                                    </div>
++                                    <div class="mt-1">
++                                        @if($item->days_remaining > 30)
++                                            <span class="badge bg-success-100 text-success-600 text-xs px-2 py-1 radius-4">{{ $item->days_remaining }} {{ $lang->data['days_left'] ?? 'days left' }}</span>
++                                        @elseif($item->days_remaining > 10)
++                                            <span class="badge bg-warning-100 text-warning-600 text-xs px-2 py-1 radius-4">{{ $item->days_remaining }} {{ $lang->data['days_left'] ?? 'days left' }}</span>
++                                        @else
++                                            <span class="badge bg-danger-100 text-danger-600 text-xs px-2 py-1 radius-4">{{ $item->days_remaining }} {{ $lang->data['days_left'] ?? 'days left' }}</span>
++                                        @endif
++                                    </div>
++                                </div>
++                            </td>
++                            <td class="text-center">
++                                <div class="d-flex align-items-center gap-10 justify-content-center">
++                                    @can('order_restore')
++                                    <button type="button" wire:click.prevent="restoreOrder({{ $item->id }})" class="bg-success-focus bg-hover-success-200 text-success-600 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle" title="Restore Order"> 
++                                        <iconify-icon icon="mdi:restore" class="menu-icon"></iconify-icon>
++                                    </button>
++                                    @endcan
++                                    @can('order_force_delete')
++                                    <button type="button" wire:click.prevent="forceDeleteOrder({{ $item->id }})" wire:confirm="Are you sure you want to permanently delete this order? This action cannot be undone." class="remove-item-button bg-danger-focus bg-hover-danger-200 text-danger-600 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle" title="Permanently Delete"> 
++                                        <iconify-icon icon="mdi:delete-forever" class="menu-icon"></iconify-icon>
++                                    </button>
++                                    @endcan
++                                </div>
++                            </td>
++                        </tr>
++                        @empty
++                        <tr>
++                            <td colspan="7" class="text-center py-5">
++                                <div class="d-flex flex-column align-items-center justify-content-center">
++                                    <iconify-icon icon="mdi:recycle" class="text-neutral-300" style="font-size: 4rem;"></iconify-icon>
++                                    <h6 class="mt-3 text-neutral-500">{{ $lang->data['recycle_bin_empty'] ?? 'Recycle bin is empty' }}</h6>
++                                </div>
++                            </td>
++                        </tr>
++                        @endforelse
++                    </tbody>
++                </table>
++            </div>
++        </div>
++    </div>
++</div>
+diff --git a/resources/views/livewire/system/notifications.blade.php b/resources/views/livewire/system/notifications.blade.php
+new file mode 100644
+index 0000000..289cc2a
+--- /dev/null
++++ b/resources/views/livewire/system/notifications.blade.php
+@@ -0,0 +1,73 @@
++<div>
++    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
++        <h6 class="fw-semibold mb-0">System Notifications</h6>
++        <ul class="d-flex align-items-center gap-2">
++            <li class="fw-medium">
++                <a href="{{ route('admin.dashboard') }}" class="d-flex align-items-center gap-1 hover-text-primary">
++                    <iconify-icon icon="solar:home-smile-angle-outline" class="icon text-lg"></iconify-icon>
++                    Dashboard
++                </a>
++            </li>
++            <li>-</li>
++            <li class="fw-medium">Notifications</li>
++        </ul>
++    </div>
++
++    <div class="card basic-data-table">
++        <div class="card-header d-flex align-items-center justify-content-between">
++            <h5 class="card-title mb-0">All Notifications</h5>
++            <div class="d-flex gap-3">
++                <button type="button" class="btn btn-outline-primary-600" wire:click="markAllAsRead">Mark All as Read</button>
++                <button type="button" class="btn btn-danger" wire:click="deleteAll" wire:confirm="Are you sure you want to delete all notifications?">Clear All</button>
++            </div>
++        </div>
++        <div class="card-body">
++            <div class="table-responsive">
++                <table class="table bordered-table mb-0">
++                    <thead>
++                        <tr>
++                            <th scope="col">Status</th>
++                            <th scope="col">Type</th>
++                            <th scope="col">Message</th>
++                            <th scope="col">Date & Time</th>
++                            <th scope="col">Action</th>
++                        </tr>
++                    </thead>
++                    <tbody>
++                        @forelse($notifications as $notification)
++                        <tr class="{{ is_null($notification->read_at) ? 'bg-primary-50' : '' }}">
++                            <td>
++                                @if(is_null($notification->read_at))
++                                    <span class="badge bg-danger-focus text-danger-main px-10 py-4 radius-8">Unread</span>
++                                @else
++                                    <span class="badge bg-success-focus text-success-main px-10 py-4 radius-8">Read</span>
++                                @endif
++                            </td>
++                            <td>
++                                <span class="fw-semibold text-{{ isset($notification->data['type']) && $notification->data['type'] == 'success' ? 'success' : (isset($notification->data['type']) && $notification->data['type'] == 'warning' ? 'warning' : 'primary') }}">
++                                    {{ $notification->data['title'] ?? 'System' }}
++                                </span>
++                            </td>
++                            <td>{{ $notification->data['message'] ?? '' }}</td>
++                            <td>{{ $notification->created_at->format('d M Y h:i A') }}</td>
++                            <td>
++                                @if(is_null($notification->read_at))
++                                    <button class="btn btn-sm btn-outline-primary" wire:click="markAsRead('{{ $notification->id }}')">Mark Read</button>
++                                @endif
++                            </td>
++                        </tr>
++                        @empty
++                        <tr>
++                            <td colspan="5" class="text-center py-4">No notifications found.</td>
++                        </tr>
++                        @endforelse
++                    </tbody>
++                </table>
++            </div>
++            
++            <div class="mt-4">
++                {{ $notifications->links() }}
++            </div>
++        </div>
++    </div>
++</div>

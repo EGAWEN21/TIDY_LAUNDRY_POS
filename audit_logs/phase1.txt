@@ -1,0 +1,1005 @@
+﻿diff --git a/app/Models/Addon.php b/app/Models/Addon.php
+index 20afe83..8183163 100644
+--- a/app/Models/Addon.php
++++ b/app/Models/Addon.php
+@@ -4,10 +4,11 @@
+ 
+ use Illuminate\Database\Eloquent\Factories\HasFactory;
+ use Illuminate\Database\Eloquent\Model;
++use App\Traits\UpdatesPosSyncTimestamp;
+ 
+ class Addon extends Model
+ {
+-    use HasFactory;
++    use HasFactory, UpdatesPosSyncTimestamp;
+     protected $fillable = [
+         'addon_name',
+         'addon_price',
+diff --git a/app/Models/Customer.php b/app/Models/Customer.php
+index 2037369..1e47aab 100644
+--- a/app/Models/Customer.php
++++ b/app/Models/Customer.php
+@@ -4,10 +4,11 @@
+ 
+ use Illuminate\Database\Eloquent\Factories\HasFactory;
+ use Illuminate\Database\Eloquent\Model;
++use App\Traits\UpdatesPosSyncTimestamp;
+ 
+ class Customer extends Model
+ {
+-    use HasFactory;
++    use HasFactory, UpdatesPosSyncTimestamp;
+     protected $fillable = [
+         'name',
+         'email',
+diff --git a/app/Models/MasterSettings.php b/app/Models/MasterSettings.php
+index c54e4d4..318e6f3 100644
+--- a/app/Models/MasterSettings.php
++++ b/app/Models/MasterSettings.php
+@@ -11,12 +11,23 @@ class MasterSettings extends Model
+     protected $fillable=['master_title','master_value'];
+     public $timestamps = false;
+     
+-        /* master settings value update settings */
+-        public function siteData(){
+-            $siteInfo=array();
++    protected static function booted()
++    {
++        $clearCache = function () {
++            \Illuminate\Support\Facades\Cache::forget('master_settings');
++        };
++        static::saved($clearCache);
++        static::deleted($clearCache);
++    }
++
++    /* master settings value update settings */
++    public function siteData(){
++        return \Illuminate\Support\Facades\Cache::rememberForever('master_settings', function () {
++            $siteInfo = array();
+             foreach($this->get() as $key=>$value){
+-                $siteInfo[$value['master_title']]=$value['master_value'];
++                $siteInfo[$value['master_title']] = $value['master_value'];
+             }
+             return $siteInfo;
+-        }
++        });
++    }
+ }
+diff --git a/app/Models/Order.php b/app/Models/Order.php
+index 88b09a6..8f706b9 100644
+--- a/app/Models/Order.php
++++ b/app/Models/Order.php
+@@ -4,10 +4,14 @@
+ 
+ use Illuminate\Database\Eloquent\Factories\HasFactory;
+ use Illuminate\Database\Eloquent\Model;
++use Illuminate\Database\Eloquent\SoftDeletes;
++use App\Traits\UpdatesPosSyncTimestamp;
+ 
+ class Order extends Model
+ {
+-    use HasFactory;
++    // Updates the 'pos_last_update' cache timestamp when an order is created/modified,
++    // ensuring the Offline POS app instantly syncs updated customer balances.
++    use HasFactory, UpdatesPosSyncTimestamp, SoftDeletes;
+     protected $fillable = [
+         'order_number',
+         'customer_id',
+@@ -40,9 +44,21 @@ public function details()
+         return $this->hasMany(\App\Models\OrderDetail::class, 'order_id', 'id');
+     }
+     
+-    /* user relation */
++    /* addon relation */
+     public function addons()
+     {
+         return $this->hasMany(\App\Models\OrderAddonDetail::class, 'order_id', 'id');
+     }
++
++    /* deleted by relation */
++    public function deletedBy()
++    {
++        return $this->belongsTo(\App\Models\User::class, 'deleted_by', 'id');
++    }
++
++    /* payments relation */
++    public function payments()
++    {
++        return $this->hasMany(\App\Models\Payment::class, 'order_id', 'id');
++    }
+ }
+diff --git a/app/Models/OrderAddonDetail.php b/app/Models/OrderAddonDetail.php
+index 38b717c..9a22971 100644
+--- a/app/Models/OrderAddonDetail.php
++++ b/app/Models/OrderAddonDetail.php
+@@ -4,10 +4,11 @@
+ 
+ use Illuminate\Database\Eloquent\Factories\HasFactory;
+ use Illuminate\Database\Eloquent\Model;
++use Illuminate\Database\Eloquent\SoftDeletes;
+ 
+ class OrderAddonDetail extends Model
+ {
+-    use HasFactory;
++    use HasFactory, SoftDeletes;
+     protected $fillable = [
+         'order_id',
+         'order_detail_id',
+diff --git a/app/Models/OrderDetail.php b/app/Models/OrderDetail.php
+index 1f7d512..80adccf 100644
+--- a/app/Models/OrderDetail.php
++++ b/app/Models/OrderDetail.php
+@@ -4,10 +4,11 @@
+ 
+ use Illuminate\Database\Eloquent\Factories\HasFactory;
+ use Illuminate\Database\Eloquent\Model;
++use Illuminate\Database\Eloquent\SoftDeletes;
+ 
+ class OrderDetail extends Model
+ {
+-    use HasFactory;
++    use HasFactory, SoftDeletes;
+     protected $fillable = [
+         'order_id',
+         'service_id',
+@@ -17,4 +18,9 @@ class OrderDetail extends Model
+         'service_detail_total',
+         'color_code'
+     ];
++
++    public function service()
++    {
++        return $this->belongsTo(\App\Models\Service::class, 'service_id', 'id');
++    }
+ }
+diff --git a/app/Models/OrderRequest.php b/app/Models/OrderRequest.php
+new file mode 100644
+index 0000000..95835ca
+--- /dev/null
++++ b/app/Models/OrderRequest.php
+@@ -0,0 +1,30 @@
++<?php
++
++namespace App\Models;
++
++use Illuminate\Database\Eloquent\Factories\HasFactory;
++use Illuminate\Database\Eloquent\Model;
++
++class OrderRequest extends Model
++{
++    use HasFactory;
++    protected $fillable = [
++        'request_number',
++        'created_by',
++        'customer_id',
++        'customer_name',
++        'total_amount',
++        'payload',
++        'status',
++        'rejection_note',
++    ];
++
++    protected $casts = [
++        'payload' => 'array',
++    ];
++
++    public function user()
++    {
++        return $this->belongsTo(\App\Models\User::class, 'created_by');
++    }
++}
+diff --git a/app/Models/Payment.php b/app/Models/Payment.php
+index 95e776e..c722cf4 100644
+--- a/app/Models/Payment.php
++++ b/app/Models/Payment.php
+@@ -4,10 +4,14 @@
+ 
+ use Illuminate\Database\Eloquent\Factories\HasFactory;
+ use Illuminate\Database\Eloquent\Model;
++use Illuminate\Database\Eloquent\SoftDeletes;
++use App\Traits\UpdatesPosSyncTimestamp;
+ 
+ class Payment extends Model
+ {
+-    use HasFactory;
++    // Updates the 'pos_last_update' cache timestamp when a payment is created/modified,
++    // ensuring the Offline POS app instantly syncs updated customer balances.
++    use HasFactory, UpdatesPosSyncTimestamp, SoftDeletes;
+     protected $fillable = [
+         'payment_date',
+         'customer_id',
+diff --git a/app/Models/Permission.php b/app/Models/Permission.php
+index 40d4034..00db11c 100644
+--- a/app/Models/Permission.php
++++ b/app/Models/Permission.php
+@@ -8,4 +8,6 @@
+ class Permission extends Model
+ {
+     use HasFactory;
++    
++    protected $guarded = [];
+ }
+diff --git a/app/Models/PosDraft.php b/app/Models/PosDraft.php
+new file mode 100644
+index 0000000..9dc9616
+--- /dev/null
++++ b/app/Models/PosDraft.php
+@@ -0,0 +1,20 @@
++<?php
++
++namespace App\Models;
++
++use Illuminate\Database\Eloquent\Factories\HasFactory;
++use Illuminate\Database\Eloquent\Model;
++
++class PosDraft extends Model
++{
++    use HasFactory;
++
++    protected $fillable = [
++        'user_id',
++        'payload',
++    ];
++
++    protected $casts = [
++        'payload' => 'array',
++    ];
++}
+diff --git a/app/Models/Service.php b/app/Models/Service.php
+index 0bd3f98..471a65a 100644
+--- a/app/Models/Service.php
++++ b/app/Models/Service.php
+@@ -4,10 +4,12 @@
+ 
+ use Illuminate\Database\Eloquent\Factories\HasFactory;
+ use Illuminate\Database\Eloquent\Model;
++use App\Traits\UpdatesPosSyncTimestamp;
+ 
+ class Service extends Model
+ {
+-    use HasFactory;
++    use HasFactory, UpdatesPosSyncTimestamp;
++
+     protected $fillable = [
+         'service_name',
+         'icon',
+diff --git a/app/Models/ServiceDetail.php b/app/Models/ServiceDetail.php
+index fc1e600..62d91d4 100644
+--- a/app/Models/ServiceDetail.php
++++ b/app/Models/ServiceDetail.php
+@@ -4,10 +4,11 @@
+ 
+ use Illuminate\Database\Eloquent\Factories\HasFactory;
+ use Illuminate\Database\Eloquent\Model;
++use App\Traits\UpdatesPosSyncTimestamp;
+ 
+ class ServiceDetail extends Model
+ {
+-    use HasFactory;
++    use HasFactory, UpdatesPosSyncTimestamp;
+     protected $fillable = [
+         'service_id',
+         'service_type_id',
+diff --git a/app/Models/ServiceType.php b/app/Models/ServiceType.php
+index 819159d..3f29754 100644
+--- a/app/Models/ServiceType.php
++++ b/app/Models/ServiceType.php
+@@ -4,12 +4,14 @@
+ 
+ use Illuminate\Database\Eloquent\Factories\HasFactory;
+ use Illuminate\Database\Eloquent\Model;
++use App\Traits\UpdatesPosSyncTimestamp;
+ 
+ class ServiceType extends Model
+ {
+-    use HasFactory;
++    use HasFactory, UpdatesPosSyncTimestamp;
+     protected $fillable = [
+         'service_type_name',
+-        'is_active'
++        'is_active',
++        'position'
+     ];
+ }
+diff --git a/app/Models/User.php b/app/Models/User.php
+index feb66cd..40517f5 100644
+--- a/app/Models/User.php
++++ b/app/Models/User.php
+@@ -5,11 +5,12 @@
+ // use Illuminate\Contracts\Auth\MustVerifyEmail;
+ use Illuminate\Database\Eloquent\Factories\HasFactory;
+ use Illuminate\Foundation\Auth\User as Authenticatable;
++use Laravel\Sanctum\HasApiTokens;
+ use Illuminate\Notifications\Notifiable;
+ 
+ class User extends Authenticatable
+ {
+-    use HasFactory, Notifiable;
++    use HasApiTokens, HasFactory, Notifiable;
+ 
+     /**
+      * The attributes that are mass assignable.
+@@ -23,7 +24,9 @@ class User extends Authenticatable
+         'phone',
+         'user_type',
+         'role_id',
+-        'is_active'
++        'is_active',
++        'current_session_id',
++        'viewable_staff_orders',
+     ];
+ 
+     /**
+diff --git a/database/migrations/2026_06_26_154406_add_current_session_id_to_users_table.php b/database/migrations/2026_06_26_154406_add_current_session_id_to_users_table.php
+new file mode 100644
+index 0000000..b9ca782
+--- /dev/null
++++ b/database/migrations/2026_06_26_154406_add_current_session_id_to_users_table.php
+@@ -0,0 +1,28 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    /**
++     * Run the migrations.
++     */
++    public function up(): void
++    {
++        Schema::table('users', function (Blueprint $table) {
++            $table->string('current_session_id')->nullable();
++        });
++    }
++
++    /**
++     * Reverse the migrations.
++     */
++    public function down(): void
++    {
++        Schema::table('users', function (Blueprint $table) {
++            $table->dropColumn('current_session_id');
++        });
++    }
++};
+diff --git a/database/migrations/2026_06_29_125605_add_viewable_staff_orders_to_users_table.php b/database/migrations/2026_06_29_125605_add_viewable_staff_orders_to_users_table.php
+new file mode 100644
+index 0000000..e8f05b4
+--- /dev/null
++++ b/database/migrations/2026_06_29_125605_add_viewable_staff_orders_to_users_table.php
+@@ -0,0 +1,28 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    /**
++     * Run the migrations.
++     */
++    public function up()
++    {
++        Schema::table('users', function (Blueprint $table) {
++            $table->text('viewable_staff_orders')->nullable();
++        });
++    }
++
++    /**
++     * Reverse the migrations.
++     */
++    public function down()
++    {
++        Schema::table('users', function (Blueprint $table) {
++            $table->dropColumn('viewable_staff_orders');
++        });
++    }
++};
+diff --git a/database/migrations/2026_06_29_161104_add_position_to_service_types_table.php b/database/migrations/2026_06_29_161104_add_position_to_service_types_table.php
+new file mode 100644
+index 0000000..f7ec8a1
+--- /dev/null
++++ b/database/migrations/2026_06_29_161104_add_position_to_service_types_table.php
+@@ -0,0 +1,28 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    /**
++     * Run the migrations.
++     */
++    public function up(): void
++    {
++        Schema::table('service_types', function (Blueprint $table) {
++            $table->integer('position')->default(0)->after('service_type_name');
++        });
++    }
++
++    /**
++     * Reverse the migrations.
++     */
++    public function down(): void
++    {
++        Schema::table('service_types', function (Blueprint $table) {
++            $table->dropColumn('position');
++        });
++    }
++};
+diff --git a/database/migrations/2026_07_01_220055_create_order_requests_table.php b/database/migrations/2026_07_01_220055_create_order_requests_table.php
+new file mode 100644
+index 0000000..32abb19
+--- /dev/null
++++ b/database/migrations/2026_07_01_220055_create_order_requests_table.php
+@@ -0,0 +1,58 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    /**
++     * Run the migrations.
++     */
++    public function up(): void
++    {
++        Schema::create('order_requests', function (Blueprint $table) {
++            $table->id();
++            $table->string('request_number');
++            $table->foreignId('created_by')->constrained('users')->onDelete('cascade');
++            $table->foreignId('customer_id')->nullable();
++            $table->string('customer_name')->nullable();
++            $table->decimal('total_amount', 15, 2)->default(0);
++            $table->longText('payload');
++            $table->integer('status')->default(0); // 0: Pending, 1: Rejected
++            $table->text('rejection_note')->nullable();
++            $table->timestamps();
++        });
++
++        // Seed new permissions
++        $permissions = [
++            [
++                'name' => 'accept_reject_order',
++                'category' => 'Order',
++                'created_at' => now(),
++                'updated_at' => now(),
++            ],
++            [
++                'name' => 'bypass_order_approval',
++                'category' => 'Order',
++                'created_at' => now(),
++                'updated_at' => now(),
++            ],
++        ];
++        
++        // Insert if they don't already exist to avoid errors
++        foreach ($permissions as $permission) {
++            if (!\Illuminate\Support\Facades\DB::table('permissions')->where('name', $permission['name'])->exists()) {
++                \Illuminate\Support\Facades\DB::table('permissions')->insert($permission);
++            }
++        }
++    }
++
++    /**
++     * Reverse the migrations.
++     */
++    public function down(): void
++    {
++        Schema::dropIfExists('order_requests');
++    }
++};
+diff --git a/database/migrations/2026_07_01_223456_add_order_approval_permissions_to_permissions_table.php b/database/migrations/2026_07_01_223456_add_order_approval_permissions_to_permissions_table.php
+new file mode 100644
+index 0000000..e46b6a7
+--- /dev/null
++++ b/database/migrations/2026_07_01_223456_add_order_approval_permissions_to_permissions_table.php
+@@ -0,0 +1,45 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    /**
++     * Run the migrations.
++     */
++    public function up(): void
++    {
++        $permissions = [
++            ['name' => 'accept_reject_order', 'display_name' => 'Accept / Reject Orders', 'category' => 'Order Approval', 'created_at' => now(), 'updated_at' => now()],
++            ['name' => 'bypass_order_approval', 'display_name' => 'Bypass Order Approval', 'category' => 'Order Approval', 'created_at' => now(), 'updated_at' => now()],
++            ['name' => 'view_all_requests', 'display_name' => 'View All Requests', 'category' => 'Order Approval', 'created_at' => now(), 'updated_at' => now()],
++            ['name' => 'edit_pending_requests', 'display_name' => 'Edit Pending Requests', 'category' => 'Order Approval', 'created_at' => now(), 'updated_at' => now()],
++            ['name' => 'delete_order_requests', 'display_name' => 'Delete Order Requests', 'category' => 'Order Approval', 'created_at' => now(), 'updated_at' => now()],
++            ['name' => 'bypass_approval_under_limit', 'display_name' => 'Bypass Approval (Under Limit)', 'category' => 'Order Approval', 'created_at' => now(), 'updated_at' => now()],
++        ];
++
++        foreach ($permissions as $permission) {
++            \Illuminate\Support\Facades\DB::table('permissions')->updateOrInsert(
++                ['name' => $permission['name']],
++                $permission
++            );
++        }
++    }
++
++    /**
++     * Reverse the migrations.
++     */
++    public function down(): void
++    {
++        \Illuminate\Support\Facades\DB::table('permissions')->whereIn('name', [
++            'accept_reject_order',
++            'bypass_order_approval',
++            'view_all_requests',
++            'edit_pending_requests',
++            'delete_order_requests',
++            'bypass_approval_under_limit'
++        ])->delete();
++    }
++};
+diff --git a/database/migrations/2026_07_02_131025_create_notifications_table.php b/database/migrations/2026_07_02_131025_create_notifications_table.php
+new file mode 100644
+index 0000000..d738032
+--- /dev/null
++++ b/database/migrations/2026_07_02_131025_create_notifications_table.php
+@@ -0,0 +1,31 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    /**
++     * Run the migrations.
++     */
++    public function up(): void
++    {
++        Schema::create('notifications', function (Blueprint $table) {
++            $table->uuid('id')->primary();
++            $table->string('type');
++            $table->morphs('notifiable');
++            $table->text('data');
++            $table->timestamp('read_at')->nullable();
++            $table->timestamps();
++        });
++    }
++
++    /**
++     * Reverse the migrations.
++     */
++    public function down(): void
++    {
++        Schema::dropIfExists('notifications');
++    }
++};
+diff --git a/database/migrations/2026_07_02_181957_add_expires_at_to_personal_access_tokens_table.php b/database/migrations/2026_07_02_181957_add_expires_at_to_personal_access_tokens_table.php
+new file mode 100644
+index 0000000..5ab4051
+--- /dev/null
++++ b/database/migrations/2026_07_02_181957_add_expires_at_to_personal_access_tokens_table.php
+@@ -0,0 +1,30 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    /**
++     * Run the migrations.
++     */
++    public function up(): void
++    {
++        Schema::table('personal_access_tokens', function (Blueprint $table) {
++            if (!Schema::hasColumn('personal_access_tokens', 'expires_at')) {
++                $table->timestamp('expires_at')->nullable()->after('abilities');
++            }
++        });
++    }
++
++    /**
++     * Reverse the migrations.
++     */
++    public function down(): void
++    {
++        Schema::table('personal_access_tokens', function (Blueprint $table) {
++            $table->dropColumn('expires_at');
++        });
++    }
++};
+diff --git a/database/migrations/2026_07_04_021447_insert_missing_permissions_for_new_reports.php b/database/migrations/2026_07_04_021447_insert_missing_permissions_for_new_reports.php
+new file mode 100644
+index 0000000..b8f2984
+--- /dev/null
++++ b/database/migrations/2026_07_04_021447_insert_missing_permissions_for_new_reports.php
+@@ -0,0 +1,39 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    /**
++     * Run the migrations.
++     */
++    public function up(): void
++    {
++        $reports = [
++            'report_customer' => 'Customer Report',
++            'report_insights' => 'Business Insights',
++        ];
++        
++        foreach ($reports as $name => $displayName) {
++            \Illuminate\Support\Facades\DB::table('permissions')->updateOrInsert(
++                ['name' => $name],
++                [
++                    'display_name' => $displayName,
++                    'category' => 'Report',
++                    'created_at' => now(),
++                    'updated_at' => now(),
++                ]
++            );
++        }
++    }
++
++    /**
++     * Reverse the migrations.
++     */
++    public function down(): void
++    {
++        //
++    }
++};
+diff --git a/database/migrations/2026_07_11_093514_create_pos_drafts_table.php b/database/migrations/2026_07_11_093514_create_pos_drafts_table.php
+new file mode 100644
+index 0000000..99420a7
+--- /dev/null
++++ b/database/migrations/2026_07_11_093514_create_pos_drafts_table.php
+@@ -0,0 +1,29 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    /**
++     * Run the migrations.
++     */
++    public function up(): void
++    {
++        Schema::create('pos_drafts', function (Blueprint $table) {
++            $table->id();
++            $table->unsignedBigInteger('user_id');
++            $table->longText('payload')->nullable();
++            $table->timestamps();
++        });
++    }
++
++    /**
++     * Reverse the migrations.
++     */
++    public function down(): void
++    {
++        Schema::dropIfExists('pos_drafts');
++    }
++};
+diff --git a/database/migrations/2026_07_11_135600_add_performance_indexes.php b/database/migrations/2026_07_11_135600_add_performance_indexes.php
+new file mode 100644
+index 0000000..38f0c6c
+--- /dev/null
++++ b/database/migrations/2026_07_11_135600_add_performance_indexes.php
+@@ -0,0 +1,34 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++class AddPerformanceIndexes extends Migration
++{
++    public function up()
++    {
++        Schema::table('orders', function (Blueprint $table) {
++            $table->index('customer_id');
++            $table->index('status');
++            $table->index('order_number');
++        });
++
++        Schema::table('customers', function (Blueprint $table) {
++            $table->index('phone');
++        });
++    }
++
++    public function down()
++    {
++        Schema::table('orders', function (Blueprint $table) {
++            $table->dropIndex(['customer_id']);
++            $table->dropIndex(['status']);
++            $table->dropIndex(['order_number']);
++        });
++
++        Schema::table('customers', function (Blueprint $table) {
++            $table->dropIndex(['phone']);
++        });
++    }
++}
+diff --git a/database/migrations/2026_07_12_130114_add_foreign_keys_to_orders_and_payments.php b/database/migrations/2026_07_12_130114_add_foreign_keys_to_orders_and_payments.php
+new file mode 100644
+index 0000000..5b5c52a
+--- /dev/null
++++ b/database/migrations/2026_07_12_130114_add_foreign_keys_to_orders_and_payments.php
+@@ -0,0 +1,44 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    /**
++     * Run the migrations.
++     */
++    public function up(): void
++    {
++        Schema::table('order_details', function (Blueprint $table) {
++            $table->dropForeign(['order_id']);
++            $table->foreign('order_id')->references('id')->on('orders')->onDelete('cascade');
++        });
++        Schema::table('order_addon_details', function (Blueprint $table) {
++            $table->dropForeign(['order_id']);
++            $table->foreign('order_id')->references('id')->on('orders')->onDelete('cascade');
++        });
++        Schema::table('payments', function (Blueprint $table) {
++            $table->foreign('order_id')->references('id')->on('orders')->onDelete('cascade');
++        });
++    }
++
++    /**
++     * Reverse the migrations.
++     */
++    public function down(): void
++    {
++        Schema::table('order_details', function (Blueprint $table) {
++            $table->dropForeign(['order_id']);
++            $table->foreign('order_id')->references('id')->on('orders');
++        });
++        Schema::table('order_addon_details', function (Blueprint $table) {
++            $table->dropForeign(['order_id']);
++            $table->foreign('order_id')->references('id')->on('orders');
++        });
++        Schema::table('payments', function (Blueprint $table) {
++            $table->dropForeign(['order_id']);
++        });
++    }
++};
+diff --git a/database/migrations/2026_07_13_125407_add_missing_database_robustness_constraints.php b/database/migrations/2026_07_13_125407_add_missing_database_robustness_constraints.php
+new file mode 100644
+index 0000000..104eed8
+--- /dev/null
++++ b/database/migrations/2026_07_13_125407_add_missing_database_robustness_constraints.php
+@@ -0,0 +1,100 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    /**
++     * Run the migrations.
++     */
++    public function up(): void
++    {
++        Schema::table('expenses', function (Blueprint $table) {
++            $table->dropForeign(['expense_category_id']);
++            $table->foreign('expense_category_id')->references('id')->on('expense_categories')->onDelete('cascade');
++            
++            $table->index('created_by');
++            $table->foreign('created_by')->references('id')->on('users')->onDelete('set null');
++            
++            $table->index('financial_year_id');
++            $table->foreign('financial_year_id')->references('id')->on('financial_years')->onDelete('set null');
++        });
++
++        Schema::table('orders', function (Blueprint $table) {
++            $table->foreign('customer_id')->references('id')->on('customers')->onDelete('set null');
++            $table->index('created_by');
++            $table->foreign('created_by')->references('id')->on('users')->onDelete('set null');
++            $table->index('financial_year_id');
++            $table->foreign('financial_year_id')->references('id')->on('financial_years')->onDelete('set null');
++        });
++
++        Schema::table('order_details', function (Blueprint $table) {
++            $table->index('service_id');
++            $table->dropForeign(['service_id']);
++            $table->foreign('service_id')->references('id')->on('services')->onDelete('restrict');
++        });
++
++        Schema::table('order_addon_details', function (Blueprint $table) {
++            $table->index('addon_id');
++            $table->dropForeign(['addon_id']);
++            $table->foreign('addon_id')->references('id')->on('addons')->onDelete('restrict');
++        });
++
++        Schema::table('users', function (Blueprint $table) {
++            $table->index('role_id');
++            $table->foreign('role_id')->references('id')->on('user_roles')->onDelete('set null');
++        });
++        
++        Schema::table('payments', function (Blueprint $table) {
++            $table->index('order_id');
++        });
++    }
++
++    /**
++     * Reverse the migrations.
++     */
++    public function down(): void
++    {
++        Schema::table('expenses', function (Blueprint $table) {
++            $table->dropForeign(['expense_category_id']);
++            $table->foreign('expense_category_id')->references('id')->on('expense_categories');
++
++            $table->dropForeign(['created_by']);
++            $table->dropIndex(['created_by']);
++            
++            $table->dropForeign(['financial_year_id']);
++            $table->dropIndex(['financial_year_id']);
++        });
++
++        Schema::table('orders', function (Blueprint $table) {
++            $table->dropForeign(['customer_id']);
++            $table->dropForeign(['created_by']);
++            $table->dropIndex(['created_by']);
++            $table->dropForeign(['financial_year_id']);
++            $table->dropIndex(['financial_year_id']);
++        });
++
++        Schema::table('order_details', function (Blueprint $table) {
++            $table->dropForeign(['service_id']);
++            $table->foreign('service_id')->references('id')->on('services');
++            $table->dropIndex(['service_id']);
++        });
++
++        Schema::table('order_addon_details', function (Blueprint $table) {
++            $table->dropForeign(['addon_id']);
++            $table->foreign('addon_id')->references('id')->on('addons');
++            $table->dropIndex(['addon_id']);
++        });
++
++        Schema::table('users', function (Blueprint $table) {
++            $table->dropForeign(['role_id']);
++            $table->dropIndex(['role_id']);
++        });
++        
++        Schema::table('payments', function (Blueprint $table) {
++            $table->dropIndex(['order_id']);
++        });
++    }
++};
+diff --git a/database/migrations/2026_07_13_135555_add_soft_deletes_to_order_tables.php b/database/migrations/2026_07_13_135555_add_soft_deletes_to_order_tables.php
+new file mode 100644
+index 0000000..f0fd1c2
+--- /dev/null
++++ b/database/migrations/2026_07_13_135555_add_soft_deletes_to_order_tables.php
+@@ -0,0 +1,38 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    /**
++     * Run the migrations.
++     */
++    public function up(): void
++    {
++        $tables = ['orders', 'order_details', 'order_addon_details', 'payments'];
++
++        foreach ($tables as $table) {
++            Schema::table($table, function (Blueprint $table) {
++                $table->softDeletes();
++                $table->unsignedBigInteger('deleted_by')->nullable();
++            });
++        }
++    }
++
++    /**
++     * Reverse the migrations.
++     */
++    public function down(): void
++    {
++        $tables = ['orders', 'order_details', 'order_addon_details', 'payments'];
++
++        foreach ($tables as $table) {
++            Schema::table($table, function (Blueprint $table) {
++                $table->dropSoftDeletes();
++                $table->dropColumn('deleted_by');
++            });
++        }
++    }
++};
+diff --git a/database/migrations/2026_07_13_173757_add_uuid_to_pos_tables_and_create_sequences.php b/database/migrations/2026_07_13_173757_add_uuid_to_pos_tables_and_create_sequences.php
+new file mode 100644
+index 0000000..f1ccf66
+--- /dev/null
++++ b/database/migrations/2026_07_13_173757_add_uuid_to_pos_tables_and_create_sequences.php
+@@ -0,0 +1,57 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    /**
++     * Run the migrations.
++     */
++    public function up(): void
++    {
++        Schema::table('orders', function (Blueprint $table) {
++            $table->uuid('uuid')->nullable()->unique();
++        });
++
++        Schema::table('order_requests', function (Blueprint $table) {
++            $table->uuid('uuid')->nullable()->unique();
++        });
++
++        Schema::table('customers', function (Blueprint $table) {
++            $table->uuid('uuid')->nullable()->unique();
++        });
++
++        Schema::create('sequences', function (Blueprint $table) {
++            $table->string('name')->primary();
++            $table->bigInteger('value');
++        });
++
++        // Insert initial values for sequences
++        DB::table('sequences')->insert([
++            ['name' => 'order_number', 'value' => 0],
++            ['name' => 'request_number', 'value' => 0],
++        ]);
++    }
++
++    /**
++     * Reverse the migrations.
++     */
++    public function down(): void
++    {
++        Schema::dropIfExists('sequences');
++
++        Schema::table('orders', function (Blueprint $table) {
++            $table->dropColumn('uuid');
++        });
++
++        Schema::table('order_requests', function (Blueprint $table) {
++            $table->dropColumn('uuid');
++        });
++
++        Schema::table('customers', function (Blueprint $table) {
++            $table->dropColumn('uuid');
++        });
++    }
++};

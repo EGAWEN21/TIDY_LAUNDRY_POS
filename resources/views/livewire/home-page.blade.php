@@ -135,21 +135,28 @@
                                 <div class="tw-flex tw-gap-2 tw-items-center tw-my-2">
                                     @php
                                         // Use eager loaded details instead of querying the DB in a loop
-                                        $services = $item->details->take(4);
+                                        $totalServices = $item->details->count();
+                                        $displayLimit = 3;
+                                        $services = $item->details->take($displayLimit);
                                     @endphp
-                                    <div class="tw-size-8 tw-rounded-lg tw-overflow-clip">
+                                    <div class="tw-flex tw-flex-wrap tw-items-center tw-gap-1">
                                         @foreach ($services as $row)
                                             @php
                                                 $service = $row->service;
                                             @endphp
-                                            @if(str_contains($service->icon, ':'))
-                                                <div class="tw-flex tw-items-center tw-justify-center tw-h-full tw-w-full bg-light">
-                                                    <iconify-icon icon="{{ $service->icon }}" class="text-primary"></iconify-icon>
-                                                </div>
-                                            @else
-                                                <img src="{{ asset('assets/img/service-icons/' . $service->icon) }}" alt="" class="tw-h-full tw-w-full tw-object-cover">
-                                            @endif
+                                            <div class="tw-size-8 tw-rounded-full tw-ring-2 tw-ring-white tw-overflow-hidden tw-bg-neutral-100 tw-shrink-0 tw-flex tw-items-center tw-justify-center">
+                                                @if(str_contains($service->icon, ':'))
+                                                    <iconify-icon icon="{{ $service->icon }}" class="text-primary tw-text-lg"></iconify-icon>
+                                                @else
+                                                    <img src="{{ asset('assets/img/service-icons/' . $service->icon) }}" alt="" class="tw-h-full tw-w-full tw-object-cover">
+                                                @endif
+                                            </div>
                                         @endforeach
+                                        @if($totalServices > $displayLimit)
+                                            <div class="tw-size-8 tw-rounded-full tw-ring-2 tw-ring-white tw-bg-neutral-200 tw-flex tw-items-center tw-justify-center tw-text-xs tw-font-bold tw-text-neutral-600 tw-shrink-0">
+                                                +{{ $totalServices - $displayLimit }}
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
                                 <div class="mt-12 d-flex align-items-center justify-content-between gap-10">

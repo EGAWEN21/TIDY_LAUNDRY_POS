@@ -21,13 +21,13 @@
                             <div
                                 class="tw-p-4 tw-flex tw-items-center tw-justify-center tw-flex-col tw-h-full">
                                 <template v-if="item.icon && item.icon.includes(':')">
-                                    <div class="tw-h-20 tw-w-20 tw-flex tw-items-center tw-justify-center tw-bg-slate-50/50 dark:tw-bg-slate-900/50 tw-rounded-xl tw-transition-colors group-hover:tw-bg-primary-50 dark:group-hover:tw-bg-primary-900/30">
+                                    <div class="tw-w-[40%] md:tw-w-20 tw-aspect-square tw-flex tw-items-center tw-justify-center tw-bg-slate-50/50 dark:tw-bg-slate-900/50 tw-rounded-xl tw-transition-colors group-hover:tw-bg-primary-50 dark:group-hover:tw-bg-primary-900/30">
                                         <iconify-icon :icon="item.icon" class="tw-text-4xl text-primary dark:tw-text-primary-400 tw-transition-transform tw-duration-300 group-hover:tw-scale-110"></iconify-icon>
                                     </div>
                                 </template>
                                 <template v-else>
-                                    <div class="tw-h-20 tw-w-20 tw-flex tw-items-center tw-justify-center tw-bg-slate-50/50 dark:tw-bg-slate-900/50 tw-rounded-xl tw-overflow-hidden">
-                                        <img :src="'/assets/img/service-icons/' + item.icon" class="tw-h-full tw-w-full tw-object-cover tw-rounded-xl tw-transition-transform tw-duration-500 group-hover:tw-scale-110">
+                                    <div class="tw-w-[40%] md:tw-w-20 tw-aspect-square tw-flex tw-items-center tw-justify-center tw-bg-slate-50/50 dark:tw-bg-slate-900/50 tw-rounded-xl tw-overflow-hidden">
+                                        <img :src="'/assets/img/service-icons/' + item.icon" class="tw-h-full tw-w-full tw-object-contain tw-rounded-xl tw-transition-transform tw-duration-500 group-hover:tw-scale-110">
                                     </div>
                                 </template>
                                 <div

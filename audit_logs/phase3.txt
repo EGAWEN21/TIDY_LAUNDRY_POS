@@ -1,0 +1,3645 @@
+﻿diff --git a/app/Console/Commands/CleanupNotifications.php b/app/Console/Commands/CleanupNotifications.php
+new file mode 100644
+index 0000000..bfde918
+--- /dev/null
++++ b/app/Console/Commands/CleanupNotifications.php
+@@ -0,0 +1,39 @@
++<?php
++
++namespace App\Console\Commands;
++
++use Illuminate\Console\Command;
++use Illuminate\Support\Facades\DB;
++use Carbon\Carbon;
++
++class CleanupNotifications extends Command
++{
++    /**
++     * The name and signature of the console command.
++     *
++     * @var string
++     */
++    protected $signature = 'notifications:cleanup';
++
++    /**
++     * The console command description.
++     *
++     * @var string
++     */
++    protected $description = 'Deletes read notifications older than 60 days to prevent database bloat.';
++
++    /**
++     * Execute the console command.
++     */
++    public function handle()
++    {
++        $cutoffDate = Carbon::now()->subDays(60);
++        
++        $deleted = DB::table('notifications')
++            ->whereNotNull('read_at')
++            ->where('created_at', '<', $cutoffDate)
++            ->delete();
++            
++        $this->info("Successfully deleted {$deleted} old notifications.");
++    }
++}
+diff --git a/app/Console/Commands/PurgeOldTrashedOrders.php b/app/Console/Commands/PurgeOldTrashedOrders.php
+new file mode 100644
+index 0000000..65d5f21
+--- /dev/null
++++ b/app/Console/Commands/PurgeOldTrashedOrders.php
+@@ -0,0 +1,45 @@
++<?php
++
++namespace App\Console\Commands;
++
++use Illuminate\Console\Command;
++use App\Models\Order;
++use App\Models\OrderDetail;
++use App\Models\OrderAddonDetail;
++use App\Models\Payment;
++
++class PurgeOldTrashedOrders extends Command
++{
++    /**
++     * The name and signature of the console command.
++     *
++     * @var string
++     */
++    protected $signature = 'orders:purge-trashed';
++
++    /**
++     * The console command description.
++     *
++     * @var string
++     */
++    protected $description = 'Permanently delete orders that have been in the recycle bin for more than 90 days';
++
++    /**
++     * Execute the console command.
++     */
++    public function handle()
++    {
++        $orders = Order::onlyTrashed()->where('deleted_at', '<', now()->subDays(90))->get();
++        $count = 0;
++
++        foreach ($orders as $order) {
++            OrderDetail::onlyTrashed()->where('order_id', $order->id)->forceDelete();
++            OrderAddonDetail::onlyTrashed()->where('order_id', $order->id)->forceDelete();
++            Payment::onlyTrashed()->where('order_id', $order->id)->forceDelete();
++            $order->forceDelete();
++            $count++;
++        }
++
++        $this->info("Successfully purged {$count} old trashed orders.");
++    }
++}
+diff --git a/app/Http/Controllers/Api/PosApiController.php b/app/Http/Controllers/Api/PosApiController.php
+new file mode 100644
+index 0000000..cedfea7
+--- /dev/null
++++ b/app/Http/Controllers/Api/PosApiController.php
+@@ -0,0 +1,247 @@
++<?php
++
++namespace App\Http\Controllers\Api;
++
++use App\Http\Controllers\Controller;
++use Illuminate\Http\Request;
++use App\Models\Service;
++use App\Models\ServiceType;
++use App\Models\ServiceDetail;
++use App\Models\Addon;
++use App\Models\Customer;
++use App\Models\Order;
++use App\Models\OrderDetail;
++use App\Models\OrderAddonDetail;
++use App\Models\Payment;
++use Illuminate\Support\Facades\Auth;
++use Illuminate\Support\Facades\Hash;
++use Illuminate\Support\Facades\DB;
++use Illuminate\Support\Facades\Cache;
++use App\Models\User;
++
++class PosApiController extends Controller
++{
++    public function login(Request $request)
++    {
++        $request->validate([
++            'email' => 'required|email',
++            'password' => 'required'
++        ]);
++
++        $user = User::where('email', $request->email)->first();
++
++        if (!$user || !Hash::check($request->password, $user->password)) {
++            return response()->json(['message' => 'Invalid credentials'], 401);
++        }
++
++        $token = $user->createToken('pos-pwa')->plainTextToken;
++
++        return response()->json([
++            'user' => $user,
++            'token' => $token
++        ]);
++    }
++
++    public function init()
++    {
++        // Serve all static data needed for offline POS
++        $services = Service::where('is_active', 1)->latest()->get();
++        $serviceTypes = ServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
++        $serviceDetails = ServiceDetail::all();
++        $addons = Addon::where('is_active', 1)->latest()->get();
++        $customers = Customer::where('is_active', 1)->latest()->get();
++        
++        return response()->json([
++            'services' => $services,
++            'service_types' => $serviceTypes,
++            'service_details' => $serviceDetails,
++            'addons' => $addons,
++            'customers' => $customers,
++            'settings' => [
++                'tax_percentage' => getTaxPercentage(),
++                'tax_type' => getTaxType(),
++                'financial_year_id' => getFinancialYearId(),
++                'currency' => getCurrency()
++            ],
++            'timestamp' => time()
++        ]);
++    }
++
++    public function checkUpdates()
++    {
++        return response()->json([
++            'timestamp' => Cache::get('pos_last_update', 0)
++        ]);
++    }
++
++    public function syncCustomers(Request $request)
++    {
++        $customers = $request->input('customers', []);
++        $syncedIds = [];
++        $failedIds = [];
++        
++        foreach ($customers as $cust) {
++            try {
++                $customer = Customer::updateOrCreate(
++                    ['phone' => $cust['phone']],
++                    [
++                        'uuid' => $cust['uuid'] ?? null,
++                        'name' => $cust['name'],
++                        'email' => $cust['email'] ?? null,
++                        'tax_number' => $cust['tax_number'] ?? null,
++                        'address' => $cust['address'] ?? null,
++                        'is_active' => 1
++                    ]
++                );
++                if(isset($cust['uuid'])) {
++                    $syncedIds[$cust['uuid']] = $customer->id;
++                }
++            } catch (\Exception $e) {
++                if(isset($cust['uuid'])) {
++                    $failedIds[$cust['uuid']] = "Customer Sync Error: " . $e->getMessage();
++                }
++            }
++        }
++
++        return response()->json(['synced_customers' => $syncedIds, 'failed' => $failedIds]);
++    }
++
++    public function syncOrders(Request $request)
++    {
++        $orders = $request->input('orders', []);
++        $syncedIds = [];
++        $requiresApproval = [];
++        $failedIds = [];
++        $createdRequestIds = [];
++
++        // Cache managers query outside the loop to prevent N+1 DB calls during batch sync
++        $managers = collect();
++        if (!Auth::user()->hasPermission('accept_reject_order')) {
++            $managers = \App\Models\User::whereHas('role', function($q) {
++                $q->whereHas('permissions', function($p) {
++                    $p->where('permission_name', 'accept_reject_order');
++                });
++            })->get();
++        }
++
++        foreach ($orders as $offlineOrder) {
++            $uuid = $offlineOrder['uuid'] ?? null;
++            if (!$uuid) {
++                continue; // Cannot track without a UUID
++            }
++
++            try {
++                \Illuminate\Support\Facades\DB::transaction(function () use ($offlineOrder, $uuid, &$syncedIds, &$requiresApproval, &$createdRequestIds) {
++                    
++                    // 1. Idempotency Check: Did we already sync this order?
++                    if (Auth::user()->hasPermission('accept_reject_order')) {
++                        $existingOrder = Order::where('uuid', $uuid)->first();
++                        if ($existingOrder) {
++                            $syncedIds[$uuid] = $existingOrder->id;
++                            $requiresApproval[$uuid] = false;
++                            return; // Already processed
++                        }
++                    } else {
++                        $existingRequest = \App\Models\OrderRequest::where('uuid', $uuid)->first();
++                        if ($existingRequest) {
++                            $syncedIds[$uuid] = $existingRequest->id;
++                            $requiresApproval[$uuid] = true;
++                            return; // Already processed
++                        }
++                    }
++
++                    $customerId = $offlineOrder['customer_id'] ?? null;
++
++                    // 2. Unified Graph Sync: Process nested new customer if present
++                    if (!empty($offlineOrder['new_customer'])) {
++                        $custData = $offlineOrder['new_customer'];
++                        if (!empty($custData['phone'])) {
++                            // Atomic upsert check
++                            $customer = Customer::updateOrCreate(
++                                ['phone' => $custData['phone']],
++                                [
++                                    'uuid' => $custData['uuid'] ?? null,
++                                    'name' => $custData['name'],
++                                    'email' => $custData['email'] ?? null,
++                                    'tax_number' => $custData['tax_number'] ?? null,
++                                    'address' => $custData['address'] ?? null,
++                                    'is_active' => 1
++                                ]
++                            );
++                            $customerId = $customer->id;
++                            $offlineOrder['customer_id'] = $customerId;
++                            // Ensure phone_number is available for the order payload if needed
++                            $offlineOrder['phone_number'] = $custData['phone'];
++                        }
++                    } 
++                    // Fallback to searching by phone if passed directly
++                    elseif (!empty($offlineOrder['phone_number'])) {
++                        $dbCustomer = Customer::where('phone', $offlineOrder['phone_number'])->first();
++                        if ($dbCustomer) {
++                            $customerId = $dbCustomer->id;
++                            $offlineOrder['customer_id'] = $customerId;
++                        }
++                    }
++
++                    // 3. Process the Order
++                    if (Auth::user()->hasPermission('accept_reject_order')) {
++                        // User has manager privileges, bypass requests and establish order directly
++                        $order = \App\Services\OrderService::establishOrder($offlineOrder, Auth::id());
++                        
++                        // Update UUID on the order
++                        $order->uuid = $uuid;
++                        $order->save();
++                        
++                        $syncedIds[$uuid] = $order->id;
++                        $requiresApproval[$uuid] = false;
++
++                        // Trigger automated SMS for order creation
++                        sendOrderCreateSMS($order->id, $order->customer_id);
++
++                    } else {
++                        // User does not have privileges, create an OrderRequest
++                        $orderRequest = \App\Models\OrderRequest::create([
++                            'request_number' => \App\Services\OrderService::generateRequestID(),
++                            'customer_id' => $customerId,
++                            'customer_name' => $offlineOrder['customer_name'] ?? null,
++                            'total_amount' => $offlineOrder['total'],
++                            'payload' => $offlineOrder, // Storing the full order data here safely.
++                            'status' => 0, // Pending
++                            'created_by' => Auth::id(),
++                            'uuid' => $uuid
++                        ]);
++
++                        $syncedIds[$uuid] = $orderRequest->id;
++                        $requiresApproval[$uuid] = true;
++                        $createdRequestIds[] = $orderRequest->id;
++                    }
++                });
++            } catch (\Exception $e) {
++                // Granular Error Reporting
++                $failedIds[$uuid] = "Sync Error: " . $e->getMessage();
++            }
++        }
++
++        // Batch Manager Notifications to prevent notification spam and API timeouts
++        if (!empty($createdRequestIds)) {
++            // Guarantee consistency: Only notify for records successfully committed to DB
++            $verifiedCount = \App\Models\OrderRequest::whereIn('id', $createdRequestIds)->count();
++            
++            if ($verifiedCount > 0) {
++                foreach($managers as $manager) {
++                    $manager->notify(new \App\Notifications\SystemNotification(
++                        'New Offline Order Requests',
++                        "There are {$verifiedCount} new offline order request(s) requiring your approval.",
++                        route('orders.requests')
++                    ));
++                }
++            }
++        }
++
++        return response()->json([
++            'synced_orders' => $syncedIds,
++            'requires_approval' => $requiresApproval,
++            'failed' => $failedIds
++        ]);
++    }
++}
+diff --git a/app/Http/Controllers/WhatsAppWebhookController.php b/app/Http/Controllers/WhatsAppWebhookController.php
+index 9da50d5..6986580 100644
+--- a/app/Http/Controllers/WhatsAppWebhookController.php
++++ b/app/Http/Controllers/WhatsAppWebhookController.php
+@@ -45,15 +45,17 @@ public function handleMessage(Request $request, WhatsAppService $whatsAppService
+                     // Remove '#', 'ORD-', and spaces, then look for it.
+                     // E.g., "#ORD-000001", "000001", "ORD 000001"
+                     $cleanText = preg_replace('/[^a-zA-Z0-9]/', '', $textBody);
++                    $strippedText = str_ireplace(['ORD-', 'ORD', '#'], '', $cleanText);
++                    $strippedText = trim($strippedText);
+                     
+-                    // Try to match exact first
+-                    $order = Order::with('details.service')->where('order_number', $textBody)->first();
+-                    
+-                    if (!$order) {
+-                        // Fallback: strip standard prefixes
+-                        $strippedText = str_ireplace(['ORD-', 'ORD', '#'], '', $textBody);
+-                        $strippedText = trim($strippedText);
+-                        $order = Order::with('details.service')->where('order_number', 'LIKE', '%' . $strippedText . '%')->first();
++                    $order = null;
++                    if (strlen($strippedText) >= 4) {
++                        // Try to match exact first
++                        $order = Order::with('details.service')->where('order_number', $textBody)->first();
++                        
++                        if (!$order) {
++                            $order = Order::with('details.service')->where('order_number', 'LIKE', '%' . $strippedText . '%')->first();
++                        }
+                     }
+ 
+                     // Send the reply (passing $order=null sends the friendly Not Found message)
+diff --git a/app/Http/Middleware/Admin.php b/app/Http/Middleware/Admin.php
+index 928c903..992cb31 100644
+--- a/app/Http/Middleware/Admin.php
++++ b/app/Http/Middleware/Admin.php
+@@ -19,7 +19,9 @@ class Admin
+      */
+    public function handle(Request $request, Closure $next): Response
+     {
+-        // Another "Master Key" to keep the admin dashboard open.
+-        return $next($request);
++        if (Auth::check() && (Auth::user()->user_type == 1 || Auth::user()->user_type == null)) {
++            return $next($request);
++        }
++        abort(403, 'Unauthorized Access. Admins only.');
+     }
+ }
+\ No newline at end of file
+diff --git a/app/Http/Middleware/SingleSession.php b/app/Http/Middleware/SingleSession.php
+new file mode 100644
+index 0000000..592cc76
+--- /dev/null
++++ b/app/Http/Middleware/SingleSession.php
+@@ -0,0 +1,43 @@
++<?php
++
++namespace App\Http\Middleware;
++
++use Closure;
++use Illuminate\Http\Request;
++use Symfony\Component\HttpFoundation\Response;
++use Illuminate\Support\Facades\Auth;
++use Illuminate\Support\Facades\Session;
++
++class SingleSession
++{
++    /**
++     * Enforce single-session login per role.
++     */
++    public function handle(Request $request, Closure $next): Response
++    {
++        if (Auth::check()) {
++            $user = Auth::user();
++            $currentSessionId = Session::getId();
++
++            if ($user->user_type == 1) {
++                $roleSessionId = \Illuminate\Support\Facades\Cache::get('role_session_admin');
++            } else {
++                $roleSessionId = \Illuminate\Support\Facades\Cache::get('role_session_role_' . $user->role_id);
++            }
++
++            // If the role's stored session doesn't match this one,
++            // someone else logged in with this role ΓÇö force logout here
++            if ($roleSessionId && $roleSessionId !== $currentSessionId) {
++                Auth::logout();
++                Session::invalidate();
++                Session::regenerateToken();
++
++                return redirect()->route('login')->withErrors([
++                    'login_error' => 'Another user with your role has logged in from another device. You have been logged out.',
++                ]);
++            }
++        }
++
++        return $next($request);
++    }
++}
+diff --git a/app/Http/Middleware/Store.php b/app/Http/Middleware/Store.php
+index 4d0e2a6..52b0ea8 100644
+--- a/app/Http/Middleware/Store.php
++++ b/app/Http/Middleware/Store.php
+@@ -21,4 +21,4 @@ public function handle(Request $request, Closure $next): Response
+         // This "Master Key" tells the app to ignore all license checks and just let you in.
+         return $next($request);
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/app/Livewire/Auth/Login.php b/app/Livewire/Auth/Login.php
+index da25280..c0370d2 100644
+--- a/app/Livewire/Auth/Login.php
++++ b/app/Livewire/Auth/Login.php
+@@ -9,6 +9,7 @@
+ use Carbon\Carbon;
+ use Illuminate\Support\Facades\DB;
+ use Illuminate\Support\Facades\Mail;
++use Illuminate\Support\Facades\Cache;
+ use Str;
+ use App\Models\User;
+ use App\Models\MasterSettings;
+@@ -40,11 +41,16 @@ public function login()
+         if (Auth::attempt(['email' => $this->email, 'password' => $this->password, 'user_type' => '1'])) {
+             /* user type admin and login is successful */
+             DB::table('password_resets')->where('email',$this->email)->delete();
++            // Store session ID for single-session per role enforcement
++            Cache::forever('role_session_admin', session()->getId());
+             return redirect('admin/dashboard');
+         }  
+         if (Auth::attempt(['email' => $this->email, 'password' => $this->password, 'user_type' => '2'])) {
+-            /* user type admin and login is successful */
++            /* user type staff and login is successful */
+             DB::table('password_resets')->where('email',$this->email)->delete();
++            // Store session ID for single-session per role enforcement
++            $user = Auth::user();
++            Cache::forever('role_session_role_' . $user->role_id, session()->getId());
+             return redirect('admin/dashboard');
+         }  
+         else {
+diff --git a/app/Livewire/Auth/Logout.php b/app/Livewire/Auth/Logout.php
+index 4f09e9b..253fdbc 100644
+--- a/app/Livewire/Auth/Logout.php
++++ b/app/Livewire/Auth/Logout.php
+@@ -17,6 +17,15 @@ public function render()
+      //Perform Logout
+      public function mount()
+      {
++         // Clear the stored role session ID before logging out
++         if (Auth::check()) {
++             $user = Auth::user();
++             if ($user->user_type == 1) {
++                 \Illuminate\Support\Facades\Cache::forget('role_session_admin');
++             } else {
++                 \Illuminate\Support\Facades\Cache::forget('role_session_role_' . $user->role_id);
++             }
++         }
+          Auth::logout();
+          Session::flush();
+          return redirect('/');
+diff --git a/app/Livewire/Components/NotificationBell.php b/app/Livewire/Components/NotificationBell.php
+new file mode 100644
+index 0000000..792278d
+--- /dev/null
++++ b/app/Livewire/Components/NotificationBell.php
+@@ -0,0 +1,33 @@
++<?php
++
++namespace App\Livewire\Components;
++
++use Livewire\Component;
++use Illuminate\Support\Facades\Auth;
++
++class NotificationBell extends Component
++{
++    public function markAsRead($notificationId)
++    {
++        $notification = Auth::user()->notifications()->find($notificationId);
++        if ($notification) {
++            $notification->markAsRead();
++        }
++    }
++
++    public function markAllAsRead()
++    {
++        Auth::user()->unreadNotifications->markAsRead();
++    }
++
++    public function render()
++    {
++        $notifications = Auth::check() ? Auth::user()->unreadNotifications()->take(5)->get() : collect();
++        $unreadCount = Auth::check() ? Auth::user()->unreadNotifications()->count() : 0;
++        
++        return view('livewire.components.notification-bell', [
++            'notifications' => $notifications,
++            'unreadCount' => $unreadCount
++        ]);
++    }
++}
+diff --git a/app/Livewire/Customers/CustomerLedger.php b/app/Livewire/Customers/CustomerLedger.php
+index 3a9d4a5..72eb087 100644
+--- a/app/Livewire/Customers/CustomerLedger.php
++++ b/app/Livewire/Customers/CustomerLedger.php
+@@ -4,11 +4,10 @@
+ 
+ use Livewire\Component;
+ use App\Models\Customer;
+-use App\Models\Order;
+-use App\Models\Payment;
+ use App\Models\Translation;
+ use Carbon\Carbon;
+ use Illuminate\Support\Facades\Auth;
++use Illuminate\Support\Facades\DB;
+ use Livewire\Attributes\Title;
+ 
+ class CustomerLedger extends Component
+@@ -39,22 +38,13 @@ public function mount($id)
+         {
+             return abort(404);
+         }
+-        $debits = collect(Order::where('customer_id',$this->customer->id)->get());
+-        foreach($debits as $row)
+-        {
+-            $row['date'] = $row['order_date'];
+-            $row['type'] = 'debit';
+-        }  
+-        $credits = collect(Payment::where('customer_id',$this->customer->id)->get());
+-        foreach($credits as $row)
+-        {
+-            $row['date'] = $row['created_at'];
+-            $row['type'] = 'credit';
+-        }   
+-        $this->data = $debits->concat($credits);
+-        $this->data = $this->data->toArray();
+-        usort($this->data,function ($a,$b) {
+-            return Carbon::parse($a['date'])->greaterThan(Carbon::parse($b['date'])) ;
+-        });
++        $this->data = array_map(function($row) { return (array) $row; }, DB::select("
++            SELECT order_date as date, 'debit' as type, order_number, total, 0 as received_amount, id, NULL as order_id
++            FROM orders WHERE customer_id = ?
++            UNION ALL
++            SELECT created_at as date, 'credit' as type, NULL as order_number, 0 as total, received_amount, NULL as id, order_id
++            FROM payments WHERE customer_id = ?
++            ORDER BY date ASC
++        ", [$this->customer->id, $this->customer->id]));
+     }
+ }
+diff --git a/app/Livewire/Customers/CustomerView.php b/app/Livewire/Customers/CustomerView.php
+index 860ab5e..6f86f7d 100644
+--- a/app/Livewire/Customers/CustomerView.php
++++ b/app/Livewire/Customers/CustomerView.php
+@@ -12,6 +12,7 @@
+ class CustomerView extends Component
+ {
+     public $customer, $invoice_amount, $payment, $invoice_count, $orders, $balance, $order, $customer_name, $paid_amount, $payment_mode, $search_query, $order_filter, $note,$lang;
++    public $avg_order_value, $last_order_date;
+     
+     #[Title('View Customer')]
+     public function render()
+@@ -41,5 +42,9 @@ public function mount($id)
+         $this->invoice_count = Order::where('customer_id', $id)->count();
+         $this->payment = Payment::where('customer_id', $id)->sum('received_amount');
+         $this->balance = $this->invoice_amount - $this->payment;
++        
++        $this->avg_order_value = $this->invoice_count > 0 ? $this->invoice_amount / $this->invoice_count : 0;
++        $lastOrder = Order::where('customer_id', $id)->latest('order_date')->first();
++        $this->last_order_date = $lastOrder ? $lastOrder->order_date : null;
+     }
+ }
+diff --git a/app/Livewire/Customers/CustomersList.php b/app/Livewire/Customers/CustomersList.php
+index b0de0a3..4d885c4 100644
+--- a/app/Livewire/Customers/CustomersList.php
++++ b/app/Livewire/Customers/CustomersList.php
+@@ -63,16 +63,16 @@ public function store()
+         /* rule settings */
+         $this->validate([
+             'name' => 'required',
+-            'email' => 'required|email|unique:customers',
++            'email' => 'nullable|email|unique:customers',
+             'phone' => 'required',
+         ]);
+ 
+         $customer = new Customer();
+         $customer->name = $this->name;
+         $customer->phone = $this->phone;
+-        $customer->email = $this->email;
+-        $customer->tax_number = $this->tax_number;
+-        $customer->address = ($this->address);
++        $customer->email = empty($this->email) ? null : $this->email;
++        $customer->tax_number = empty($this->tax_number) ? null : $this->tax_number;
++        $customer->address = empty($this->address) ? null : $this->address;
+         $customer->created_by = Auth::user()->id;
+         $customer->is_active = ($this->is_active) ? "1" : "0";
+         $customer->save();
+@@ -121,14 +121,14 @@ public function update()
+         $this->validate([
+             'name' => 'required',
+             'phone' => 'required',
+-            'email' => 'required|unique:customers,email,' . $this->customer->id,
++            'email' => 'nullable|unique:customers,email,' . $this->customer->id,
+         ]);
+ 
+         $this->customer->name = $this->name;
+         $this->customer->phone = $this->phone;
+-        $this->customer->email = $this->email;
+-        $this->customer->tax_number = $this->tax_number;
+-        $this->customer->address = $this->address;
++        $this->customer->email = empty($this->email) ? null : $this->email;
++        $this->customer->tax_number = empty($this->tax_number) ? null : $this->tax_number;
++        $this->customer->address = empty($this->address) ? null : $this->address;
+         $this->customer->is_active = ($this->is_active) ? "1" : "0";
+         $this->customer->save();
+         $this->refresh();
+diff --git a/app/Livewire/Customers/Partials/CustomerInvoice.php b/app/Livewire/Customers/Partials/CustomerInvoice.php
+index 82489f7..49a20bf 100644
+--- a/app/Livewire/Customers/Partials/CustomerInvoice.php
++++ b/app/Livewire/Customers/Partials/CustomerInvoice.php
+@@ -20,6 +20,7 @@ class CustomerInvoice extends Component
+     public $orders;
+     public $order, $amount_to_pay, $note, $balance, $payment_mode, $order_filter, $lang;
+     public $paid_amount, $customer_name, $search_query;
++    public $collapsedGroups = [];
+ 
+ 
+     public function render()
+@@ -43,6 +44,37 @@ public function filterdata(){
+         return $orders;
+     }
+ 
++    public function getGroupedOrders()
++    {
++        $grouped = [];
++        foreach ($this->orders as $order) {
++            $dateKey = \Carbon\Carbon::parse($order->order_date)->format('Y-m-d');
++            if (!isset($grouped[$dateKey])) {
++                $grouped[$dateKey] = [
++                    'orders' => [],
++                    'count' => 0,
++                    'total_sales' => 0,
++                    'total_paid' => 0,
++                ];
++            }
++            $grouped[$dateKey]['orders'][] = $order;
++            $grouped[$dateKey]['count']++;
++            $grouped[$dateKey]['total_sales'] += $order->total;
++            $grouped[$dateKey]['total_paid'] += \App\Models\Payment::where('order_id', $order->id)->sum('received_amount');
++        }
++        krsort($grouped);
++        return $grouped;
++    }
++
++    public function toggleGroup($date)
++    {
++        if (in_array($date, $this->collapsedGroups)) {
++            $this->collapsedGroups = array_values(array_diff($this->collapsedGroups, [$date]));
++        } else {
++            $this->collapsedGroups[] = $date;
++        }
++    }
++
+     public function loadOrders()
+     {
+         if ($this->hasMorePages !== null  && !$this->hasMorePages) {
+diff --git a/app/Livewire/HomePage.php b/app/Livewire/HomePage.php
+index 00c4ebc..883cba7 100644
+--- a/app/Livewire/HomePage.php
++++ b/app/Livewire/HomePage.php
+@@ -13,23 +13,37 @@ class HomePage extends Component
+     public $pending_count,$processing_count,$ready_count,$delivered_count,$returned_count,$orders,$array,$search_query,$order_filter,$lang;
+     public function render()
+     {
+-        $this->pending_count = Order::where('status',0)->count();
+-        $this->processing_count = Order::where('status',1)->count();
+-        $this->ready_count = Order::where('status',2)->count();
+-        $this->delivered_count = Order::where('status',3)->count();
+-        $this->returned_count = Order::where('status',4)->count();
++        $counts = \Illuminate\Support\Facades\Cache::remember('dashboard_order_counts', 300, function() {
++            return Order::select('status', \Illuminate\Support\Facades\DB::raw('count(*) as total'))
++                ->groupBy('status')
++                ->pluck('total', 'status')
++                ->toArray();
++        });
++
++        $this->pending_count = $counts[0] ?? 0;
++        $this->processing_count = $counts[1] ?? 0;
++        $this->ready_count = $counts[2] ?? 0;
++        $this->delivered_count = $counts[3] ?? 0;
++        $this->returned_count = $counts[4] ?? 0;
+         return view('livewire.home-page');
+     }
+ 
+     /* process before mount */
+     public function mount()
+     {
+-        $this->pending_count = Order::where('status',0)->count();
+-        $this->processing_count = Order::where('status',1)->count();
+-        $this->ready_count = Order::where('status',2)->count();
+-        $this->delivered_count = Order::where('status',3)->count();
+-        $this->returned_count =  Order::where('status',4)->count();
+-        $this->orders = Order::whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())->get();
++        $counts = \Illuminate\Support\Facades\Cache::remember('dashboard_order_counts', 300, function() {
++            return Order::select('status', \Illuminate\Support\Facades\DB::raw('count(*) as total'))
++                ->groupBy('status')
++                ->pluck('total', 'status')
++                ->toArray();
++        });
++
++        $this->pending_count = $counts[0] ?? 0;
++        $this->processing_count = $counts[1] ?? 0;
++        $this->ready_count = $counts[2] ?? 0;
++        $this->delivered_count = $counts[3] ?? 0;
++        $this->returned_count = $counts[4] ?? 0;
++        $this->orders = Order::with(['details.service'])->whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())->get();
+         if(session()->has('selected_language'))
+         {
+             /* if the session has selected language */
+@@ -49,7 +63,7 @@ public function updated($name,$value)
+         {
+             if($this->order_filter == '')
+             {
+-                $this->orders = \App\Models\Order::whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())
++                $this->orders = \App\Models\Order::with(['details.service'])->whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())
+                                             ->where(function($q) use ($value) {
+                                                 $q->where('order_number','like','%'.$value.'%')
+                                                     ->orwhere('customer_name','like','%'.$value.'%');
+@@ -58,7 +72,7 @@ public function updated($name,$value)
+                                             ->get();
+             }
+             else{
+-                $this->orders = \App\Models\Order::where('status',$this->order_filter)
++                $this->orders = \App\Models\Order::with(['details.service'])->where('status',$this->order_filter)
+                                             ->whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())
+                                             ->where(function($q) use ($value) {
+                                                 $q->where('order_number','like','%'.$value.'%')
+@@ -73,11 +87,11 @@ public function updated($name,$value)
+             /* if the updated element is search_query and value is empty */
+             if($this->order_filter == '')
+             {  /* if the order filter value is empty */
+-                $this->orders = \App\Models\Order::whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())->latest()->get();
++                $this->orders = \App\Models\Order::with(['details.service'])->whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())->latest()->get();
+             }
+             else{
+                 /* if the order filter value is not empty */
+-                $this->orders = \App\Models\Order::whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())->where('status',$value)->latest()->get();
++                $this->orders = \App\Models\Order::with(['details.service'])->whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())->where('status',$value)->latest()->get();
+ 
+             }
+         }
+@@ -87,11 +101,11 @@ public function updated($name,$value)
+             $this->search_query = '';
+             if($value == '')
+             {    /* if the order filter value is empty */
+-                $this->orders = \App\Models\Order::whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())->latest()->get();
++                $this->orders = \App\Models\Order::with(['details.service'])->whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())->latest()->get();
+             }
+             else{
+                 /* if the order filter value is empty */
+-                $this->orders = \App\Models\Order::whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())->where('status',$value)->latest()->get();
++                $this->orders = \App\Models\Order::with(['details.service'])->whereDate('delivery_date',\Carbon\Carbon::today()->toDateString())->where('status',$value)->latest()->get();
+             }
+         }
+     }
+diff --git a/app/Livewire/Orders/OrderRequestsList.php b/app/Livewire/Orders/OrderRequestsList.php
+new file mode 100644
+index 0000000..9499287
+--- /dev/null
++++ b/app/Livewire/Orders/OrderRequestsList.php
+@@ -0,0 +1,98 @@
++<?php
++
++namespace App\Livewire\Orders;
++
++use Livewire\Component;
++use App\Models\OrderRequest;
++use App\Models\Translation;
++use Illuminate\Support\Facades\Auth;
++use Livewire\Attributes\Title;
++
++class OrderRequestsList extends Component
++{
++    public $requests, $lang, $rejection_note, $reject_id;
++
++    #[Title('Order Requests')]
++    public function render()
++    {
++        return view('livewire.orders.order-requests-list');
++    }
++
++    public function mount()
++    {
++        if (session()->has('selected_language')) {
++            $this->lang = Translation::where('id', session()->get('selected_language'))->first();
++        } else {
++            $this->lang = Translation::where('default', 1)->first();
++        }
++        $this->loadRequests();
++    }
++
++    public function loadRequests()
++    {
++        if (Auth::user()->hasPermission('accept_reject_order') || Auth::user()->hasPermission('view_all_requests')) {
++            $this->requests = OrderRequest::latest()->get();
++        } else {
++            $this->requests = OrderRequest::where('created_by', Auth::id())->latest()->get();
++        }
++    }
++
++    public function acceptOrder($id)
++    {
++        if (!Auth::user()->hasPermission('accept_reject_order')) {
++            abort(403);
++        }
++
++        $req = OrderRequest::findOrFail($id);
++        
++        $order = \App\Services\OrderService::establishOrder($req->payload, $req->created_by);
++        
++        if ($order->customer_id) {
++            $message = sendOrderCreateSMS($order->id, $order->customer_id);
++            if ($message) {
++                $this->dispatch('alert', ['type' => 'error',  'message' => $message, 'title' => 'SMS Error']);
++            }
++        }
++        
++        $req->delete();
++        $this->loadRequests();
++        $this->dispatch('alert', ['type' => 'success',  'message' => 'Order Request Accepted!']);
++    }
++
++    public function rejectModal($id)
++    {
++        $this->reject_id = $id;
++        $this->rejection_note = '';
++    }
++
++    public function rejectOrder()
++    {
++        if (!Auth::user()->hasPermission('accept_reject_order')) {
++            abort(403);
++        }
++
++        $this->validate([
++            'rejection_note' => 'required|string|max:1000'
++        ]);
++
++        $req = OrderRequest::findOrFail($this->reject_id);
++        $req->status = 1;
++        $req->rejection_note = $this->rejection_note;
++        $req->save();
++
++        $this->dispatch('closemodal');
++        $this->loadRequests();
++        $this->dispatch('alert', ['type' => 'success',  'message' => 'Order Request Rejected.']);
++    }
++
++    public function deleteRequest($id)
++    {
++        $req = OrderRequest::findOrFail($id);
++        if (!Auth::user()->hasPermission('delete_order_requests') && !Auth::user()->hasPermission('accept_reject_order') && $req->created_by != Auth::id()) {
++            abort(403);
++        }
++        $req->delete();
++        $this->loadRequests();
++        $this->dispatch('alert', ['type' => 'success',  'message' => 'Order Request Deleted.']);
++    }
++}
+diff --git a/app/Livewire/Orders/OrderStatusScreen.php b/app/Livewire/Orders/OrderStatusScreen.php
+index c8a404e..9aac5b9 100644
+--- a/app/Livewire/Orders/OrderStatusScreen.php
++++ b/app/Livewire/Orders/OrderStatusScreen.php
+@@ -18,12 +18,17 @@ public function render()
+         $pending_orders = Order::where('status', 0)->latest();
+         $processing_orders = Order::where('status', 1)->latest();
+         $ready_orders = Order::where('status', 2)->latest();
+-        if (Auth::user()->user_type == 1) {
++        if (Auth::user()->user_type == 1 || Auth::user()->viewable_staff_orders === 'all') {
+            
+         } else {
+-            $pending_orders->where('created_by', Auth::user()->id)->where('status', 0);
+-            $processing_orders->where('created_by', Auth::user()->id)->where('status', 1);
+-            $ready_orders->where('created_by', Auth::user()->id)->where('status', 2);
++            $viewable_ids = [Auth::user()->id];
++            if (!empty(Auth::user()->viewable_staff_orders)) {
++                $extra_ids = explode(',', Auth::user()->viewable_staff_orders);
++                $viewable_ids = array_merge($viewable_ids, $extra_ids);
++            }
++            $pending_orders->whereIn('created_by', $viewable_ids)->where('status', 0);
++            $processing_orders->whereIn('created_by', $viewable_ids)->where('status', 1);
++            $ready_orders->whereIn('created_by', $viewable_ids)->where('status', 2);
+         }
+     
+         switch($this->dateFilter){
+diff --git a/app/Livewire/Orders/OrdersList.php b/app/Livewire/Orders/OrdersList.php
+index e08dca7..19b43f5 100644
+--- a/app/Livewire/Orders/OrdersList.php
++++ b/app/Livewire/Orders/OrdersList.php
+@@ -12,7 +12,7 @@
+ use App\Models\Translation;
+ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+ use Illuminate\Pagination\Cursor;
+-use Illuminate\Support\Facades\Schema;
++
+ use Livewire\Component;
+ 
+ class OrdersList extends Component
+@@ -24,6 +24,10 @@ class OrdersList extends Component
+     protected $currentCursor;
+     public $hasMorePages;
+     public $paid_filter;
++    public $date_from, $date_to;
++    public $date_preset;
++    public $collapsedGroups = [];
++    public $selectedOrders = [];
+ 
+     #[Title('Orders')]
+     public function render()
+@@ -47,15 +51,163 @@ public function mount()
+             $this->lang = Translation::where('default', 1)->first();
+         }
+     }
++
++    public function getGroupedOrders()
++    {
++        $grouped = [];
++        foreach ($this->orders as $order) {
++            $dateKey = \Carbon\Carbon::parse($order->order_date)->format('Y-m-d');
++            if (!isset($grouped[$dateKey])) {
++                $grouped[$dateKey] = [
++                    'orders' => [],
++                    'count' => 0,
++                    'total_sales' => 0,
++                    'total_paid' => 0,
++                ];
++            }
++            $grouped[$dateKey]['orders'][] = $order;
++            $grouped[$dateKey]['count']++;
++            $grouped[$dateKey]['total_sales'] += $order->total;
++            $grouped[$dateKey]['total_paid'] += $order->payments_sum_received_amount ?? 0;
++        }
++        krsort($grouped);
++        return $grouped;
++    }
++
++    public function applyDatePreset($preset)
++    {
++        if ($this->date_preset === $preset) {
++            $this->clearDateFilter();
++            return;
++        }
++        $this->date_preset = $preset;
++        $today = \Carbon\Carbon::today();
++        switch ($preset) {
++            case 'today':
++                $this->date_from = $today->format('Y-m-d');
++                $this->date_to = $today->format('Y-m-d');
++                break;
++            case 'yesterday':
++                $yesterday = $today->copy()->subDay();
++                $this->date_from = $yesterday->format('Y-m-d');
++                $this->date_to = $yesterday->format('Y-m-d');
++                break;
++            case 'this_week':
++                $this->date_from = $today->copy()->startOfWeek()->format('Y-m-d');
++                $this->date_to = $today->format('Y-m-d');
++                break;
++            case 'this_month':
++                $this->date_from = $today->copy()->startOfMonth()->format('Y-m-d');
++                $this->date_to = $today->format('Y-m-d');
++                break;
++        }
++        $this->reloadOrders();
++    }
++
++    public function applyDateRange($from, $to)
++    {
++        $this->date_from = $from;
++        $this->date_to = $to;
++        $this->date_preset = 'custom';
++        $this->reloadOrders();
++    }
++
++    public function clearDateFilter()
++    {
++        $this->date_from = null;
++        $this->date_to = null;
++        $this->date_preset = null;
++        $this->reloadOrders();
++    }
++
++    public function toggleGroup($date)
++    {
++        if (in_array($date, $this->collapsedGroups)) {
++            $this->collapsedGroups = array_values(array_diff($this->collapsedGroups, [$date]));
++        } else {
++            $this->collapsedGroups[] = $date;
++        }
++    }
++
++    public function toggleDateGroup($dateKey, $orderIds)
++    {
++        $orderIds = array_map('strval', $orderIds);
++        $allSelected = empty(array_diff($orderIds, $this->selectedOrders));
++        if ($allSelected) {
++            $this->selectedOrders = array_values(array_diff($this->selectedOrders, $orderIds));
++        } else {
++            $this->selectedOrders = array_unique(array_merge($this->selectedOrders, $orderIds));
++        }
++    }
++
++    public function bulkChangeStatus($status)
++    {
++        if(empty($this->selectedOrders)) return;
++        
++        if(!\Illuminate\Support\Facades\Gate::allows('bulk_order_status_change')){
++            $this->dispatch('alert', ['type' => 'error',  'message' => 'You do not have permission to change status in bulk!']);
++            return;
++        }
++
++        foreach ($this->selectedOrders as $orderId) {
++            $this->changeOrderStatus($orderId, $status, true);
++        }
++        
++        $this->selectedOrders = [];
++        $this->dispatch('alert', ['type' => 'success',  'message' => 'Status successfully updated for selected orders!']);
++    }
++
++    public function bulkDelete()
++    {
++        if(empty($this->selectedOrders)) return;
++
++        if(!\Illuminate\Support\Facades\Gate::allows('bulk_order_delete')){
++            $this->dispatch('alert', ['type' => 'error',  'message' => 'You do not have permission to delete orders in bulk!']);
++            return;
++        }
++
++        \Illuminate\Support\Facades\DB::transaction(function () {
++            foreach ($this->selectedOrders as $orderId) {
++                $order = Order::find($orderId);
++                if ($order) {
++                    $order->deleted_by = Auth::id();
++                    $order->save();
++                    
++                    OrderDetail::where('order_id', $order->id)->delete();
++                    OrderAddonDetail::where('order_id', $order->id)->delete();
++                    Payment::where('order_id', $order->id)->delete();
++                    $order->delete();
++                }
++            }
++        });
++        
++        $this->selectedOrders = [];
++        $this->reloadOrders();
++        $this->dispatch('alert', ['type' => 'success',  'message' => 'Selected orders have been moved to Recycle Bin!']);
++    }
+     /* process while update the content */
++    private function getBaseOrderQuery()
++    {
++        if (Auth::user()->user_type == 1 || Auth::user()->viewable_staff_orders === 'all') {
++            return \App\Models\Order::withSum('payments', 'received_amount');
++        }
++        $viewable_ids = [Auth::user()->id];
++        if (!empty(Auth::user()->viewable_staff_orders)) {
++            $extra_ids = explode(',', Auth::user()->viewable_staff_orders);
++            $viewable_ids = array_merge($viewable_ids, $extra_ids);
++        }
++        return \App\Models\Order::withSum('payments', 'received_amount')->whereIn('created_by', $viewable_ids);
++    }
++
+     public function updated($name, $value)
+     {
+ 
+         // $this->reloadOrders();
+-        if (Auth::user()->user_type == 1) {
+-            $ordersQuery =  \App\Models\Order::orderBy('order_number','DESC');
+-        } else {
+-            $ordersQuery =  \App\Models\Order::where('created_by', Auth::user()->id);
++        $ordersQuery = $this->getBaseOrderQuery()->orderBy('order_number','DESC');
++
++        if ($this->date_from && $this->date_to) {
++            $ordersQuery = $ordersQuery->whereDate('order_date', '>=', $this->date_from)
++                                       ->whereDate('order_date', '<=', $this->date_to);
+         }
+ 
+         /* if the updated element is search_query */
+@@ -77,7 +229,7 @@ public function updated($name, $value)
+                 $paymentStatus = $this->paid_filter;
+                 // Fetch orders and calculate payment status
+                 $this->orders = $ordersQuery->orderBy('order_number','DESC')->get()->map(function ($order) {
+-                    $paidAmount = Payment::where('order_id', $order->id)->sum('received_amount');
++                    $paidAmount = $order->payments_sum_received_amount ?? 0;
+ 
+                     if ($paidAmount == 0) {
+                         $order->payment_status = 3;
+@@ -116,7 +268,7 @@ public function updated($name, $value)
+                 $paymentStatus = $this->paid_filter;
+                 // Fetch orders and calculate payment status
+                 $this->orders = $ordersQuery->orderBy('order_number','DESC')->get()->map(function ($order) {
+-                    $paidAmount = Payment::where('order_id', $order->id)->sum('received_amount');
++                    $paidAmount = $order->payments_sum_received_amount ?? 0;
+ 
+                     if ($paidAmount == 0) {
+                         $order->payment_status = 3;
+@@ -151,7 +303,7 @@ public function updated($name, $value)
+                 $paymentStatus = $value;
+                 // Fetch orders and calculate payment status
+                 $this->orders = $ordersQuery->orderBy('order_number','DESC')->get()->map(function ($order) {
+-                    $paidAmount = Payment::where('order_id', $order->id)->sum('received_amount');
++                    $paidAmount = $order->payments_sum_received_amount ?? 0;
+ 
+                     if ($paidAmount == 0) {
+                         $order->payment_status = 3;
+@@ -276,99 +428,192 @@ public function reloadOrders()
+     }
+     public function filterdata()
+     {
++        $baseQuery = $this->getBaseOrderQuery();
++
++        // Apply date range filter
++        if ($this->date_from && $this->date_to) {
++            $baseQuery = $baseQuery->whereDate('order_date', '>=', $this->date_from)
++                                   ->whereDate('order_date', '<=', $this->date_to);
++        }
++
+         if ($this->search_query || $this->search_query != '') {
+-            if ($this->order_filter || $this->order_filter != '') {
+-                if (Auth::user()->user_type == 1) {
+-                    $orders = \App\Models\Order::where('order_number', 'like', '%' . $this->search_query . '%')
+-                        ->orwhere('customer_name', 'like', '%' . $this->search_query . '%')
+-                        ->orwhere('phone_number', 'like', '%' . $this->search_query . '%')
+-                        ->where('status', $this->order_filter)
+-                        ->orderBy('order_number','DESC')
+-                        ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
+-                } else {
+-                    $orders = \App\Models\Order::where('created_by', Auth::user()->id)->where('order_number', 'like', '%' . $this->search_query . '%')
+-                        ->orwhere('customer_name', 'like', '%' . $this->search_query . '%')
+-                        ->orwhere('phone_number', 'like', '%' . $this->search_query . '%')
+-                        ->where('status', $this->order_filter)
+-                        ->orderBy('order_number','DESC')
+-                        ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
+-                }
+-                return $orders;
+-            } else {
+-                if (Auth::user()->user_type == 1) {
+-                    $orders = \App\Models\Order::where('order_number', 'like', '%' . $this->search_query . '%')
+-                        ->orwhere('customer_name', 'like', '%' . $this->search_query . '%')
+-                        ->orwhere('phone_number', 'like', '%' . $this->search_query . '%')
+-                        ->orderBy('order_number','DESC')
+-                        ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
+-                } else {
+-                    $orders = \App\Models\Order::where('created_by', Auth::user()->id)->where('order_number', 'like', '%' . $this->search_query . '%')
+-                        ->orwhere('customer_name', 'like', '%' . $this->search_query . '%')
+-                        ->orwhere('phone_number', 'like', '%' . $this->search_query . '%')
+-                        ->orderBy('order_number','DESC')
+-                        ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
+-                }
+-                return $orders;
++            $searchQuery = $this->search_query;
++            $baseQuery = $baseQuery->where(function($q) use ($searchQuery) {
++                $q->where('order_number', 'like', '%' . $searchQuery . '%')
++                  ->orWhere('customer_name', 'like', '%' . $searchQuery . '%')
++                  ->orWhere('phone_number', 'like', '%' . $searchQuery . '%');
++            });
++        }
++
++        if ($this->order_filter && $this->order_filter != '') {
++            $baseQuery = $baseQuery->where('status', $this->order_filter);
++        }
++
++        $orders = $baseQuery->orderBy('order_number', 'DESC')
++            ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
++
++        return $orders;
++    }
++
++    public function sendReceiptEmail($orderId)
++    {
++        try {
++            $order = Order::with('details.service')->find($orderId);
++            $customer = Customer::find($order->customer_id);
++
++            if (!$customer || empty($customer->email)) {
++                $this->dispatch('alert', ['type' => 'error', 'message' => 'Customer email is not provided.']);
++                return;
+             }
+-        } else {
+-            if ($this->order_filter || $this->order_filter != '') {
+ 
++            \Illuminate\Support\Facades\Mail::to($customer->email)->send(new \App\Mail\OrderReceiptEmail($order));
+ 
+-                if (Auth::user()->user_type == 1) {
+-                    $orders = \App\Models\Order::where('status', $this->order_filter)
+-                        ->orderBy('order_number','DESC')
+-                        ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
+-                } else {
+-                    $orders = \App\Models\Order::where('created_by', Auth::user()->id)->where('status', $this->order_filter)
+-                        ->orderBy('order_number','DESC')
+-                        ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
+-                }
++            $this->dispatch('alert', ['type' => 'success', 'message' => 'Receipt sent via Email successfully.']);
++        } catch (\Exception $e) {
++            $this->dispatch('alert', ['type' => 'error', 'message' => 'Failed to send email. Check SMTP settings.']);
++        }
++    }
++
++    public function sendReceiptSMS($orderId)
++    {
++        try {
++            $order = Order::find($orderId);
++            if (!$order->customer_id) {
++                $this->dispatch('alert', ['type' => 'error', 'message' => 'Customer phone number is not provided.']);
++                return;
++            }
++            
++            sendOrderCreateSMS($order->id, $order->customer_id);
++            $this->dispatch('alert', ['type' => 'success', 'message' => 'Receipt sent via SMS successfully.']);
++        } catch (\Exception $e) {
++            $this->dispatch('alert', ['type' => 'error', 'message' => 'Failed to send SMS.']);
++        }
++    }
+ 
+-                return $orders;
+-            } elseif ($this->paid_filter || $this->paid_filter != '') {
++    public function getWhatsAppReceiptUrl($orderId)
++    {
++        $order = Order::with('details.service')->find($orderId);
++        $phone = $order->phone_number;
++        if (!$phone && $order->customer_id) {
++            $customer = Customer::find($order->customer_id);
++            $phone = $customer ? $customer->phone : null;
++        }
+ 
++        if (!$phone) {
++            return null;
++        }
+ 
+-                if (Auth::user()->user_type == 1) {
+-                    $orders = \App\Models\Order::where('status', $this->order_filter)
+-                        ->orderBy('order_number','DESC')
+-                        ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
+-                } else {
+-                    $orders = \App\Models\Order::where('created_by', Auth::user()->id)->where('status', $this->order_filter)
+-                        ->orderBy('order_number','DESC')
+-                        ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
+-                }
++        $service = app(\App\Services\WhatsAppService::class);
++        $message = $service->formatOrderMessage($order);
++        
++        $receiptUrl = \Illuminate\Support\Facades\URL::signedRoute('receipt.view', ['id' => $order->id]); 
++        $message .= "\n\n*View Secure Digital Receipt:*\n" . $receiptUrl;
++        
++        $countryCode = getCountryCode();
++        $countryCode = str_replace('+', '', $countryCode);
++        $phone = ltrim($phone, '0');
++        $fullPhone = $countryCode . $phone;
+ 
+-                return $orders;
++        return 'https://wa.me/' . $fullPhone . '?text=' . urlencode($message);
++    }
++
++    public function sendReceiptWhatsApp($orderId)
++    {
++        try {
++            $url = $this->getWhatsAppReceiptUrl($orderId);
++            if (!$url) {
++                $this->dispatch('alert', ['type' => 'error', 'message' => 'Customer phone number is not provided.']);
++                return;
++            }
++            $this->dispatch('open-url', [['url' => $url]]);
++        } catch (\Exception $e) {
++            $this->dispatch('alert', ['type' => 'error', 'message' => 'Failed to generate WhatsApp link.']);
++        }
++    }
++
++    public function changeOrderStatus($orderId, $status, $isBulk = false)
++    {
++        if(!\Illuminate\Support\Facades\Gate::allows('order_status_change')){
++            abort(404);
++        }
++        
++        $order = Order::find($orderId);
++        if($order) {
++            $order->status = $status;
++            $order->save();
++            
++            // 1. Trigger Email Automation
++            sendOrderStatusChangeEmail($order->id, $status);
++            if (Auth::user()) {
++                $statusText = getOrderStatus($status, true);
++                Auth::user()->notify(new \App\Notifications\SystemNotification('Email Automation', "Automated Status Email triggered for Order {$order->order_number} ({$statusText})", 'info'));
++            }
++
++            // 2. Trigger WhatsApp Hybrid Automation
++            $settings = new \App\Models\MasterSettings();
++            $site = $settings->siteData();
++            
++            if (isset($site['enable_automated_whatsapp']) && $site['enable_automated_whatsapp'] == 1) {
++                // Strategy 3: Burner API (Automated)
++                $waService = new \App\Services\WhatsAppService();
++                $messagePayload = getFormatedTextSMS($order->id, ($status == 2 ? 3 : 2));
++                $waService->sendAutomatedStatusUpdate($order, $messagePayload); 
++                if (Auth::user()) {
++                    Auth::user()->notify(new \App\Notifications\SystemNotification('WhatsApp Automation', "Automated WhatsApp Message sent for Order {$order->order_number} via Burner API", 'success'));
++                }
+             } else {
+-                if (Auth::user()->user_type == 1) {
+-                    $orders = \App\Models\Order::orderBy('order_number','DESC')
+-                        ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
+-                } else {
+-                    $orders = \App\Models\Order::where('created_by', Auth::user()->id)->orderBy('order_number','DESC')
+-                        ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
++                // Strategy 1: wa.me Fallback (Manual Assist)
++                if (!$isBulk) {
++                    $customer = \App\Models\Customer::find($order->customer_id);
++                    if ($customer && !empty($customer->phone)) {
++                        $phone = ltrim($customer->phone, '+');
++                        if (!str_starts_with($phone, ltrim(getCountryCode(), '+')) && strlen($phone) <= 10) {
++                            $phone = ltrim(getCountryCode(), '+') . $phone;
++                        }
++                        $messagePayload = getFormatedTextSMS($order->id, ($status == 2 ? 3 : 2));
++                        $url = "https://wa.me/{$phone}?text=" . urlencode($messagePayload);
++                        $this->dispatch('open-url', [['url' => $url]]);
++                        if (Auth::user()) {
++                            Auth::user()->notify(new \App\Notifications\SystemNotification('WhatsApp Fallback', "Manual wa.me link generated for Order {$order->order_number}", 'warning'));
++                        }
++                    }
+                 }
++            }
+ 
+-
+-                return $orders;
++            // 3. Trigger SMS Automation
++            $message = sendOrderStatusChangeSMS($order->id, $status);
++            if($message) {
++                $this->dispatch('alert', ['type' => 'error',  'message' => $message, 'title'=>'SMS Error']);
++            } else {
++                $this->dispatch('alert', ['type' => 'success', 'message' => 'Status successfully updated!']);
+             }
++            
++            $this->reloadOrders();
+         }
+     }
+ 
+     public function deleteOrder($order)
+     {
++        if(!\Illuminate\Support\Facades\Gate::allows('order_delete')){
++            abort(404);
++        }
++
+         $order = Order::whereId($order)->first();
+         if ($order) {
+-            Schema::disableForeignKeyConstraints();
+-            OrderDetail::where('order_id', $order->id)->delete();
+-            OrderAddonDetail::where('order_id', $order->id)->delete();
+-            Payment::where('order_id', $order->id)->delete();
+-            $order->delete();
+-            Schema::enableForeignKeyConstraints();
++            \Illuminate\Support\Facades\DB::transaction(function () use ($order) {
++                $order->deleted_by = Auth::id();
++                $order->save();
++                
++                OrderDetail::where('order_id', $order->id)->delete();
++                OrderAddonDetail::where('order_id', $order->id)->delete();
++                Payment::where('order_id', $order->id)->delete();
++                $order->delete();
++            });
+             $this->reloadOrders();
+         }
+         $this->dispatch(
+             'alert',
+-            ['type' => 'success',  'message' => 'Order has been deleted!']
++            ['type' => 'success',  'message' => 'Order has been moved to Recycle Bin!']
+         );
+     }
+ }
+diff --git a/app/Livewire/Orders/PosScreen.php b/app/Livewire/Orders/PosScreen.php
+index 6518a0c..c223c26 100644
+--- a/app/Livewire/Orders/PosScreen.php
++++ b/app/Livewire/Orders/PosScreen.php
+@@ -27,7 +27,7 @@ class PosScreen extends Component
+     public $payment_notes, $service_types, $service, $inputi, $prices = [], $selling_price = [], $quantity = [], $selected_type = [], $addons, $selected_addons = [], $colors = [];
+     public $customer_name, $customer_phone, $email, $tax_no, $address, $selected_customer, $customers, $customer_query, $is_active = 1;
+     public $total, $sub_total, $addon_total, $tax_percent, $tax, $balance, $flag = 0, $lang,$taxamount;
+-    public $taxable,$order;
++    public $taxable,$order, $request_id;
+     public $payments = [],$payment_amount,$notes;
+ 
+     #[Layout('components.layouts.pos'),Title('POS')]
+@@ -50,12 +50,67 @@ public function mount($id = null)
+         $this->services = Service::where('is_active', 1)->latest()->get();
+         $this->date = Carbon::today()->toDateString();
+         $this->addons = Addon::where('is_active', 1)->latest()->get();
+-        $this->delivery_date = Carbon::today()->toDateString();
++        $this->delivery_date = Carbon::today()->addDays(2)->toDateString();
+         $this->tax_percent = getTaxPercentage();
+         $this->generateOrderID();
+ 
+-        if($id)
+-        {
++        if (request()->routeIs('orders.requests.edit') && $id) {
++            $this->request_id = $id;
++            $req = \App\Models\OrderRequest::findOrFail($id);
++            if (!Auth::user()->hasPermission('accept_reject_order') && !Auth::user()->hasPermission('edit_pending_requests') && $req->created_by != Auth::id()) {
++                abort(403);
++            }
++            $payload = $req->payload;
++            
++            if (isset($payload['payments'])) {
++                foreach($payload['payments'] as $payment){
++                    array_push($this->payments,[
++                        'payment_type' => $payment['payment_type'],
++                        'amount' => $payment['amount'],
++                        'notes' => $payment['notes']
++                    ]);
++                }
++            }
++            if (isset($payload['customer_id']) && $payload['customer_id'] != NULL) {
++                $this->selectCustomer($payload['customer_id']);
++            }
++            
++            if (isset($payload['details'])) {
++                foreach ($payload['details'] as $row) {
++                    $this->add($this->inputi);
++                    $service = Service::where('id', $row['service_id'])->first();
++                    $serviceType = ServiceType::where('service_type_name', $row['service_name'])->first();
++                    
++                    if ($service) {
++                        $this->selservices[$this->inputi]['service'] = $service->id;
++                        $this->selservices[$this->inputi]['service_type']  = $serviceType?->id;
++                        
++                        $this->selling_price[$this->inputi] = $row['service_price'];
++                        $this->colors[$this->inputi] = $row['color_code'] ?? '#000000';
++                        
++                        if ($payload['tax_type'] == 2) {
++                            $itemtotallocal = $row['service_price'] * (100 / (100 + ($this->tax_percent ?? 0)));
++                            $this->prices[$this->inputi] = number_format($itemtotallocal, 2);
++                        } else {
++                            $this->prices[$this->inputi] = $row['service_price'];
++                        }
++                        
++                        $this->quantity[$this->inputi] = $row['service_quantity'];
++                    }
++                }
++            }
++            $this->delivery_date = Carbon::parse($payload['delivery_date'])->toDateString();
++            $this->date = Carbon::parse($payload['order_date'])->toDateString();
++            $this->order_id = $req->request_number;
++            $this->payment_notes = $payload['note'] ?? '';
++            $this->discount = $payload['discount'] ?? 0;
++            
++            if (isset($payload['addons'])) {
++                foreach ($payload['addons'] as $row) {
++                    $this->selected_addons[$row['addon_id']] = true;
++                }
++            }
++        } elseif($id) {
+             $this->order = Order::whereId($id)->firstOrFail();
+             $payments = Payment::where('order_id', $this->order->id)->get();
+             foreach($payments as $payment){
+@@ -80,6 +135,26 @@ public function mount($id = null)
+                 $this->selected_addons[$row->addon_id] = true;
+             }
+             
++        } else {
++            $draft = \App\Models\PosDraft::where('user_id', Auth::id())->first();
++            if ($draft && isset($draft->payload)) {
++                $payload = $draft->payload;
++                $this->selservices = $payload['selservices'] ?? [];
++                $this->inputs = $payload['inputs'] ?? [];
++                $this->inputi = $payload['inputi'] ?? 0;
++                $this->prices = $payload['prices'] ?? [];
++                $this->selling_price = $payload['selling_price'] ?? [];
++                $this->quantity = $payload['quantity'] ?? [];
++                $this->selected_type = $payload['selected_type'] ?? [];
++                $this->selected_addons = $payload['selected_addons'] ?? [];
++                $this->colors = $payload['colors'] ?? [];
++                if (isset($payload['customer_id'])) {
++                    $this->selectCustomer($payload['customer_id']);
++                }
++                $this->discount = $payload['discount'] ?? 0;
++                $this->payments = $payload['payments'] ?? [];
++                $this->payment_notes = $payload['payment_notes'] ?? '';
++            }
+         }
+         if (session()->has('selected_language')) {
+             /* if session has selected language */
+@@ -146,6 +221,9 @@ public function updated($name, $value)
+         if ($name == 'discount' || strpos($name, 'selling_price') !== false || strpos($name, 'prices') !== false || strpos($name, 'quantity') !== false) {
+             $this->calculateTotal();
+         }
++        if ($name == 'date' && $value != '') {
++            $this->delivery_date = Carbon::parse($value)->addDays(2)->toDateString();
++        }
+         $this->calculateTotal();
+     }
+ 
+@@ -156,13 +234,22 @@ public function selectService($id)
+         $this->selected_type = [];
+         $this->service = Service::where('id', $id)->first();
+         $this->service_types = collect();
+-        /* if service is not empty */
+         if ($this->service) {
+             $servicedetails = ServiceDetail::where('service_id', $id)->get();
+-            foreach ($servicedetails as $row) {
+-                $servicetype = ServiceType::where('id', $row->service_type_id)->first();
+-                $servicetype['price'] = getFormattedCurrency($row->service_price);
+-                $this->service_types->push($servicetype->toArray());
++            $serviceTypeIds = $servicedetails->pluck('service_type_id')->toArray();
++            
++            $serviceTypes = ServiceType::whereIn('id', $serviceTypeIds)
++                ->orderBy('position', 'ASC')
++                ->orderBy('id', 'ASC')
++                ->get();
++
++            foreach ($serviceTypes as $servicetype) {
++                $detail = $servicedetails->where('service_type_id', $servicetype->id)->first();
++                if ($detail) {
++                    $servicetypeArray = $servicetype->toArray();
++                    $servicetypeArray['price'] = getFormattedCurrency($detail->service_price);
++                    $this->service_types->push($servicetypeArray);
++                }
+             }
+         }
+         if ($this->service_types) {
+@@ -224,7 +311,7 @@ public function add($i)
+         $this->prices[$this->inputi] = 100;
+         $this->service_types[$this->inputi] = '';
+         $this->quantity[$this->inputi]  = 1;
+-        $this->colors[$this->inputi]  = '';
++        $this->colors[$this->inputi]  = '#000000';
+     }
+     /* increase the count */
+     public function increase($key)
+@@ -268,6 +355,21 @@ public function removeItem($key)
+         unset($this->selling_price[$key]);
+         $this->calculateTotal();
+     }
++
++    public function duplicateItem($key)
++    {
++        if (isset($this->selservices[$key])) {
++            $this->add($this->inputi);
++            $newKey = $this->inputi;
++            $this->selservices[$newKey] = $this->selservices[$key] ?? [];
++            $this->prices[$newKey] = $this->prices[$key] ?? 0;
++            $this->selling_price[$newKey] = $this->selling_price[$key] ?? 0;
++            $this->colors[$newKey] = $this->colors[$key] ?? '#000000';
++            $this->quantity[$newKey] = $this->quantity[$key] ?? 1;
++            $this->service_types = collect();
++            $this->calculateTotal();
++        }
++    }
+     /* create customer */
+     public function createCustomer()
+     {   /* validation */
+@@ -280,9 +382,9 @@ public function createCustomer()
+         $customer = Customer::create([
+             'name'  => $this->customer_name,
+             'phone' => $this->customer_phone,
+-            'email' => $this->email,
+-            'tax_number'    => $this->tax_no,
+-            'address'   => $this->address,
++            'email' => empty($this->email) ? null : $this->email,
++            'tax_number'    => empty($this->tax_no) ? null : $this->tax_no,
++            'address'   => empty($this->address) ? null : $this->address,
+             'is_active' => $this->is_active ?? 0,
+         ]);
+         $this->selected_customer = $customer;
+@@ -387,6 +489,28 @@ public function calculateTotal()
+         $this->total = ($this->sub_total + $itemtaxtotal2) - $this->discount;
+         $this->total = round($this->total,3,PHP_ROUND_HALF_UP);
+         $this->balance = $this->total - $this->paid_amount;
++        
++        if (!$this->order && !$this->request_id) {
++            $draftPayload = [
++                'selservices' => $this->selservices,
++                'inputs' => $this->inputs,
++                'inputi' => $this->inputi,
++                'prices' => $this->prices,
++                'selling_price' => $this->selling_price,
++                'quantity' => $this->quantity,
++                'selected_type' => $this->selected_type,
++                'selected_addons' => $this->selected_addons,
++                'colors' => $this->colors,
++                'customer_id' => $this->selected_customer->id ?? null,
++                'discount' => $this->discount,
++                'payments' => $this->payments,
++                'payment_notes' => $this->payment_notes,
++            ];
++            \App\Models\PosDraft::updateOrCreate(
++                ['user_id' => Auth::id()],
++                ['payload' => $draftPayload]
++            );
++        }
+     }
+     //add payment
+     public function add_payment(){
+@@ -463,124 +587,197 @@ public function save($type = null)
+             $order = $this->order;
+             if($this->order)
+             {
+-                Order::whereId($this->order->id)->update([
+-                    'customer_id'   => $this->selected_customer->id ?? null,
+-                    'customer_name' => $this->selected_customer->name ?? null,
+-                    'phone_number'  => $this->selected_customer->phone ?? null,
+-                    'order_date'    => Carbon::parse($this->date)->toDateTimeString(),
+-                    'delivery_date' => Carbon::parse($this->delivery_date)->toDateTimeString(),
+-                    'sub_total' => $this->sub_total,
+-                    'addon_total'   => $this->addon_total,
+-                    'discount'  => $this->discount ?? 0,
+-                    'tax_percentage'    => $this->tax_percent,
+-                    'tax_amount'    => $this->tax,
+-                    'tax_type'  => getTaxType(),
+-                    'taxable_amount'    => $this->taxable,
+-                    'total' => $this->total,
+-                    'note'  => $this->payment_notes,
+-                    'status'    => 0,
+-                    'order_type'    => 1,
+-                ],$this->order->id);
+-                OrderDetail::whereOrderId($this->order->id)->delete();
+-                OrderAddonDetail::whereOrderId($this->order->id)->delete();
+-                Payment::whereOrderId($this->order->id)->delete();
++                \Illuminate\Support\Facades\DB::transaction(function() use ($order) {
++                    Order::whereId($order->id)->update([
++                        'customer_id'   => $this->selected_customer->id ?? null,
++                        'customer_name' => $this->selected_customer->name ?? null,
++                        'phone_number'  => $this->selected_customer->phone ?? null,
++                        'order_date'    => Carbon::parse($this->date)->toDateTimeString(),
++                        'delivery_date' => Carbon::parse($this->delivery_date)->toDateTimeString(),
++                        'sub_total' => $this->sub_total,
++                        'addon_total'   => $this->addon_total,
++                        'discount'  => $this->discount ?? 0,
++                        'tax_percentage'    => $this->tax_percent,
++                        'tax_amount'    => $this->tax,
++                        'tax_type'  => getTaxType(),
++                        'taxable_amount'    => $this->taxable,
++                        'total' => $this->total,
++                        'note'  => $this->payment_notes,
++                        'status'    => 0,
++                        'order_type'    => 1,
++                    ]);
++                    OrderDetail::whereOrderId($order->id)->forceDelete();
++                    OrderAddonDetail::whereOrderId($order->id)->forceDelete();
++                    Payment::whereOrderId($order->id)->forceDelete();
++                    
++                    $amount = 0;
++                    foreach ($this->selservices as $key => $value) {
++                        $service = Service::where('id', $value['service'])->first();
++                        $service_type = ServiceType::where('id', $value['service_type'])->first();
++                        $service_type_detail = ServiceDetail::where('service_type_id', $service_type->id)->first();
++                        $amount += $this->prices[$key];
++                        OrderDetail::create([
++                            'order_id'  => $order->id,
++                            'service_id'    => $service->id,
++                            'service_name'  => $service_type->service_type_name,
++                            'service_quantity'  => $this->quantity[$key],
++                            'service_detail_total'  => $this->selling_price[$key] * $this->quantity[$key],
++                            'service_price' => $this->selling_price[$key],
++                            'color_code' => $this->colors[$key] ?? null,
++                        ]);
++                    }
++                    if ($this->selected_addons) {
++                        foreach ($this->selected_addons as $key => $value) {
++                            if ($value === true) {
++                                $addon = Addon::where('id', $key)->first();
++                                \App\Models\OrderAddonDetail::create([
++                                    'order_id'  => $order->id,
++                                    'addon_id'    => $addon->id,
++                                    'addon_name'    => $addon->addon_name,
++                                    'addon_price'   => $addon->addon_price,
++                                ]);
++                            }
++                        }
++                    }
++                    if (count($this->payments) > 0) {
++                        foreach ($this->payments as $payment) {
++                            \App\Models\Payment::create([
++                                'payment_date'  => $this->date,
++                                'customer_id'   => $this->selected_customer->id ?? null,
++                                'customer_name' => $this->selected_customer->name ?? null,
++                                'order_id'  => $order->id,
++                                'payment_type'  => $payment['payment_type'],
++                                'received_amount'    => $payment['amount'],
++                                'notes'  =>  $payment['notes'] ?? "Notes",
++                                'financial_year_id' => getFinancialYearId(),
++                                'created_by'    => Auth::user()->id,
++                            ]);
++                        }
++                    }
++                });
++                $this->flag = 1;
++                $this->dispatch('alert', ['type' => 'success',  'message' => $order->order_number . ' Was Successfully Updated!']);
++                if(\Illuminate\Support\Facades\Gate::allows('order_print')){
++                    $this->dispatch('printPageOrder', $order->id);
++                }
+             }
+             else{
+-                $order = Order::create([
+-                    'order_number'  => $this->order_id,
+-                    'customer_id'   => $this->selected_customer->id ?? null,
++                // New Order or Request
++                $payload = [
++                    'customer_id' => $this->selected_customer->id ?? null,
+                     'customer_name' => $this->selected_customer->name ?? null,
+-                    'phone_number'  => $this->selected_customer->phone ?? null,
+-                    'order_date'    => Carbon::parse($this->date)->toDateTimeString(),
++                    'phone_number' => $this->selected_customer->phone ?? null,
++                    'order_date' => Carbon::parse($this->date)->toDateTimeString(),
+                     'delivery_date' => Carbon::parse($this->delivery_date)->toDateTimeString(),
+                     'sub_total' => $this->sub_total,
+-                    'addon_total'   => $this->addon_total,
+-                    'discount'  => $this->discount ?? 0,
+-                    'tax_percentage'    => $this->tax_percent,
+-                    'tax_amount'    => $this->tax,
+-                    'tax_type'  => getTaxType(),
+-                    'taxable_amount'    => $this->taxable,
++                    'addon_total' => $this->addon_total,
++                    'discount' => $this->discount ?? 0,
++                    'tax_percentage' => $this->tax_percent,
++                    'tax_amount' => $this->tax,
++                    'tax_type' => getTaxType(),
++                    'taxable_amount' => $this->taxable,
+                     'total' => $this->total,
+-                    'note'  => $this->payment_notes,
+-                    'status'    => 0,
+-                    'order_type'    => 1,
+-                    'created_by'    => Auth::user()->id,
+-                    'financial_year_id' => getFinancialYearId()
+-                ]);
+-            }
+-
+-           
+-            foreach ($this->selservices as $key => $value) {
+-                $service = Service::where('id', $value['service'])->first();
+-                $service_type = ServiceType::where('id', $value['service_type'])->first();
+-                $service_type_detail = ServiceDetail::where('service_type_id', $service_type->id)->first();
+-                $amount += $this->prices[$key];
+-               OrderDetail::create([
+-                    'order_id'  => $order->id,
+-                    'service_id'    => $service->id,
+-                    'service_name'  => $service_type->service_type_name,
+-                    'service_quantity'  => $this->quantity[$key],
+-                    'service_detail_total'  => $this->selling_price[$key] * $this->quantity[$key],
+-                    'service_price' => $this->selling_price[$key],
+-                    'color_code' => $this->colors[$key],
+-                ]);
+-            }
+-            if ($this->selected_addons) {
+-                foreach ($this->selected_addons as $key => $value) {
+-                    if ($value === true) {
+-                        $addon = Addon::where('id', $key)->first();
+-                        \App\Models\OrderAddonDetail::create([
+-                            'order_id'  => $order->id,
+-                            'addon_id'    => $addon->id,
+-                            'addon_name'    => $addon->addon_name,
+-                            'addon_price'   => $addon->addon_price,
+-                        ]);
++                    'note' => $this->payment_notes,
++                    'details' => [],
++                    'addons' => [],
++                    'payments' => []
++                ];
++                
++                foreach ($this->selservices as $key => $value) {
++                    $service = Service::where('id', $value['service'])->first();
++                    $service_type = ServiceType::where('id', $value['service_type'])->first();
++                    $payload['details'][] = [
++                        'service_id' => $service->id,
++                        'service_name' => $service_type->service_type_name,
++                        'service_quantity' => $this->quantity[$key],
++                        'service_detail_total' => $this->selling_price[$key] * $this->quantity[$key],
++                        'service_price' => $this->selling_price[$key],
++                        'color_code' => $this->colors[$key] ?? null,
++                    ];
++                }
++                
++                if ($this->selected_addons) {
++                    foreach ($this->selected_addons as $key => $value) {
++                        if ($value === true) {
++                            $addon = Addon::where('id', $key)->first();
++                            $payload['addons'][] = [
++                                'addon_id' => $addon->id,
++                                'addon_name' => $addon->addon_name,
++                                'addon_price' => $addon->addon_price,
++                            ];
++                        }
+                     }
+                 }
+-            }
+-            if (count($this->payments) > 0) {
+-                foreach ($this->payments as $payment) {
+-                    $payment = \App\Models\Payment::create([
+-                        'payment_date'  => $this->date,
+-                        'customer_id'   => $this->selected_customer->id ?? null,
+-                        'customer_name' => $this->selected_customer->name ?? null,
+-                        'order_id'  => $order->id,
+-                        'payment_type'  => $payment['payment_type'],
+-                        'received_amount'    => $payment['amount'],
+-                        'notes'  =>  $payment['notes'] ?? "Notes",
+-                        'financial_year_id' => getFinancialYearId(),
+-                        'created_by'    => Auth::user()->id,
+-                    ]);
++                
++                if (count($this->payments) > 0) {
++                    foreach ($this->payments as $payment) {
++                        $payload['payments'][] = [
++                            'payment_type' => $payment['payment_type'],
++                            'amount' => $payment['amount'],
++                            'notes' => $payment['notes'] ?? "Notes"
++                        ];
++                    }
+                 }
+-            }
+-            $this->flag = 1;
+-            if ($this->selected_customer) {
+-                $message = sendOrderCreateSMS($order->id, $this->selected_customer->id);
+-                if ($message) {
+-                    $this->dispatch(
+-                        'alert',
+-                        ['type' => 'error',  'message' => $message, 'title' => 'SMS Error']
+-                    );
++
++                $canBypass = Auth::user()->hasPermission('bypass_order_approval');
++                if (!$canBypass && Auth::user()->hasPermission('bypass_approval_under_limit') && $this->total <= getBypassLimit()) {
++                    $canBypass = true;
++                }
++
++                if ($canBypass) {
++                    $order = \App\Services\OrderService::establishOrder($payload, Auth::id());
++                    $this->order_id = $order->order_number;
++                    
++                    if ($this->request_id) {
++                        \App\Models\OrderRequest::whereId($this->request_id)->delete();
++                    }
++                    
++                    if ($this->selected_customer) {
++                        $message = sendOrderCreateSMS($order->id, $this->selected_customer->id);
++                        if ($message) {
++                            $this->dispatch('alert', ['type' => 'error',  'message' => $message, 'title' => 'SMS Error']);
++                        }
++                    }
++                    $this->dispatch('alert', ['type' => 'success',  'message' => $order->order_number . ' Was Successfully Created!']);
++                    
++                    if(\Illuminate\Support\Facades\Gate::allows('order_print')){
++                        $this->dispatch('printPage', $order->id);
++                        $this->clearAll();
++                    } else {
++                        $this->clearAll();
++                    }
++                } else {
++                    if ($this->request_id) {
++                        \App\Models\OrderRequest::whereId($this->request_id)->update([
++                            'payload' => $payload,
++                            'status' => 0,
++                            'rejection_note' => null,
++                            'total_amount' => $this->total,
++                            'customer_id' => $this->selected_customer->id ?? null,
++                            'customer_name' => $this->selected_customer->name ?? null,
++                        ]);
++                        $this->dispatch('alert', ['type' => 'success',  'message' => 'Order Request Updated!']);
++                    } else {
++                        $reqNum = \App\Services\OrderService::generateRequestID();
++                        \App\Models\OrderRequest::create([
++                            'request_number' => $reqNum,
++                            'created_by' => Auth::id(),
++                            'customer_id' => $this->selected_customer->id ?? null,
++                            'customer_name' => $this->selected_customer->name ?? null,
++                            'total_amount' => $this->total,
++                            'payload' => $payload,
++                            'status' => 0,
++                        ]);
++                        $this->dispatch('alert', ['type' => 'success',  'message' => 'Order Request Submitted for Approval!']);
++                    }
++                    $this->clearAll();
+                 }
+-            }
+-            $this->dispatch(
+-                'alert',
+-                ['type' => 'success',  'message' => $order->order_number . ' Was Successfully Created!']
+-            );
+-        }
+-        if(\Illuminate\Support\Facades\Gate::allows('order_print')){
+-            if($this->order){
+-                $this->dispatch('printPageOrder', $order->id);
+-            }
+-            else{
+-                $this->dispatch('printPage', $order->id);
+-                $this->clearAll();
+             }
+         }
+         if($this->order){
+         }
+         else{
+-            $this->clearAll();
++            // Handled inside
+         }
+     }
+ 
+@@ -604,6 +801,7 @@ public function magicFill()
+     //Reload page on clicking clearall
+     public function clearAll()
+     {
++        \App\Models\PosDraft::where('user_id', Auth::id())->delete();
+         $this->dispatch('reloadpage');
+     }
+ 
+diff --git a/app/Livewire/Orders/PrintOrder.php b/app/Livewire/Orders/PrintOrder.php
+index a8612af..3e94f7b 100644
+--- a/app/Livewire/Orders/PrintOrder.php
++++ b/app/Livewire/Orders/PrintOrder.php
+@@ -25,7 +25,7 @@ public function render()
+     /* process before render */
+     public function mount($id)
+     {
+-        if(!\Illuminate\Support\Facades\Gate::allows('order_print')){
++        if (!request()->hasValidSignature() && !\Illuminate\Support\Facades\Gate::allows('order_print')) {
+             abort(404);
+         }
+         $this->order = Order::where('id', $id)->first();
+diff --git a/app/Livewire/Reports/BusinessInsights.php b/app/Livewire/Reports/BusinessInsights.php
+new file mode 100644
+index 0000000..0623f75
+--- /dev/null
++++ b/app/Livewire/Reports/BusinessInsights.php
+@@ -0,0 +1,118 @@
++<?php
++
++namespace App\Livewire\Reports;
++
++use Livewire\Component;
++use Livewire\Attributes\Title;
++use App\Models\Translation;
++use Illuminate\Support\Facades\DB;
++use Carbon\Carbon;
++use Illuminate\Support\Facades\Cache;
++
++class BusinessInsights extends Component
++{
++    public $lang, $from_date, $to_date;
++    public $kpi = [];
++    public $chartData = [];
++
++    #[Title('Business Insights')]
++    public function render()
++    {
++        return view('livewire.reports.business-insights');
++    }
++
++    public function mount()
++    {
++        if(!\Illuminate\Support\Facades\Gate::allows('report_insights')){
++            abort(404);
++        }
++        
++        if (session()->has('selected_language')) {
++            $this->lang = Translation::where('id', session()->get('selected_language'))->first();
++        } else {
++            $this->lang = Translation::where('default', 1)->first();
++        }
++        
++        // Default to 'This Month' for performance
++        $this->from_date = Carbon::now()->startOfMonth()->toDateString();
++        $this->to_date = Carbon::now()->endOfMonth()->toDateString();
++        
++        $this->generateInsights();
++    }
++
++    public function updated($name, $value)
++    {
++        if (in_array($name, ['from_date', 'to_date'])) {
++            $this->generateInsights();
++        }
++    }
++
++    public function generateInsights()
++    {
++        // 1. TAT (Turnaround Time) Efficiency
++        $orders = DB::table('orders')
++            ->select('status', 'order_date', 'delivery_date')
++            ->whereDate('order_date', '>=', $this->from_date)
++            ->whereDate('order_date', '<=', $this->to_date)
++            ->get();
++            
++        $totalOrders = $orders->count();
++        $deliveredOnTime = 0;
++        $delayed = 0;
++        $pending = 0;
++        
++        foreach($orders as $o) {
++            if ($o->status == 3) { // Delivered
++                $deliveredOnTime++; // Simplifying for now, assuming delivered = on time
++            } else if ($o->delivery_date && Carbon::parse($o->delivery_date)->isPast() && $o->status != 3 && $o->status != 4) {
++                $delayed++;
++            } else {
++                $pending++;
++            }
++        }
++        
++        $this->kpi['tat'] = [
++            'total' => $totalOrders,
++            'on_time' => $deliveredOnTime,
++            'delayed' => $delayed,
++            'pending' => $pending
++        ];
++
++        // 2. Churn & Customer Health (At-Risk > 21 days)
++        $atRiskThreshold = Carbon::today()->subDays(21)->toDateString();
++        $allCustomers = DB::table('customers')
++            ->leftJoin('orders', 'customers.id', '=', 'orders.customer_id')
++            ->select('customers.id', DB::raw('MAX(orders.order_date) as last_visit'))
++            ->groupBy('customers.id')
++            ->get();
++            
++        $activeCount = 0;
++        $atRiskCount = 0;
++        
++        foreach($allCustomers as $c) {
++            if($c->last_visit && Carbon::parse($c->last_visit)->gte($atRiskThreshold)) {
++                $activeCount++;
++            } else if ($c->last_visit) {
++                $atRiskCount++;
++            }
++        }
++        
++        $this->kpi['health'] = [
++            'active' => $activeCount,
++            'at_risk' => $atRiskCount
++        ];
++        
++        // 3. Staff Leaderboard (Revenue by User)
++        $staffPerformance = DB::table('orders')
++            ->join('users', 'orders.created_by', '=', 'users.id')
++            ->select('users.name', DB::raw('SUM(orders.total) as total_revenue'), DB::raw('COUNT(orders.id) as total_orders'))
++            ->whereDate('orders.order_date', '>=', $this->from_date)
++            ->whereDate('orders.order_date', '<=', $this->to_date)
++            ->groupBy('users.id', 'users.name')
++            ->orderByDesc('total_revenue')
++            ->limit(5)
++            ->get();
++            
++        $this->kpi['staff'] = $staffPerformance->toArray();
++    }
++}
+diff --git a/app/Livewire/Reports/CustomerReport.php b/app/Livewire/Reports/CustomerReport.php
+new file mode 100644
+index 0000000..e26ffd9
+--- /dev/null
++++ b/app/Livewire/Reports/CustomerReport.php
+@@ -0,0 +1,111 @@
++<?php
++
++namespace App\Livewire\Reports;
++
++use Livewire\Component;
++use Livewire\Attributes\Title;
++use App\Models\Translation;
++use Illuminate\Support\Facades\DB;
++use Carbon\Carbon;
++use Barryvdh\DomPDF\Facade\Pdf;
++
++class CustomerReport extends Component
++{
++    public $lang, $customersData = [], $statusFilter = 'all';
++
++    #[Title('Customer Report')]
++    public function render()
++    {
++        return view('livewire.reports.customer-report');
++    }
++
++    public function mount()
++    {
++        if(!\Illuminate\Support\Facades\Gate::allows('report_customer')){
++            abort(404);
++        }
++        
++        if (session()->has('selected_language')) {
++            $this->lang = Translation::where('id', session()->get('selected_language'))->first();
++        } else {
++            $this->lang = Translation::where('default', 1)->first();
++        }
++        $this->report();
++    }
++
++    public function updatedStatusFilter()
++    {
++        $this->report();
++    }
++
++    public function report()
++    {
++        /** 
++         * OPTIMIZATION (Preventing N+1 & Memory Exhaustion):
++         * Instead of loading all customers and iterating over their orders via Eloquent relationships
++         * which would crash on large datasets, we use a single aggregate SQL query to sum up 
++         * lifetime spend, 30-day velocity, and 7-day velocity.
++         */
++        $thirtyDaysAgo = Carbon::today()->subDays(30)->toDateString();
++        $sevenDaysAgo = Carbon::today()->subDays(7)->toDateString();
++        $atRiskThreshold = Carbon::today()->subDays(21); // 21 Days as requested by user
++
++        // Aggregate Orders per customer
++        $customersAggregates = DB::table('customers')
++            ->select(
++                'customers.id',
++                'customers.name',
++                'customers.phone',
++                'customers.created_at as registration_date',
++                DB::raw('COUNT(orders.id) as total_orders'),
++                DB::raw('COALESCE(SUM(orders.total), 0) as total_spend'),
++                DB::raw("COALESCE(SUM(CASE WHEN orders.order_date >= '{$thirtyDaysAgo}' THEN orders.total ELSE 0 END), 0) as spend_30"),
++                DB::raw("COALESCE(SUM(CASE WHEN orders.order_date >= '{$sevenDaysAgo}' THEN orders.total ELSE 0 END), 0) as spend_7"),
++                DB::raw('MAX(orders.order_date) as last_visit')
++            )
++            ->leftJoin('orders', 'customers.id', '=', 'orders.customer_id')
++            ->groupBy('customers.id', 'customers.name', 'customers.phone', 'customers.created_at')
++            ->having('total_orders', '>', 0) // Only show customers who actually have orders
++            ->get();
++            
++        // Aggregate Payments per customer for Outstanding Balances
++        $payments = DB::table('payments')
++            ->select('customer_id', DB::raw('SUM(received_amount) as total_paid'))
++            ->groupBy('customer_id')
++            ->get()
++            ->keyBy('customer_id');
++
++        $data = [];
++        foreach($customersAggregates as $c) {
++            $totalPaid = isset($payments[$c->id]) ? $payments[$c->id]->total_paid : 0;
++            $outstanding = $c->total_spend - $totalPaid;
++            $aov = $c->total_orders > 0 ? $c->total_spend / $c->total_orders : 0;
++            
++            // Status Logic (21 Days)
++            $status = 'Active';
++            if ($c->last_visit && Carbon::parse($c->last_visit)->lt($atRiskThreshold)) {
++                $status = 'At-Risk';
++            }
++            
++            // Filtering
++            if ($this->statusFilter == 'all' || strtolower($this->statusFilter) == strtolower($status)) {
++                $data[] = [
++                    'name' => $c->name,
++                    'phone' => $c->phone,
++                    'registration_date' => Carbon::parse($c->registration_date)->format('d/m/Y'),
++                    'total_orders' => $c->total_orders,
++                    'total_spend' => $c->total_spend,
++                    'spend_30' => $c->spend_30,
++                    'spend_7' => $c->spend_7,
++                    'aov' => $aov,
++                    'outstanding' => $outstanding,
++                    'last_visit' => $c->last_visit ? Carbon::parse($c->last_visit)->format('d/m/Y') : 'N/A',
++                    'status' => $status
++                ];
++            }
++        }
++        
++        // Sort by highest lifetime spend
++        $this->customersData = collect($data)->sortByDesc('total_spend')->values()->all();
++    }
++}
+diff --git a/app/Livewire/Reports/DailyReport.php b/app/Livewire/Reports/DailyReport.php
+index 439efb1..ced3ef1 100644
+--- a/app/Livewire/Reports/DailyReport.php
++++ b/app/Livewire/Reports/DailyReport.php
+@@ -5,9 +5,17 @@
+ use Livewire\Component;
+ use Barryvdh\DomPDF\Facade\Pdf;
+ use Livewire\Attributes\Title;
++use Illuminate\Support\Facades\DB;
++
+ class DailyReport extends Component
+ {
+-    public $today, $new_order, $delivered_orders, $total_payment, $total_expense, $total_sales,$lang;
++    public $today, $new_order, $delivered_orders, $total_payment, $total_expense, $total_sales, $lang;
++    
++    // New Metrics
++    public $paymentSplit = [];
++    public $itemVolume = 0;
++    public $trendLabels = [];
++    public $trendData = [];
+     /* render the page */
+     #[Title('Daily Report')]
+     public function render()
+@@ -40,11 +48,56 @@ public function updated($name,$value) {
+     }
+     /* report section */ 
+     public function report(){
+-             $this->new_order = \App\Models\Order::whereDate('order_date',$this->today)->count();
+-             $this->delivered_orders = \App\Models\Order::whereDate('order_date',$this->today)->where('status',3)->count();
+-             $this->total_payment = \App\Models\Payment::whereDate('payment_date',$this->today)->sum('received_amount');
+-             $this->total_expense = \App\Models\Expense::whereDate('expense_date',$this->today)->sum('expense_amount');
+-             $this->total_sales = \App\Models\Order::whereDate('order_date',$this->today)->where('status',3)->sum('total');
++         $this->new_order = \App\Models\Order::whereDate('order_date',$this->today)->count();
++         $this->delivered_orders = \App\Models\Order::whereDate('order_date',$this->today)->where('status',3)->count();
++         $this->total_payment = \App\Models\Payment::whereDate('payment_date',$this->today)->sum('received_amount');
++         $this->total_expense = \App\Models\Expense::whereDate('expense_date',$this->today)->sum('expense_amount');
++         $this->total_sales = \App\Models\Order::whereDate('order_date',$this->today)->where('status',3)->sum('total');
++
++         // 1. Payment Split
++         $paymentRaw = \App\Models\Payment::whereDate('payment_date', $this->today)
++                ->selectRaw('payment_type, SUM(received_amount) as amount')
++                ->groupBy('payment_type')
++                ->get();
++         $this->paymentSplit = [];
++         foreach($paymentRaw as $p) {
++             $this->paymentSplit[] = [
++                 'name' => getpaymentMode($p->payment_type),
++                 'amount' => $p->amount
++             ];
++         }
++
++         // 2. Item Volume
++         $this->itemVolume = DB::table('order_details')
++             ->join('orders', 'order_details.order_id', '=', 'orders.id')
++             ->whereDate('orders.order_date', $this->today)
++             ->sum('order_details.service_quantity');
++
++         // 3. 7-Day Trend Chart
++         $sevenDaysAgo = \Carbon\Carbon::parse($this->today)->subDays(6)->toDateString();
++         $trend = DB::table('orders')
++             ->select(DB::raw('DATE(order_date) as date'), DB::raw('COUNT(id) as total_orders'))
++             ->whereDate('order_date', '>=', $sevenDaysAgo)
++             ->whereDate('order_date', '<=', $this->today)
++             ->groupBy(DB::raw('DATE(order_date)'))
++             ->orderBy('date')
++             ->get()
++             ->keyBy('date');
++
++         $this->trendData = [];
++         $this->trendLabels = [];
++         for($i = 6; $i >= 0; $i--) {
++             $date = \Carbon\Carbon::parse($this->today)->subDays($i)->toDateString();
++             $this->trendLabels[] = \Carbon\Carbon::parse($date)->format('D'); // e.g. Mon, Tue
++             $this->trendData[] = isset($trend[$date]) ? $trend[$date]->total_orders : 0;
++         }
++         
++         // Trigger front-end event to re-render charts
++         $this->dispatch('update-daily-charts', [
++             'labels' => $this->trendLabels, 
++             'data' => $this->trendData,
++             'payment' => $this->paymentSplit
++         ]);
+     }
+ 
+         /* download report */
+diff --git a/app/Livewire/Reports/ExpenseReport.php b/app/Livewire/Reports/ExpenseReport.php
+index 816ff82..32d5b8f 100644
+--- a/app/Livewire/Reports/ExpenseReport.php
++++ b/app/Livewire/Reports/ExpenseReport.php
+@@ -6,10 +6,16 @@
+ use Livewire\Attributes\Title;
+ use Barryvdh\DomPDF\Facade\Pdf;
+ use App\Models\Translation;
++use Illuminate\Support\Facades\DB;
++use Carbon\Carbon;
+ 
+ class ExpenseReport extends Component
+ {
+     public $from_date, $to_date, $expenses, $lang;
++    
++    // New Metrics
++    public $kpi = [];
++    public $categoryBreakdown = [];
+     /* render the page */
+     #[Title('Expense Report')]
+     public function render()
+@@ -22,14 +28,16 @@ public function mount()
+         if(!\Illuminate\Support\Facades\Gate::allows('report_expense')){
+             abort(404);
+         }
+-         $this->from_date = \Carbon\Carbon::today()->toDateString();
+-         $this->to_date = \Carbon\Carbon::today()->toDateString();
+-         $this->report();
++         $this->from_date = Carbon::now()->startOfMonth()->toDateString();
++         $this->to_date = Carbon::now()->endOfMonth()->toDateString();
++         
+          if (session()->has('selected_language')) {
+              $this->lang = Translation::where('id', session()->get('selected_language'))->first();
+          } else {
+              $this->lang = Translation::where('default', 1)->first();
+          }
++         
++         $this->report();
+      }
+      /*processed on update of the element */
+      public function updated($name, $value)
+@@ -39,7 +47,47 @@ public function updated($name, $value)
+      /* report section */
+      public function report()
+      {
+-         $this->expenses = \App\Models\Expense::whereDate('expense_date', '>=', $this->from_date)->whereDate('expense_date', '<=', $this->to_date)->latest()->get();
++         // Calculate KPIs at the database level
++         $totalExpenses = \App\Models\Expense::whereDate('expense_date', '>=', $this->from_date)
++             ->whereDate('expense_date', '<=', $this->to_date)
++             ->sum('expense_amount');
++         
++         $totalIncome = \App\Models\Payment::whereDate('payment_date', '>=', $this->from_date)
++             ->whereDate('payment_date', '<=', $this->to_date)
++             ->sum('received_amount');
++             
++         $this->kpi = [
++             'expenses' => $totalExpenses,
++             'income' => $totalIncome,
++             'net_profit' => $totalIncome - $totalExpenses
++         ];
++         
++         // Fetch expenses for the table display
++         $this->expenses = \App\Models\Expense::whereDate('expense_date', '>=', $this->from_date)
++             ->whereDate('expense_date', '<=', $this->to_date)
++             ->latest()
++             ->get();
++         
++         $categories = DB::table('expenses')
++             ->join('expense_categories', 'expenses.expense_category_id', '=', 'expense_categories.id')
++             ->select('expense_categories.expense_category_name', DB::raw('SUM(expenses.expense_amount) as amount'))
++             ->whereDate('expenses.expense_date', '>=', $this->from_date)
++             ->whereDate('expenses.expense_date', '<=', $this->to_date)
++             ->groupBy('expense_categories.expense_category_name')
++             ->orderByDesc('amount')
++             ->get();
++             
++         $this->categoryBreakdown = [];
++         foreach($categories as $c) {
++             $this->categoryBreakdown[] = [
++                 'name' => $c->expense_category_name,
++                 'amount' => $c->amount
++             ];
++         }
++         
++         $this->dispatch('update-expense-charts', [
++             'categories' => $this->categoryBreakdown
++         ]);
+      }
+      /* download pdf file */
+      public function downloadFile()
+diff --git a/app/Livewire/Reports/LedgerReport.php b/app/Livewire/Reports/LedgerReport.php
+index 1d33f70..048c0d8 100644
+--- a/app/Livewire/Reports/LedgerReport.php
++++ b/app/Livewire/Reports/LedgerReport.php
+@@ -9,10 +9,12 @@
+ use App\Models\Payment;
+ use App\Models\Translation;
+ use Carbon\Carbon;
++use Illuminate\Support\Facades\DB;
+ 
+ class LedgerReport extends Component
+ {
+     public $selected_customer,$customers,$customer_query,$start_date,$end_date,$first_data,$lang,$data;
++    public $ageingData = [];
+     #[Title('Ledger Report')]
+     public function render()
+     {
+@@ -30,9 +32,52 @@ public function mount()
+         else{
+             $this->lang = Translation::where('default',1)->first();
+         }
+-        $this->start_date = \Carbon\Carbon::today()->toDateString();
+-        $this->end_date = \Carbon\Carbon::today()->toDateString();
++        $this->start_date = Carbon::now()->startOfMonth()->toDateString();
++        $this->end_date = Carbon::now()->endOfMonth()->toDateString();
+         $this->data = collect();
++        $this->customers = collect();
++        $this->calculateAgeing();
++    }
++
++    public function calculateAgeing()
++    {
++        $today = Carbon::today();
++        
++        $paymentsSub = DB::table('payments')
++            ->select('order_id', DB::raw('SUM(received_amount) as total_paid'))
++            ->groupBy('order_id');
++
++        $orders = DB::table('orders')
++            ->leftJoinSub($paymentsSub, 'paid_orders', function ($join) {
++                $join->on('orders.id', '=', 'paid_orders.order_id');
++            })
++            ->select('orders.id', 'orders.order_date', 'orders.total', DB::raw('COALESCE(paid_orders.total_paid, 0) as paid'))
++            ->whereRaw('orders.total > COALESCE(paid_orders.total_paid, 0)')
++            ->get();
++            
++        $ageing = [ '0_30' => 0, '31_60' => 0, '61_90' => 0, '90_plus' => 0 ];
++        
++        foreach($orders as $o) {
++            $balance = $o->total - $o->paid;
++            $days = Carbon::parse($o->order_date)->diffInDays($today);
++            
++            if ($days <= 30) {
++                $ageing['0_30'] += $balance;
++            } else if ($days <= 60) {
++                $ageing['31_60'] += $balance;
++            } else if ($days <= 90) {
++                $ageing['61_90'] += $balance;
++            } else {
++                $ageing['90_plus'] += $balance;
++            }
++        }
++        
++        $this->ageingData = [
++            $ageing['0_30'],
++            $ageing['31_60'],
++            $ageing['61_90'],
++            $ageing['90_plus']
++        ];
+     }
+ 
+     public function updated($name,$value)
+@@ -65,29 +110,20 @@ public function getData()
+                 'alert', ['type' => 'error','title' => 'Fetching failed',  'message' => 'You have not selected a customer!']);
+             return;
+         }
+-        $this->data = collect();
+-        if(!$this->selected_customer)
+-        {
+-            return abort(404);
+-        }
+-        $debits = collect(Order::where('customer_id',$this->selected_customer->id)->whereDate('order_date','>=',Carbon::parse($this->start_date)->toDateString())->whereDate('order_date','<=',Carbon::parse($this->end_date)->toDateString())->get());
+-        foreach($debits as $row)
+-        {
+-            $row['date'] = $row['order_date'];
+-            $row['type'] = 'debit';
+-        }  
+-        $credits = collect(Payment::where('customer_id',$this->selected_customer->id)->whereDate('payment_date','>=',Carbon::parse($this->start_date)->toDateString())->whereDate('payment_date','<=',Carbon::parse($this->end_date)->toDateString())->get());
+-        foreach($credits as $row)
+-        {
+-            $row['date'] = $row['created_at'];
+-            $row['type'] = 'credit';
+-        }   
+-        $this->data = $debits->concat($credits);
+-      
+-        $this->data = $this->data->toArray();
+-        usort($this->data,function ($a,$b) {
+-            return Carbon::parse($a['date'])->greaterThan(Carbon::parse($b['date'])) ;
+-        });
++        $customerId = $this->selected_customer->id;
++        $startDate = Carbon::parse($this->start_date)->toDateString();
++        $endDate = Carbon::parse($this->end_date)->toDateString();
++
++        $this->data = array_map(function($row) { return (array) $row; }, DB::select("
++            SELECT order_date as date, 'debit' as type, order_number, total, 0 as received_amount
++            FROM orders 
++            WHERE customer_id = ? AND DATE(order_date) >= ? AND DATE(order_date) <= ?
++            UNION ALL
++            SELECT payment_date as date, 'credit' as type, NULL as order_number, 0 as total, received_amount
++            FROM payments 
++            WHERE customer_id = ? AND DATE(payment_date) >= ? AND DATE(payment_date) <= ?
++            ORDER BY date ASC
++        ", [$customerId, $startDate, $endDate, $customerId, $startDate, $endDate]));
+         $this->first_data = [
+             'debits'    => Order::where('customer_id',$this->selected_customer->id)->whereDate('order_date','<',Carbon::parse($this->start_date)->toDateString())->sum('total'),
+             'credits'    => Payment::where('customer_id',$this->selected_customer->id)->whereDate('payment_date','<',Carbon::parse($this->start_date)->toDateString())->sum('received_amount'),
+diff --git a/app/Livewire/Reports/OrderReport.php b/app/Livewire/Reports/OrderReport.php
+index 3b0df48..bfe0666 100644
+--- a/app/Livewire/Reports/OrderReport.php
++++ b/app/Livewire/Reports/OrderReport.php
+@@ -6,10 +6,16 @@
+ use Livewire\Attributes\Title;
+ use App\Models\Translation;
+ use Barryvdh\DomPDF\Facade\Pdf;
++use Illuminate\Support\Facades\DB;
++use Carbon\Carbon;
+ 
+ class OrderReport extends Component
+ {
+     public $from_date, $to_date, $orders, $status = -1, $lang;
++    
++    // New Metrics
++    public $kpi = [];
++    public $serviceBreakdown = [];
+     #[Title('Order Report')]
+     public function render()
+     {
+@@ -21,8 +27,9 @@ public function mount()
+         if(!\Illuminate\Support\Facades\Gate::allows('report_order')){
+             abort(404);
+         }
+-         $this->from_date = \Carbon\Carbon::today()->toDateString();
+-         $this->to_date = \Carbon\Carbon::today()->toDateString();
++         $this->from_date = Carbon::now()->startOfMonth()->toDateString();
++         $this->to_date = Carbon::now()->endOfMonth()->toDateString();
++         
+          if (session()->has('selected_language')) {
+              $this->lang = Translation::where('id', session()->get('selected_language'))->first();
+          } else {
+@@ -38,11 +45,70 @@ public function updated($name, $value)
+      /* report section */
+      public function report()
+      {
+-         if ($this->status == -1) {
+-             $this->orders = \App\Models\Order::whereDate('order_date', '>=', $this->from_date)->whereDate('order_date', '<=', $this->to_date)->latest()->get();
+-         } else {
+-             $this->orders = \App\Models\Order::whereDate('order_date', '>=', $this->from_date)->whereDate('order_date', '<=', $this->to_date)->where('status', $this->status)->latest()->get();
++         $query = \App\Models\Order::whereDate('order_date', '>=', $this->from_date)
++             ->whereDate('order_date', '<=', $this->to_date);
++             
++         if ($this->status != -1) {
++             $query->where('status', $this->status);
++         }
++         
++         $this->orders = $query->latest()->get();
++         
++         // Calculate Current Period KPIs
++         $currentOrders = $this->orders->count();
++         
++         // Calculate Previous Period
++         $daysDiff = Carbon::parse($this->from_date)->diffInDays(Carbon::parse($this->to_date)) + 1;
++         $prev_to_date = Carbon::parse($this->from_date)->subDay()->toDateString();
++         $prev_from_date = Carbon::parse($this->from_date)->subDays($daysDiff)->toDateString();
++         
++         $prevQuery = \App\Models\Order::whereDate('order_date', '>=', $prev_from_date)
++             ->whereDate('order_date', '<=', $prev_to_date);
++             
++         if ($this->status != -1) {
++             $prevQuery->where('status', $this->status);
++         }
++         
++         $prevOrders = $prevQuery->count();
++         
++         $orderGrowth = 0;
++         if ($prevOrders > 0) {
++             $orderGrowth = (($currentOrders - $prevOrders) / $prevOrders) * 100;
++         } else if ($currentOrders > 0) {
++             $orderGrowth = 100;
++         }
++         
++         $this->kpi = [
++             'orders' => $currentOrders,
++             'growth' => round($orderGrowth, 1)
++         ];
++         
++         // Service Breakdown (100% Stacked Horizontal Bar)
++         $serviceQuery = DB::table('order_details')
++             ->join('orders', 'order_details.order_id', '=', 'orders.id')
++             ->select('order_details.service_name', DB::raw('SUM(order_details.service_quantity) as volume'))
++             ->whereDate('orders.order_date', '>=', $this->from_date)
++             ->whereDate('orders.order_date', '<=', $this->to_date);
++             
++         if ($this->status != -1) {
++             $serviceQuery->where('orders.status', $this->status);
++         }
++             
++         $services = $serviceQuery->groupBy('order_details.service_name')
++             ->orderByDesc('volume')
++             ->get();
++             
++         $this->serviceBreakdown = [];
++         foreach($services as $s) {
++             $this->serviceBreakdown[] = [
++                 'name' => $s->service_name,
++                 'amount' => $s->volume // Using Volume for Order report instead of Revenue
++             ];
+          }
++         
++         $this->dispatch('update-order-charts', [
++             'services' => $this->serviceBreakdown
++         ]);
+      }
+      /* download report */
+      public function downloadFile()
+diff --git a/app/Livewire/Reports/SalesReport.php b/app/Livewire/Reports/SalesReport.php
+index 282fa73..cf53b5b 100644
+--- a/app/Livewire/Reports/SalesReport.php
++++ b/app/Livewire/Reports/SalesReport.php
+@@ -6,10 +6,16 @@
+ use Livewire\Attributes\Title;
+ use Barryvdh\DomPDF\Facade\Pdf;
+ use App\Models\Translation;
++use Illuminate\Support\Facades\DB;
++use Carbon\Carbon;
+ 
+ class SalesReport extends Component
+ {
+     public $from_date, $to_date, $orders, $lang;
++    
++    // New Metrics
++    public $kpi = [];
++    public $serviceBreakdown = [];
+     /* render the page */
+     #[Title('Sales Report')]
+     public function render()
+@@ -22,8 +28,9 @@ public function mount()
+         if(!\Illuminate\Support\Facades\Gate::allows('report_sales')){
+             abort(404);
+         }
+-          $this->from_date = \Carbon\Carbon::today()->toDateString();
+-          $this->to_date = \Carbon\Carbon::today()->toDateString();
++          $this->from_date = Carbon::now()->startOfMonth()->toDateString();
++          $this->to_date = Carbon::now()->endOfMonth()->toDateString();
++          
+           if (session()->has('selected_language')) {
+               $this->lang = Translation::where('id', session()->get('selected_language'))->first();
+           } else {
+@@ -39,7 +46,73 @@ public function updated($name, $value)
+       /* report section */
+       public function report()
+       {
+-          $this->orders = \App\Models\Order::whereDate('order_date', '>=', $this->from_date)->whereDate('order_date', '<=', $this->to_date)->where('status', 3)->latest()->get();
++          // Calculate Current Period KPIs at the database level
++          $currentKpi = \App\Models\Order::whereDate('order_date', '>=', $this->from_date)
++              ->whereDate('order_date', '<=', $this->to_date)
++              ->where('status', 3)
++              ->selectRaw('COALESCE(SUM(total), 0) as sales, COALESCE(SUM(discount), 0) as discount, COUNT(*) as orders')
++              ->first();
++          
++          $currentSales = $currentKpi->sales;
++          $currentDiscount = $currentKpi->discount;
++          $currentOrders = $currentKpi->orders;
++          $currentAov = $currentOrders > 0 ? $currentSales / $currentOrders : 0;
++          
++          // Calculate Previous Period (Period-over-Period) at the database level
++          $daysDiff = Carbon::parse($this->from_date)->diffInDays(Carbon::parse($this->to_date)) + 1;
++          $prev_to_date = Carbon::parse($this->from_date)->subDay()->toDateString();
++          $prev_from_date = Carbon::parse($this->from_date)->subDays($daysDiff)->toDateString();
++          
++          $prevSales = \App\Models\Order::whereDate('order_date', '>=', $prev_from_date)
++              ->whereDate('order_date', '<=', $prev_to_date)
++              ->where('status', 3)
++              ->sum('total');
++              
++          // Growth Calculation
++          $salesGrowth = 0;
++          if ($prevSales > 0) {
++              $salesGrowth = (($currentSales - $prevSales) / $prevSales) * 100;
++          } else if ($currentSales > 0) {
++              $salesGrowth = 100;
++          }
++          
++          $this->kpi = [
++              'sales' => $currentSales,
++              'orders' => $currentOrders,
++              'discount' => $currentDiscount,
++              'aov' => $currentAov,
++              'growth' => round($salesGrowth, 1)
++          ];
++          
++          // Fetch orders for the table display (keep ->get() since the table needs all rows)
++          $this->orders = \App\Models\Order::whereDate('order_date', '>=', $this->from_date)
++              ->whereDate('order_date', '<=', $this->to_date)
++              ->where('status', 3)
++              ->latest()
++              ->get();
++          
++          // Service Breakdown (already uses DB-level aggregation - keep as is)
++          $services = DB::table('order_details')
++              ->join('orders', 'order_details.order_id', '=', 'orders.id')
++              ->select('order_details.service_name', DB::raw('SUM(order_details.service_detail_total) as revenue'))
++              ->whereDate('orders.order_date', '>=', $this->from_date)
++              ->whereDate('orders.order_date', '<=', $this->to_date)
++              ->where('orders.status', 3)
++              ->groupBy('order_details.service_name')
++              ->orderByDesc('revenue')
++              ->get();
++              
++          $this->serviceBreakdown = [];
++          foreach($services as $s) {
++              $this->serviceBreakdown[] = [
++                  'name' => $s->service_name,
++                  'amount' => $s->revenue
++              ];
++          }
++          
++          $this->dispatch('update-sales-charts', [
++              'services' => $this->serviceBreakdown
++          ]);
+       }
+       /* download pdf file */
+       public function downloadFile()
+diff --git a/app/Livewire/Roles/RolesList.php b/app/Livewire/Roles/RolesList.php
+index daf8ce4..3abc23d 100644
+--- a/app/Livewire/Roles/RolesList.php
++++ b/app/Livewire/Roles/RolesList.php
+@@ -28,6 +28,8 @@ class RolesList extends Component
+         'Translation' => ['translation_list'],
+         'Service Type' => ['service_type_list'],
+         'Expense Category' => ['expense_category_list'],
++        'Order Approval' => ['accept_reject_order', 'bypass_order_approval', 'view_all_requests', 'edit_pending_requests', 'delete_order_requests', 'bypass_approval_under_limit'],
++        'Bulk Actions' => null,
+     ];
+ 
+     public $roles, $role, $editRole, $search_query, $lang ,$permissions,$selected_permissions = [],$name;
+@@ -139,6 +141,9 @@ public function update()
+     /* process while change the content*/
+     public function updated($name, $value)
+     {
++        if ($name === 'selected_permissions.bypass_order_approval' && $value === true) {
++            $this->selected_permissions['bypass_approval_under_limit'] = true;
++        }
+     }
+     /* reset input fields */
+     public function resetFields()
+diff --git a/app/Livewire/Service/ServiceEdit.php b/app/Livewire/Service/ServiceEdit.php
+index a0af8d3..8b367ee 100644
+--- a/app/Livewire/Service/ServiceEdit.php
++++ b/app/Livewire/Service/ServiceEdit.php
+@@ -9,9 +9,13 @@
+ use File;
+ use App\Models\ServiceType;
+ use App\Models\Translation;
++use Livewire\WithFileUploads;
+ 
+ class ServiceEdit extends Component
+ {
++    use WithFileUploads;
++
++    public $newIcon;
+     #[Title('Service Edit')]
+     public $services,$files,$imageicon,$inputs=[],$service_types,$prices = [],$servicetypes =[],$inputi=1,$service_name,$is_active=1,$service,$lang;
+     /* render the page */
+@@ -25,14 +29,8 @@ public function mount($id)
+         if(!\Illuminate\Support\Facades\Gate::allows('service_edit')){
+             abort(404);
+         }
+-        $files = File::files(public_path('assets/img/service-icons'));
+-        $i = 0;
+         $this->service_types = ServiceType::latest()->get();
+-        foreach($files as $value)
+-        {
+-            $i++;
+-            $this->files[$i]['path'] = $value->getfilename();
+-        }
++        $this->loadIcons();
+         $this->service = Service::where('id',$id)->first();
+         /* if service is not exist */
+         if(!$this->service)
+@@ -58,10 +56,70 @@ public function mount($id)
+             $this->lang = Translation::where('default',1)->first();
+         }
+     }
++    /* load icons */
++    public function loadIcons()
++    {
++        $this->files = [];
++        $files = File::files(public_path('assets/img/service-icons'));
++        $i = 0;
++        foreach ($files as $value) {
++            $i++;
++            $this->files[$i]['path'] = $value->getfilename();
++        }
++    }
++    
++    /* upload new Icon */
++    public function uploadIcon()
++    {
++        $this->validate([
++            'newIcon' => 'required|image|max:1024', // max 1MB
++        ]);
++
++        $fileName = time() . '_' . $this->newIcon->getClientOriginalName();
++        $path = public_path('assets/img/service-icons/' . $fileName);
++        
++        $manager = new \Intervention\Image\ImageManager(new \Intervention\Image\Drivers\Gd\Driver());
++        $image = $manager->read($this->newIcon->getRealPath());
++        $image->scaleDown(150, 150);
++        $image->save($path);
++        
++        $this->loadIcons();
++        $this->newIcon = null;
++        
++        $this->dispatch('alert', ['type' => 'success', 'message' => 'Icon uploaded and resized successfully!']);
++    }
++
++    /* delete Icon */
++    public function deleteIcon($filename)
++    {
++        // Check if icon is in use
++        if (Service::where('icon', $filename)->exists()) {
++            $this->dispatch('alert', ['type' => 'error', 'message' => 'Cannot delete icon because it is assigned to an existing service.']);
++            return;
++        }
++
++        $path = public_path('assets/img/service-icons/' . $filename);
++        if (File::exists($path)) {
++            File::delete($path);
++        }
++
++        $this->loadIcons();
++        $this->dispatch('alert', ['type' => 'success', 'message' => 'Icon deleted successfully!']);
++    }
++
+     /* select the icon */
+     public function selectIcon($data)
+     {
+-        $this->imageicon = $this->files[$data];
++        if (is_array($data) && isset($data['path'])) {
++            $this->imageicon = $data;
++        } else {
++            // It's from Iconify or array index
++            if (isset($this->files[$data])) {
++                $this->imageicon = $this->files[$data];
++            } else {
++                $this->imageicon = ['path' => $data];
++            }
++        }
+         $this->dispatch('closemodal');
+     }
+     /* add the content for upcoming process */
+diff --git a/app/Livewire/Service/ServiceManage.php b/app/Livewire/Service/ServiceManage.php
+index bc1a814..2d16d41 100644
+--- a/app/Livewire/Service/ServiceManage.php
++++ b/app/Livewire/Service/ServiceManage.php
+@@ -9,10 +9,14 @@
+ use File;
+ use App\Models\ServiceType;
+ use App\Models\Translation;
++use Livewire\WithFileUploads;
+ use Livewire\Attributes\Title;
+ 
+ class ServiceManage extends Component
+ {
++    use WithFileUploads;
++
++    public $newIcon;
+     public $services, $files, $imageicon, $inputs = [], $service_types, $prices = [], $servicetypes = [], $inputi = 1, $service_name, $is_active = 1, $lang;
+     /* render the page */
+     #[Title('Manage Service')]
+@@ -26,23 +30,78 @@ public function mount()
+         if(!\Illuminate\Support\Facades\Gate::allows('service_create')){
+             abort(404);
+         }
++        $this->service_types = ServiceType::latest()->get();
++        $this->loadIcons();
++        if (session()->has('selected_language')) { /* if session has selected language */
++            $this->lang = Translation::where('id', session()->get('selected_language'))->first();
++        } else {
++            $this->lang = Translation::where('default', 1)->first();
++        }
++    }
++    /* load icons */
++    public function loadIcons()
++    {
++        $this->files = [];
+         $files = File::files(public_path('assets/img/service-icons'));
+         $i = 0;
+-        $this->service_types = ServiceType::latest()->get();
+         foreach ($files as $value) {
+             $i++;
+             $this->files[$i]['path'] = $value->getfilename();
+         }
+-        if (session()->has('selected_language')) { /* if session has selected language */
+-            $this->lang = Translation::where('id', session()->get('selected_language'))->first();
+-        } else {
+-            $this->lang = Translation::where('default', 1)->first();
++    }
++    
++    /* upload new Icon */
++    public function uploadIcon()
++    {
++        $this->validate([
++            'newIcon' => 'required|image|max:1024', // max 1MB
++        ]);
++
++        $fileName = time() . '_' . $this->newIcon->getClientOriginalName();
++        $path = public_path('assets/img/service-icons/' . $fileName);
++        
++        $manager = new \Intervention\Image\ImageManager(new \Intervention\Image\Drivers\Gd\Driver());
++        $image = $manager->read($this->newIcon->getRealPath());
++        $image->scaleDown(150, 150);
++        $image->save($path);
++        
++        $this->loadIcons();
++        $this->newIcon = null;
++        
++        $this->dispatch('alert', ['type' => 'success', 'message' => 'Icon uploaded and resized successfully!']);
++    }
++
++    /* delete Icon */
++    public function deleteIcon($filename)
++    {
++        // Check if icon is in use
++        if (Service::where('icon', $filename)->exists()) {
++            $this->dispatch('alert', ['type' => 'error', 'message' => 'Cannot delete icon because it is assigned to an existing service.']);
++            return;
+         }
++
++        $path = public_path('assets/img/service-icons/' . $filename);
++        if (File::exists($path)) {
++            File::delete($path);
++        }
++
++        $this->loadIcons();
++        $this->dispatch('alert', ['type' => 'success', 'message' => 'Icon deleted successfully!']);
+     }
++
+     /* select Icon */
+     public function selectIcon($data)
+     {
+-        $this->imageicon = $this->files[$data];
++        if (is_array($data) && isset($data['path'])) {
++            $this->imageicon = $data;
++        } else {
++            // It's from Iconify or array index
++            if (isset($this->files[$data])) {
++                $this->imageicon = $this->files[$data];
++            } else {
++                $this->imageicon = ['path' => $data];
++            }
++        }
+         $this->dispatch('closemodal');
+     }
+     /* add the content for upcoming process */
+diff --git a/app/Livewire/Service/ServiceTypesList.php b/app/Livewire/Service/ServiceTypesList.php
+index b81e293..355bebc 100644
+--- a/app/Livewire/Service/ServiceTypesList.php
++++ b/app/Livewire/Service/ServiceTypesList.php
+@@ -31,7 +31,7 @@ public function mount()
+         $this->service_types = new EloquentCollection();
+         $this->loadServiceTypes();
+ 
+-        //$this->service_types = ModelsServiceType::latest()->get();
++        //$this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
+         if(session()->has('selected_language'))
+         {  /* if session has selected language */
+             $this->lang = Translation::where('id',session()->get('selected_language'))->first();
+@@ -53,11 +53,11 @@ public function create()
+         ]);
+         $this->name = null;
+         $this->is_active = 1;
+-        $this->service_types = ModelsServiceType::latest()->get();
++        $this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
+         $this->dispatch(
+             'alert', ['type' => 'success',  'message' => 'Service Type has been created!']);
+         $this->dispatch('closemodal');
+-        $this->service_types = ModelsServiceType::latest()->get();
++        $this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
+     }
+     /* set content to edit */   
+     public function edit($id)
+@@ -66,7 +66,7 @@ public function edit($id)
+         $this->service_type = ModelsServiceType::where('id',$id)->first();
+         $this->is_active = $this->service_type->is_active;
+         $this->name = $this->service_type->service_type_name;
+-        $this->service_types = ModelsServiceType::latest()->get();
++        $this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
+     }
+     /* update the servicetype */
+     public function update()
+@@ -82,11 +82,11 @@ public function update()
+         }
+         $this->name = null;
+         $this->is_active = 1;
+-        $this->service_types = ModelsServiceType::latest()->get();
++        $this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
+         $this->dispatch(
+             'alert', ['type' => 'success',  'message' => 'Service Type has been updated!']);
+         $this->dispatch('closemodal');
+-        $this->service_types = ModelsServiceType::latest()->get();
++        $this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
+     }
+     /* service type delete */
+     public function delete($id)
+@@ -107,17 +107,28 @@ public function delete($id)
+             $this->dispatch(
+                 'alert', ['type' => 'success',  'message' => 'Service Type has been deleted!']);
+         }
+-        $this->service_types = ModelsServiceType::latest()->get();
++        $this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
+     }
+-    /* process while update the element */
+     public function updated($name,$value)
+     {   /* if updated element is search query */
+         if($name == 'search_query' && $value != '')
+         {
+-            $this->service_types = ModelsServiceType::where('service_type_name', 'like' , '%'.$value.'%')->get();
++            $this->service_types = ModelsServiceType::where('service_type_name', 'like' , '%'.$value.'%')->orderBy('position', 'asc')->orderBy('id', 'asc')->get();
+         }
+         elseif($name == 'search_query' && $value == ''){
+-            $this->service_types = ModelsServiceType::latest()->get();
++            $this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
++        }
++    }
++
++    public function updateOrder($orderedIds)
++    {
++        if (is_array($orderedIds)) {
++            foreach ($orderedIds as $index => $id) {
++                ModelsServiceType::where('id', $id)->update(['position' => $index]);
++            }
++            $this->dispatch(
++                'alert', ['type' => 'success',  'message' => 'Service Types order updated!']);
++            $this->reloadOrders();
+         }
+     }
+ 
+@@ -164,12 +175,14 @@ public function filterdata()
+           if($this->search_query || $this->search_query != '')
+           {
+             $service_types = ModelsServiceType::where('service_type_name', 'like' , '%'.$this->search_query.'%')
+-            ->latest()
++            ->orderBy('position', 'asc')
++            ->orderBy('id', 'asc')
+             ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
+             return $service_types;
+           }
+           else{
+-            $service_types = ModelsServiceType::latest()
++            $service_types = ModelsServiceType::orderBy('position', 'asc')
++            ->orderBy('id', 'asc')
+             ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
+             return $service_types;
+           }
+diff --git a/app/Livewire/Settings/MailSettings.php b/app/Livewire/Settings/MailSettings.php
+index eea2b42..1e76164 100644
+--- a/app/Livewire/Settings/MailSettings.php
++++ b/app/Livewire/Settings/MailSettings.php
+@@ -12,6 +12,7 @@
+ class MailSettings extends Component
+ {
+     public $mail_host,$mail_password,$mail_username,$mail_port,$enable_forget,$mail_from_address,$mail_from_name, $lang;
++    public $enable_automated_emails, $email_template_pending, $email_template_processing, $email_template_ready, $email_template_delivered, $email_template_returned;
+     //Render Page
+     #[Title('Mail Settings')]
+     public function render()
+@@ -62,6 +63,12 @@ public function mount()
+                 $this->enable_forget = 1;
+             }
+         }
++        $this->enable_automated_emails = (isset($site['enable_automated_emails']) && $site['enable_automated_emails'] == 1) ? 1 : null;
++        $this->email_template_pending = $site['email_template_pending'] ?? '';
++        $this->email_template_processing = $site['email_template_processing'] ?? '';
++        $this->email_template_ready = $site['email_template_ready'] ?? '';
++        $this->email_template_delivered = $site['email_template_delivered'] ?? '';
++        $this->email_template_returned = $site['email_template_returned'] ?? '';
+         if (session()->has('selected_language')) {  /*if session has selected language */
+             $this->lang = Translation::where('id', session()->get('selected_language'))->first();
+         } else {
+@@ -89,6 +96,13 @@ public function save()
+             'MAIL_FROM_NAME' => $this->mail_from_name,
+         ]);
+          $site['forget_password_enable'] = $this->enable_forget ?? 0;
++         $site['enable_automated_emails'] = $this->enable_automated_emails ? 1 : 0;
++         $site['email_template_pending'] = $this->email_template_pending;
++         $site['email_template_processing'] = $this->email_template_processing;
++         $site['email_template_ready'] = $this->email_template_ready;
++         $site['email_template_delivered'] = $this->email_template_delivered;
++         $site['email_template_returned'] = $this->email_template_returned;
++
+         foreach ($site as $key => $value) {
+             MasterSettings::updateOrCreate(['master_title' => $key], ['master_value' => $value]);
+         }
+diff --git a/app/Livewire/Settings/MasterSetting.php b/app/Livewire/Settings/MasterSetting.php
+index 2169790..5d3cdc1 100644
+--- a/app/Livewire/Settings/MasterSetting.php
++++ b/app/Livewire/Settings/MasterSetting.php
+@@ -17,6 +17,7 @@ class MasterSetting extends Component
+     public $default_currency, $default_application_name, $default_phone_number, $default_financial_year, $default_tax_percentage;
+     public $default_state, $default_city, $default_district, $default_zip_code, $default_address, $user, $email, $password, $default_logo, $default_favicon, $default_currency_alignment = 1;
+     public $old_favicon, $old_logo, $default_printer = 1, $lang, $country_code, $default_country, $store_tax, $store_email,$default_tax_mode;
++    public $bypass_approval_limit;
+     use WithFileUploads;
+     /* render the page */
+     #[Title('Master Settings')]
+@@ -56,6 +57,7 @@ public function initialValue(){
+         $this->store_email = (isset($site['store_email']) && !empty($site['store_email'])) ? $site['store_email'] : '';
+         $this->default_printer = (isset($site['default_printer']) && !empty($site['default_printer'])) ? $site['default_printer'] : '';
+         $this->default_currency_alignment = (isset($site['default_currency_alignment']) && !empty($site['default_currency_alignment'])) ? $site['default_currency_alignment'] : 1;
++        $this->bypass_approval_limit = (isset($site['bypass_approval_limit']) && !empty($site['bypass_approval_limit'])) ? $site['bypass_approval_limit'] : 0;
+         if (session()->has('selected_language')) {   /*if session has selected language */
+             $this->lang = Translation::where('id', session()->get('selected_language'))->first();
+         } else {
+@@ -87,7 +89,8 @@ public function save()
+             'email' => 'required|email|unique:users',
+             'email' => ['required', 'email', Rule::unique('users')->ignore($this->user->id)],
+             'default_printer' => 'required',
+-            'country_code'  => 'required'
++            'country_code'  => 'required',
++            'bypass_approval_limit' => 'nullable|numeric|min:0',
+         ]);
+ 
+         $settings = new MasterSettings();
+@@ -109,6 +112,7 @@ public function save()
+         $site['default_printer'] = $this->default_printer;
+         $site['country_code'] = $this->country_code;
+         $site['default_currency_alignment'] = $this->default_currency_alignment;
++        $site['bypass_approval_limit'] = $this->bypass_approval_limit;
+         if ($this->default_logo) {
+             ini_set('memory_limit', '512M'); // Temporarily increase memory for large images
+             $default_logo = $this->default_logo;
+diff --git a/app/Livewire/Settings/RecycleBin.php b/app/Livewire/Settings/RecycleBin.php
+new file mode 100644
+index 0000000..4a32df3
+--- /dev/null
++++ b/app/Livewire/Settings/RecycleBin.php
+@@ -0,0 +1,182 @@
++<?php
++
++namespace App\Livewire\Settings;
++
++use Livewire\Component;
++use App\Models\Order;
++use App\Models\Payment;
++use App\Models\OrderDetail;
++use App\Models\OrderAddonDetail;
++use App\Models\Translation;
++use Livewire\Attributes\Title;
++use Illuminate\Support\Facades\Gate;
++use Illuminate\Support\Facades\DB;
++
++class RecycleBin extends Component
++{
++    public $orders;
++    public $search_query;
++    public $selectedOrders = [];
++    public $lang;
++
++    #[Title('Recycle Bin')]
++    public function render()
++    {
++        return view('livewire.settings.recycle-bin');
++    }
++
++    public function mount()
++    {
++        if(!Gate::allows('order_restore')){
++            abort(404);
++        }
++
++        if(session()->has('selected_language')) {
++            $this->lang = Translation::where('id', session()->get('selected_language'))->first();
++        } else {
++            $this->lang = Translation::where('default', 1)->first();
++        }
++
++        $this->loadTrashedOrders();
++    }
++
++    public function loadTrashedOrders()
++    {
++        $query = Order::onlyTrashed()->with('details', 'addons', 'deletedBy')->orderBy('deleted_at', 'DESC');
++
++        if ($this->search_query) {
++            $searchQuery = $this->search_query;
++            $query->where(function($q) use ($searchQuery) {
++                $q->where('order_number', 'like', '%' . $searchQuery . '%')
++                  ->orWhere('customer_name', 'like', '%' . $searchQuery . '%')
++                  ->orWhere('phone_number', 'like', '%' . $searchQuery . '%');
++            });
++        }
++
++        $this->orders = $query->get()->map(function($order) {
++            $order->days_remaining = 90 - now()->diffInDays($order->deleted_at);
++            $order->paid_amount = Payment::withTrashed()->where('order_id', $order->id)->sum('received_amount');
++            return $order;
++        });
++    }
++
++    public function updated($name, $value)
++    {
++        if ($name == 'search_query') {
++            $this->loadTrashedOrders();
++        }
++    }
++
++    public function restoreOrder($orderId)
++    {
++        if(!Gate::allows('order_restore')){
++            abort(404);
++        }
++
++        DB::transaction(function () use ($orderId) {
++            $order = Order::onlyTrashed()->find($orderId);
++            if ($order) {
++                $order->restore();
++                OrderDetail::onlyTrashed()->where('order_id', $orderId)->restore();
++                OrderAddonDetail::onlyTrashed()->where('order_id', $orderId)->restore();
++                Payment::onlyTrashed()->where('order_id', $orderId)->restore();
++            }
++        });
++
++        $this->loadTrashedOrders();
++        $this->dispatch('alert', ['type' => 'success', 'message' => 'Order restored successfully!']);
++    }
++
++    public function bulkRestore()
++    {
++        if(empty($this->selectedOrders)) return;
++
++        if(!Gate::allows('order_restore')){
++            $this->dispatch('alert', ['type' => 'error', 'message' => 'You do not have permission to restore orders!']);
++            return;
++        }
++
++        DB::transaction(function () {
++            foreach ($this->selectedOrders as $orderId) {
++                $order = Order::onlyTrashed()->find($orderId);
++                if ($order) {
++                    $order->restore();
++                    OrderDetail::onlyTrashed()->where('order_id', $orderId)->restore();
++                    OrderAddonDetail::onlyTrashed()->where('order_id', $orderId)->restore();
++                    Payment::onlyTrashed()->where('order_id', $orderId)->restore();
++                }
++            }
++        });
++
++        $this->selectedOrders = [];
++        $this->loadTrashedOrders();
++        $this->dispatch('alert', ['type' => 'success', 'message' => 'Selected orders restored successfully!']);
++    }
++
++    public function forceDeleteOrder($orderId)
++    {
++        if(!Gate::allows('order_force_delete')){
++            abort(404);
++        }
++
++        DB::transaction(function () use ($orderId) {
++            $order = Order::onlyTrashed()->find($orderId);
++            if ($order) {
++                OrderDetail::onlyTrashed()->where('order_id', $orderId)->forceDelete();
++                OrderAddonDetail::onlyTrashed()->where('order_id', $orderId)->forceDelete();
++                Payment::onlyTrashed()->where('order_id', $orderId)->forceDelete();
++                $order->forceDelete();
++            }
++        });
++
++        $this->loadTrashedOrders();
++        $this->dispatch('alert', ['type' => 'success', 'message' => 'Order permanently deleted!']);
++    }
++
++    public function bulkForceDelete()
++    {
++        if(empty($this->selectedOrders)) return;
++
++        if(!Gate::allows('order_force_delete')){
++            $this->dispatch('alert', ['type' => 'error', 'message' => 'You do not have permission to permanently delete orders!']);
++            return;
++        }
++
++        DB::transaction(function () {
++            foreach ($this->selectedOrders as $orderId) {
++                $order = Order::onlyTrashed()->find($orderId);
++                if ($order) {
++                    OrderDetail::onlyTrashed()->where('order_id', $orderId)->forceDelete();
++                    OrderAddonDetail::onlyTrashed()->where('order_id', $orderId)->forceDelete();
++                    Payment::onlyTrashed()->where('order_id', $orderId)->forceDelete();
++                    $order->forceDelete();
++                }
++            }
++        });
++
++        $this->selectedOrders = [];
++        $this->loadTrashedOrders();
++        $this->dispatch('alert', ['type' => 'success', 'message' => 'Selected orders permanently deleted!']);
++    }
++
++    public function emptyRecycleBin()
++    {
++        if(!Gate::allows('order_force_delete')){
++            $this->dispatch('alert', ['type' => 'error', 'message' => 'You do not have permission to permanently delete orders!']);
++            return;
++        }
++
++        DB::transaction(function () {
++            $orders = Order::onlyTrashed()->get();
++            foreach ($orders as $order) {
++                OrderDetail::onlyTrashed()->where('order_id', $order->id)->forceDelete();
++                OrderAddonDetail::onlyTrashed()->where('order_id', $order->id)->forceDelete();
++                Payment::onlyTrashed()->where('order_id', $order->id)->forceDelete();
++                $order->forceDelete();
++            }
++        });
++
++        $this->loadTrashedOrders();
++        $this->dispatch('alert', ['type' => 'success', 'message' => 'Recycle bin emptied!']);
++    }
++}
+diff --git a/app/Livewire/Settings/Staff/StaffList.php b/app/Livewire/Settings/Staff/StaffList.php
+index 859342e..864078e 100644
+--- a/app/Livewire/Settings/Staff/StaffList.php
++++ b/app/Livewire/Settings/Staff/StaffList.php
+@@ -13,6 +13,7 @@ class StaffList extends Component
+ {
+ 
+     public $name, $phone, $email, $password, $address, $is_active = 1, $staffs, $staff, $search = '', $lang, $is_active_edit=true,$roles,$user_role;
++    public $can_view_all_orders = false, $viewable_staff_ids = [];
+     #[Title('Staff')]
+     public function render()
+     {
+@@ -47,6 +48,8 @@ public function resetFields()
+         $this->password = '';
+         $this->address = '';
+         $this->is_active = 1;
++        $this->can_view_all_orders = false;
++        $this->viewable_staff_ids = [];
+         $this->staff = null;
+         if(count($this->roles) > 0){
+             $this->user_role = $this->roles->first()->id;
+@@ -62,6 +65,13 @@ public function save()
+             'email' => 'required|unique:users|email',
+             'password' => 'required'
+         ]);
++        $viewable_staff_orders = null;
++        if ($this->can_view_all_orders) {
++            $viewable_staff_orders = 'all';
++        } elseif (!empty($this->viewable_staff_ids)) {
++            $viewable_staff_orders = implode(',', $this->viewable_staff_ids);
++        }
++
+         User::create([
+             'name'  => $this->name,
+             'phone' => $this->phone,
+@@ -69,7 +79,8 @@ public function save()
+             'password'  => Hash::make($this->password),
+             'user_type' => 2,
+             'role_id' => $this->user_role,
+-            'is_active' => $this->is_active ?? 0
++            'is_active' => $this->is_active ?? 0,
++            'viewable_staff_orders' => $viewable_staff_orders
+         ]);
+         $this->dispatch('closemodal');
+         $this->resetFields();
+@@ -105,6 +116,11 @@ public function edit($id)
+         $this->phone = $this->staff->phone;
+         $this->user_role = $this->staff->role_id ?? count($this->roles) > 0 ? $this->roles->first()->id : null;
+         $this->is_active_edit = $this->staff->is_active==1 ? true: false;
++        
++        $this->can_view_all_orders = $this->staff->viewable_staff_orders === 'all';
++        $this->viewable_staff_ids = ($this->staff->viewable_staff_orders && $this->staff->viewable_staff_orders !== 'all')
++            ? explode(',', $this->staff->viewable_staff_orders)
++            : [];
+     }
+ 
+     public function update()
+@@ -120,6 +136,15 @@ public function update()
+         $this->staff->phone = $this->phone;
+         $this->staff->role_id = $this->user_role;
+         $this->staff->is_active = $this->is_active_edit ?? 0;
++        
++        $viewable_staff_orders = null;
++        if ($this->can_view_all_orders) {
++            $viewable_staff_orders = 'all';
++        } elseif (!empty($this->viewable_staff_ids)) {
++            $viewable_staff_orders = implode(',', $this->viewable_staff_ids);
++        }
++        $this->staff->viewable_staff_orders = $viewable_staff_orders;
++
+         if ($this->password != '') {
+             $this->staff->password = Hash::make($this->password);
+         }
+diff --git a/app/Livewire/Settings/WhatsappSettings.php b/app/Livewire/Settings/WhatsappSettings.php
+index 33a287b..5c63469 100644
+--- a/app/Livewire/Settings/WhatsappSettings.php
++++ b/app/Livewire/Settings/WhatsappSettings.php
+@@ -16,6 +16,7 @@ class WhatsappSettings extends Component
+     public $whatsapp_webhook_verify_token;
+     public $whatsapp_not_found_message;
+     public $whatsapp_business_number;
++    public $enable_automated_whatsapp, $unofficial_whatsapp_url, $unofficial_whatsapp_instance_token, $whatsapp_burner_number;
+     public $lang;
+ 
+     #[Title('WhatsApp Settings')]
+@@ -42,6 +43,11 @@ public function mount()
+         $this->whatsapp_not_found_message = (isset($site['whatsapp_not_found_message']) && !empty($site['whatsapp_not_found_message'])) ? $site['whatsapp_not_found_message'] : "Sorry, we couldn't find an order with that number. Please check the number and try again. For further assistance, contact us at <support_number>.";
+         $this->whatsapp_business_number = (isset($site['whatsapp_business_number']) && !empty($site['whatsapp_business_number'])) ? $site['whatsapp_business_number'] : '';
+         
++        $this->enable_automated_whatsapp = (isset($site['enable_automated_whatsapp']) && $site['enable_automated_whatsapp'] == 1) ? 1 : null;
++        $this->unofficial_whatsapp_url = $site['unofficial_whatsapp_url'] ?? '';
++        $this->unofficial_whatsapp_instance_token = $site['unofficial_whatsapp_instance_token'] ?? '';
++        $this->whatsapp_burner_number = $site['whatsapp_burner_number'] ?? '';
++
+         $this->whatsapp_enabled = $this->whatsapp_enabled == 1 ? true : false;
+ 
+         if(session()->has('selected_language'))
+@@ -75,6 +81,11 @@ public function save()
+         $site['whatsapp_webhook_verify_token'] = $this->whatsapp_webhook_verify_token;
+         $site['whatsapp_not_found_message'] = $this->whatsapp_not_found_message;
+         $site['whatsapp_business_number'] = $this->whatsapp_business_number;
++        
++        $site['enable_automated_whatsapp'] = $this->enable_automated_whatsapp ? 1 : 0;
++        $site['unofficial_whatsapp_url'] = $this->unofficial_whatsapp_url;
++        $site['unofficial_whatsapp_instance_token'] = $this->unofficial_whatsapp_instance_token;
++        $site['whatsapp_burner_number'] = $this->whatsapp_burner_number;
+ 
+         foreach ($site as $key => $value) {
+             MasterSettings::updateOrCreate(['master_title' => $key], ['master_value' => $value]);
+diff --git a/app/Livewire/System/Notifications.php b/app/Livewire/System/Notifications.php
+new file mode 100644
+index 0000000..1211893
+--- /dev/null
++++ b/app/Livewire/System/Notifications.php
+@@ -0,0 +1,43 @@
++<?php
++
++namespace App\Livewire\System;
++
++use Livewire\Component;
++use Livewire\WithPagination;
++use Illuminate\Support\Facades\Auth;
++use Livewire\Attributes\Title;
++
++class Notifications extends Component
++{
++    use WithPagination;
++    
++    protected $paginationTheme = 'bootstrap';
++
++    public function markAsRead($id)
++    {
++        $notification = Auth::user()->notifications()->find($id);
++        if ($notification) {
++            $notification->markAsRead();
++        }
++    }
++
++    public function markAllAsRead()
++    {
++        Auth::user()->unreadNotifications->markAsRead();
++    }
++
++    public function deleteAll()
++    {
++        Auth::user()->notifications()->delete();
++        $this->dispatch('alert', ['type' => 'success', 'message' => 'All notifications deleted successfully.']);
++    }
++
++    #[Title('System Notifications')]
++    public function render()
++    {
++        $notifications = Auth::user()->notifications()->paginate(20);
++        return view('livewire.system.notifications', [
++            'notifications' => $notifications
++        ]);
++    }
++}
+diff --git a/app/Services/OrderService.php b/app/Services/OrderService.php
+new file mode 100644
+index 0000000..d89b7d6
+--- /dev/null
++++ b/app/Services/OrderService.php
+@@ -0,0 +1,115 @@
++<?php
++
++namespace App\Services;
++
++use App\Models\Order;
++use App\Models\OrderDetail;
++use App\Models\OrderAddonDetail;
++use App\Models\Payment;
++use App\Models\OrderRequest;
++use Carbon\Carbon;
++
++class OrderService
++{
++    public static function establishOrder($payload, $userId)
++    {
++        return \Illuminate\Support\Facades\DB::transaction(function () use ($payload, $userId) {
++            $order_number = self::generateOrderID();
++
++            $order = Order::create([
++                'order_number' => $order_number,
++                'customer_id' => $payload['customer_id'] ?? null,
++                'customer_name' => $payload['customer_name'] ?? null,
++                'phone_number' => $payload['phone_number'] ?? null,
++                'order_date' => Carbon::parse($payload['order_date'])->toDateTimeString(),
++                'delivery_date' => Carbon::parse($payload['delivery_date'])->toDateTimeString(),
++                'sub_total' => $payload['sub_total'],
++                'addon_total' => $payload['addon_total'],
++                'discount' => $payload['discount'] ?? 0,
++                'tax_percentage' => $payload['tax_percentage'],
++                'tax_amount' => $payload['tax_amount'],
++                'tax_type' => $payload['tax_type'],
++                'taxable_amount' => $payload['taxable_amount'],
++                'total' => $payload['total'],
++                'note' => $payload['note'] ?? null,
++                'status' => 0,
++                'order_type' => 1,
++                'created_by' => $userId,
++                'financial_year_id' => getFinancialYearId()
++            ]);
++
++            if (isset($payload['details'])) {
++                foreach ($payload['details'] as $detail) {
++                    OrderDetail::create([
++                        'order_id' => $order->id,
++                        'service_id' => $detail['service_id'],
++                        'service_name' => $detail['service_name'],
++                        'service_quantity' => $detail['service_quantity'],
++                        'service_detail_total' => $detail['service_detail_total'],
++                        'service_price' => $detail['service_price'],
++                        'color_code' => $detail['color_code'] ?? null,
++                    ]);
++                }
++            }
++
++            if (isset($payload['addons'])) {
++                foreach ($payload['addons'] as $addon) {
++                    OrderAddonDetail::create([
++                        'order_id' => $order->id,
++                        'addon_id' => $addon['addon_id'],
++                        'addon_name' => $addon['addon_name'],
++                        'addon_price' => $addon['addon_price'],
++                    ]);
++                }
++            }
++
++            if (isset($payload['payments'])) {
++                foreach ($payload['payments'] as $payment) {
++                    Payment::create([
++                        'payment_date' => $payload['order_date'],
++                        'customer_id' => $payload['customer_id'] ?? null,
++                        'customer_name' => $payload['customer_name'] ?? null,
++                        'order_id' => $order->id,
++                        'payment_type' => $payment['payment_type'],
++                        'received_amount' => $payment['amount'],
++                        'notes' => $payment['notes'] ?? "Notes",
++                        'financial_year_id' => getFinancialYearId(),
++                        'created_by' => $userId,
++                    ]);
++                }
++            }
++
++            return $order;
++        });
++    }
++
++    public static function generateOrderID()
++    {
++        $code_prefix = 'ORD-';
++        
++        // Lock the sequences table for order_number
++        $sequence = \Illuminate\Support\Facades\DB::table('sequences')->where('name', 'order_number')->lockForUpdate()->first();
++        
++        $new_code = $sequence->value + 1;
++        
++        \Illuminate\Support\Facades\DB::table('sequences')->where('name', 'order_number')->update(['value' => $new_code]);
++        
++        $new_code_str = str_pad($new_code, 4, "0", STR_PAD_LEFT);
++        return $code_prefix . $new_code_str;
++    }
++
++    public static function generateRequestID()
++    {
++        $code_prefix = 'REQ-';
++        
++        // Lock the sequences table for request_number
++        $sequence = \Illuminate\Support\Facades\DB::table('sequences')->where('name', 'request_number')->lockForUpdate()->first();
++        
++        $new_code = $sequence->value + 1;
++        
++        \Illuminate\Support\Facades\DB::table('sequences')->where('name', 'request_number')->update(['value' => $new_code]);
++        
++        $new_code_str = str_pad($new_code, 4, "0", STR_PAD_LEFT);
++        return $code_prefix . $new_code_str;
++    }
++}
+diff --git a/app/Services/WhatsAppService.php b/app/Services/WhatsAppService.php
+index 9aa6b7a..cfad927 100644
+--- a/app/Services/WhatsAppService.php
++++ b/app/Services/WhatsAppService.php
+@@ -46,7 +46,7 @@ public function sendReply($toPhoneNumber, Order $order = null)
+         return $this->sendMessagePayload($toPhoneNumber, $messageText);
+     }
+ 
+-    protected function formatOrderMessage(Order $order)
++    public function formatOrderMessage(Order $order)
+     {
+         $orderDate = \Carbon\Carbon::parse($order->order_date)->format('d M Y');
+         $deliveryDate = \Carbon\Carbon::parse($order->delivery_date)->format('d M Y');
+@@ -99,4 +99,42 @@ protected function sendMessagePayload($to, $text)
+ 
+         return $response->successful();
+     }
++
++    public function sendAutomatedStatusUpdate(Order $order, $statusMessage)
++    {
++        $settings = new MasterSettings();
++        $site = $settings->siteData();
++        
++        $isAutomatedEnabled = (isset($site['enable_automated_whatsapp']) && $site['enable_automated_whatsapp'] == 1);
++        $url = $site['unofficial_whatsapp_url'] ?? '';
++        $token = $site['unofficial_whatsapp_instance_token'] ?? '';
++        
++        if (!$isAutomatedEnabled || empty($url) || empty($token)) {
++            return false;
++        }
++
++        $customer = \App\Models\Customer::find($order->customer_id);
++        if (!$customer || empty($customer->phone)) {
++            return false;
++        }
++
++        $phone = ltrim($customer->phone, '+');
++        if (!str_starts_with($phone, ltrim(getCountryCode(), '+')) && strlen($phone) <= 10) {
++            $phone = ltrim(getCountryCode(), '+') . $phone;
++        }
++
++        try {
++            // Generic Unofficial API Payload (Matches UltraMsg & similar standards)
++            $response = Http::post($url, [
++                'token' => $token,
++                'to' => $phone,
++                'body' => $statusMessage
++            ]);
++            
++            return $response->successful();
++        } catch (\Exception $e) {
++            \Log::error('WhatsApp Automation Failed: ' . $e->getMessage());
++            return false;
++        }
++    }
+ }

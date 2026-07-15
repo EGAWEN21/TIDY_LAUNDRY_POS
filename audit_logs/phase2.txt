@@ -1,0 +1,2512 @@
+﻿diff --git a/public/build/manifest.webmanifest b/public/build/manifest.webmanifest
+new file mode 100644
+index 0000000..d33accf
+--- /dev/null
++++ b/public/build/manifest.webmanifest
+@@ -0,0 +1 @@
++{"name":"TidyPOS Offline","short_name":"TidyPOS","description":"Offline capable Point of Sale","start_url":"/admin/pos","display":"standalone","background_color":"#ffffff","theme_color":"#ffffff","lang":"en","scope":"/admin/pos/","icons":[{"src":"/assets/img/logo-ct.png","sizes":"192x192","type":"image/png"},{"src":"/assets/img/logo-ct.png","sizes":"512x512","type":"image/png"}]}
+diff --git a/public/build/registerSW.js b/public/build/registerSW.js
+new file mode 100644
+index 0000000..32f6a65
+--- /dev/null
++++ b/public/build/registerSW.js
+@@ -0,0 +1 @@
++if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/build/sw.js', { scope: '/admin/pos/' })})}
+\ No newline at end of file
+diff --git a/public/build/sw.js b/public/build/sw.js
+new file mode 100644
+index 0000000..55e7f68
+--- /dev/null
++++ b/public/build/sw.js
+@@ -0,0 +1 @@
++if(!self.define){let e,s={};const n=(n,t)=>(n=new URL(n+".js",t).href,s[n]||new Promise(s=>{if("document"in self){const e=document.createElement("script");e.src=n,e.onload=s,document.head.appendChild(e)}else e=n,importScripts(n),s()}).then(()=>{let e=s[n];if(!e)throw new Error(`Module ${n} didnΓÇÖt register its module`);return e}));self.define=(t,i)=>{const o=e||("document"in self?document.currentScript.src:"")||location.href;if(s[o])return;let r={};const l=e=>n(e,o),c={module:{uri:o},exports:r,require:l};s[o]=Promise.all(t.map(e=>c[e]||l(e))).then(e=>(i(...e),r))}}define(["./workbox-948e45c5"],function(e){"use strict";self.addEventListener("message",e=>{e.data&&"SKIP_WAITING"===e.data.type&&self.skipWaiting()}),e.precacheAndRoute([{url:"registerSW.js",revision:"05e12e57845b421080f742f961c883ae"},{url:"assets/pos-app-z8ZwlS2Q.js",revision:null},{url:"assets/pos-app-BzDfJvw6.css",revision:null},{url:"assets/index-DcNlVx-A.js",revision:null},{url:"assets/app-DMtUm2D0.css",revision:null},{url:"assets/app-CIzbZzsr.js",revision:null},{url:"manifest.webmanifest",revision:"f3d47b5cd7d1fddb5968b6597a44ac70"}],{}),e.cleanupOutdatedCaches(),e.registerRoute(new e.NavigationRoute(e.createHandlerBoundToURL("/admin/pos"))),e.registerRoute(/^https:\/\/fonts\.googleapis\.com\/.*/i,new e.CacheFirst({cacheName:"google-fonts-cache",plugins:[new e.ExpirationPlugin({maxEntries:10,maxAgeSeconds:31536e3}),new e.CacheableResponsePlugin({statuses:[0,200]})]}),"GET"),e.registerRoute(/^https:\/\/fonts\.gstatic\.com\/.*/i,new e.CacheFirst({cacheName:"gstatic-fonts-cache",plugins:[new e.ExpirationPlugin({maxEntries:10,maxAgeSeconds:31536e3}),new e.CacheableResponsePlugin({statuses:[0,200]})]}),"GET"),e.registerRoute(/\/api\/pos\/.*/i,new e.NetworkOnly,"GET")});
+diff --git a/resources/js/db.js b/resources/js/db.js
+new file mode 100644
+index 0000000..b0a13c5
+--- /dev/null
++++ b/resources/js/db.js
+@@ -0,0 +1,45 @@
++import Dexie from 'dexie';
++
++export const db = new Dexie('TidyPOSDatabase');
++
++db.version(1).stores({
++    services: 'id, service_name, is_active',
++    serviceTypes: 'id, service_type_name, position',
++    serviceDetails: 'id, service_id, service_type_id, service_price',
++    addons: 'id, addon_name, addon_price',
++    customers: 'id, uuid, phone, name, email, tax_number, address, sync_status', // sync_status: 'synced', 'pending'
++    settings: 'id, tax_percentage, tax_type, financial_year_id, currency',
++    cart: 'id, uuid, items, addons, customer_id, total, tax, discount, payments, status',
++    syncQueue: '++id, type, data, timestamp' // type: 'order' or 'customer'
++});
++
++db.version(2).stores({
++    services: 'id, service_name, is_active',
++    serviceTypes: 'id, service_type_name, position',
++    serviceDetails: 'id, service_id, service_type_id, service_price',
++    addons: 'id, addon_name, addon_price',
++    customers: 'id, uuid, phone, name, email, tax_number, address, sync_status',
++    settings: 'id, tax_percentage, tax_type, financial_year_id, currency',
++    cart: 'id, uuid, items, addons, customer_id, total, tax, discount, payments, status',
++    syncQueue: '++id, type, data, timestamp, status, retry_count'
++}).upgrade(tx => {
++    return tx.syncQueue.toCollection().modify(queueItem => {
++        queueItem.status = 'pending';
++        queueItem.retry_count = 0;
++    });
++});
++
++db.version(3).stores({
++    services: 'id, service_name, is_active',
++    serviceTypes: 'id, service_type_name, position',
++    serviceDetails: 'id, service_id, service_type_id, service_price',
++    addons: 'id, addon_name, addon_price',
++    customers: 'id, uuid, phone, name, email, tax_number, address, sync_status',
++    settings: 'id, tax_percentage, tax_type, financial_year_id, currency',
++    cart: 'id, uuid, items, addons, customer_id, total, tax, discount, payments, status',
++    syncQueue: '++id, type, data, timestamp, status, retry_count, error_message'
++}).upgrade(tx => {
++    return tx.syncQueue.toCollection().modify(queueItem => {
++        queueItem.error_message = '';
++    });
++});
+diff --git a/resources/js/pos-app.js b/resources/js/pos-app.js
+new file mode 100644
+index 0000000..91a607f
+--- /dev/null
++++ b/resources/js/pos-app.js
+@@ -0,0 +1,16 @@
++import { createApp } from 'vue';
++import { createPinia } from 'pinia';
++import PosApp from './vue/PosApp.vue';
++import Vue3Toastify from 'vue3-toastify';
++import 'vue3-toastify/dist/index.css';
++
++const app = createApp(PosApp);
++const pinia = createPinia();
++
++app.use(pinia);
++app.use(Vue3Toastify, {
++  autoClose: 3000,
++  position: 'top-right',
++  theme: 'colored'
++});
++app.mount('#pos-app');
+diff --git a/resources/js/stores/posStore.js b/resources/js/stores/posStore.js
+new file mode 100644
+index 0000000..8bd5d65
+--- /dev/null
++++ b/resources/js/stores/posStore.js
+@@ -0,0 +1,348 @@
++import { defineStore } from 'pinia';
++import { db } from '../db';
++import axios from 'axios';
++
++export const usePosStore = defineStore('pos', {
++    state: () => ({
++        services: [],
++        serviceTypes: [],
++        serviceDetails: [],
++        addons: [],
++        customers: [],
++        settings: { tax_percentage: 0, tax_type: 1, currency: '$' },
++        cart: [],
++        cartAddons: [],
++        cartCustomer: null,
++        payments: [],
++        cartDiscountType: null,
++        paymentNotes: '',
++        discount: 0,
++        orderDate: new Date().toISOString().split('T')[0],
++        deliveryDate: (() => { const d = new Date(); d.setDate(d.getDate() + 2); return d.toISOString().split('T')[0]; })(),
++        customerQuery: '',
++        isOnline: navigator.onLine,
++        isSyncing: false,
++        lastSyncTimestamp: 0,
++        needsReAuth: false,
++        syncErrors: 0,
++    }),
++    
++    getters: {
++        cartOrderId: (state) => {
++            return `OFFLINE-${Date.now().toString().slice(-6)}`;
++        },
++        currentBalance: (state) => {
++            const total = state.cart.reduce((t, i) => t + (i.price * i.quantity), 0) + 
++                          state.cartAddons.reduce((t, a) => t + a.price, 0);
++            const paid = state.payments.reduce((t, p) => t + p.amount, 0);
++            return total - paid;
++        },
++        cartSubTotal: (state) => {
++            return state.cart.reduce((total, item) => total + (item.price * item.quantity), 0);
++        },
++        cartTotalItems: (state) => {
++            return state.cart.reduce((total, item) => total + item.quantity, 0);
++        },
++        cartAddonsTotal: (state) => {
++            return state.cartAddons.reduce((total, addon) => total + addon.price, 0);
++        },
++        cartTax: (state) => {
++            // Simplified tax logic, should match PosScreen.php exactly
++            let total = 0;
++            const sub = state.cartSubTotal + state.cartAddonsTotal;
++            if(state.settings.tax_type == 2) {
++                // Tax included in price
++                const taxFree = sub * (100 / (100 + parseFloat(state.settings.tax_percentage)));
++                total = sub - taxFree;
++            } else {
++                // Tax excluded
++                total = sub * (parseFloat(state.settings.tax_percentage) / 100);
++            }
++            return total;
++        },
++        cartDiscount: (state) => {
++            return parseFloat(state.discount) || 0;
++        },
++        cartTotal: (state) => {
++            let total = 0;
++            if(state.settings.tax_type == 2) {
++                total = state.cartSubTotal + state.cartAddonsTotal;
++            } else {
++                total = state.cartSubTotal + state.cartAddonsTotal + state.cartTax;
++            }
++            return Math.max(0, total - (parseFloat(state.discount) || 0));
++        },
++        calculateItemTax: (state) => {
++            return (item) => {
++                let tax = 0;
++                if(state.settings.tax_type == 2) {
++                    const taxFree = item.price * (100 / (100 + parseFloat(state.settings.tax_percentage)));
++                    tax = (item.price - taxFree) * item.quantity;
++                } else {
++                    tax = (item.price * (parseFloat(state.settings.tax_percentage) / 100)) * item.quantity;
++                }
++                return tax;
++            }
++        },
++        calculateItemTotal: (state) => {
++            return (item) => {
++                if(state.settings.tax_type == 2) {
++                    return item.price * item.quantity;
++                }
++                const tax = (item.price * (parseFloat(state.settings.tax_percentage) / 100)) * item.quantity;
++                return (item.price * item.quantity) + tax;
++            }
++        }
++    },
++
++    actions: {
++        async initialize() {
++            // Request persistent storage to prevent silent eviction
++            if (navigator.storage && navigator.storage.persist) {
++                navigator.storage.persist().then(granted => {
++                    if (granted) console.log("Storage will not be cleared except by explicit user action");
++                });
++            }
++
++            window.addEventListener('online', this.updateOnlineStatus);
++            window.addEventListener('offline', this.updateOnlineStatus);
++            
++            // Set Axios token
++            axios.defaults.headers.common['Authorization'] = `Bearer ${window.PosConfig.apiToken}`;
++            axios.defaults.headers.common['Accept'] = 'application/json';
++
++            if(this.isOnline) {
++                // FLUSH OFFLINE QUEUE FIRST before overwriting catalog to prevent App Boot data rot!
++                await this.syncOfflineData();
++                await this.fetchFromServer();
++            } else {
++                await this.loadFromLocal();
++            }
++
++            // Background Auto-Updater Engine
++            setInterval(async () => {
++                if(this.isOnline && !this.isSyncing) {
++                    // Pause background polling if cart is active or if there are items in the queue
++                    const queueCount = await db.syncQueue.count();
++                    if (this.cart.length > 0 || queueCount > 0) {
++                        return; // Prevent shifting the master catalog while active offline work is present
++                    }
++
++                    try {
++                        const res = await axios.get('/api/pos/check-update');
++                        if(res.data.timestamp > this.lastSyncTimestamp) {
++                            console.log('Background Sync: Updates detected. Silently updating local database...');
++                            await this.fetchFromServer();
++                        }
++                    } catch (e) {
++                        // ignore background errors
++                    }
++                }
++            }, 60000); // 60 seconds
++        },
++
++        updateOnlineStatus(e) {
++            this.isOnline = navigator.onLine;
++            if(this.isOnline) {
++                this.syncOfflineData();
++                // Also trigger an immediate check for updates when coming online
++                axios.get('/api/pos/check-update').then(async res => {
++                    if(res.data.timestamp > this.lastSyncTimestamp) {
++                        const queueCount = await db.syncQueue.count();
++                        if (this.cart.length === 0 && queueCount === 0) {
++                            this.fetchFromServer();
++                        }
++                    }
++                }).catch(err => {});
++            }
++        },
++
++        async fetchFromServer() {
++            try {
++                const response = await axios.get('/api/pos/init');
++                const data = response.data;
++                this.lastSyncTimestamp = data.timestamp || 0;
++                
++                // Clear old data and save new
++                await db.transaction('rw', db.services, db.serviceTypes, db.serviceDetails, db.addons, db.customers, db.settings, async () => {
++                    await db.services.clear();
++                    await db.serviceTypes.clear();
++                    await db.serviceDetails.clear();
++                    await db.addons.clear();
++                    await db.customers.clear();
++                    await db.settings.clear();
++
++                    await db.services.bulkAdd(data.services);
++                    await db.serviceTypes.bulkAdd(data.service_types);
++                    await db.serviceDetails.bulkAdd(data.service_details);
++                    await db.addons.bulkAdd(data.addons);
++                    await db.customers.bulkAdd(data.customers);
++                    await db.settings.put({ id: 1, ...data.settings });
++                });
++
++                await this.loadFromLocal();
++            } catch (error) {
++                console.error("Failed to fetch from server", error);
++                await this.loadFromLocal();
++            }
++        },
++
++        async loadFromLocal() {
++            this.services = (await db.services.toArray()).sort((a, b) => b.id - a.id);
++            this.serviceTypes = await db.serviceTypes.toArray();
++            this.serviceDetails = await db.serviceDetails.toArray();
++            this.addons = (await db.addons.toArray()).sort((a, b) => b.id - a.id);
++            this.customers = (await db.customers.toArray()).sort((a, b) => b.id - a.id);
++            
++            const settings = await db.settings.get(1);
++            if(settings) {
++                this.settings = settings;
++            }
++        },
++        
++        async syncOfflineData() {
++            if(this.isSyncing || !this.isOnline || this.needsReAuth) return { success: false, reason: 'offline_or_syncing' };
++            this.isSyncing = true;
++            
++            let syncResult = {
++                success: true,
++                syncedOrders: {},
++                requiresApproval: {}
++            };
++            
++            try {
++                const chunkArray = (array, size) => {
++                    const result = [];
++                    for (let i = 0; i < array.length; i += size) result.push(array.slice(i, i + size));
++                    return result;
++                };
++
++                // Sync Orders First (Unified Graph Sync will handle nested customers)
++                const allOrders = await db.syncQueue.where('type').equals('order').toArray();
++                const pendingOrders = allOrders.filter(o => o.status !== 'error');
++                const orderChunks = chunkArray(pendingOrders, 20);
++
++                for (const chunk of orderChunks) {
++                    try {
++                        const payload = chunk.map(p => p.data);
++                        const response = await axios.post('/api/pos/sync-orders', { orders: payload });
++                        
++                        if(response.data.synced_orders) {
++                            for(let uuid in response.data.synced_orders) {
++                                syncResult.syncedOrders[uuid] = response.data.synced_orders[uuid];
++                                if (response.data.requires_approval) {
++                                    syncResult.requiresApproval[uuid] = response.data.requires_approval[uuid];
++                                }
++                                const item = chunk.find(p => p.data.uuid === uuid);
++                                if(item) await db.syncQueue.delete(item.id);
++                            }
++                        }
++
++                        // Granular Error Reporting for failed items in batch
++                        if (response.data.failed) {
++                            for(let uuid in response.data.failed) {
++                                const item = chunk.find(p => p.data.uuid === uuid);
++                                if (item) {
++                                    await db.syncQueue.update(item.id, { 
++                                        status: 'error', 
++                                        error_message: response.data.failed[uuid] 
++                                    });
++                                }
++                            }
++                            syncResult.success = false;
++                        }
++                    } catch (error) {
++                        if (error.response && error.response.status === 401) break;
++                        for (const item of chunk) {
++                            const newCount = (item.retry_count || 0) + 1;
++                            const newStatus = newCount > 3 ? 'error' : 'pending';
++                            const errMsg = error.response ? `Server Error: ${error.response.status}` : 'Poor or unstable network connection.';
++                            await db.syncQueue.update(item.id, { retry_count: newCount, status: newStatus, error_message: errMsg });
++                        }
++                        syncResult.success = false;
++                    }
++                }
++
++                // Sync Standalone Customers (if any)
++                const allCustomers = await db.syncQueue.where('type').equals('customer').toArray();
++                const pendingCustomers = allCustomers.filter(c => c.status !== 'error');
++                const customerChunks = chunkArray(pendingCustomers, 20);
++
++                for (const chunk of customerChunks) {
++                    try {
++                        const payload = chunk.map(p => p.data);
++                        const response = await axios.post('/api/pos/sync-customers', { customers: payload });
++                        
++                        if(response.data.synced_customers) {
++                            for(let uuid in response.data.synced_customers) {
++                                const item = chunk.find(p => p.data.uuid === uuid);
++                                if(item) {
++                                    await db.syncQueue.delete(item.id);
++                                    // Update local customer status
++                                    const cust = await db.customers.where('uuid').equals(uuid).first();
++                                    if (cust) await db.customers.update(cust.id, { sync_status: 'synced' });
++                                }
++                            }
++                        }
++
++                        if (response.data.failed) {
++                            for(let uuid in response.data.failed) {
++                                const item = chunk.find(p => p.data.uuid === uuid);
++                                if (item) {
++                                    await db.syncQueue.update(item.id, { 
++                                        status: 'error', 
++                                        error_message: response.data.failed[uuid] 
++                                    });
++                                }
++                            }
++                        }
++                    } catch (error) {
++                        if (error.response && error.response.status === 401) break;
++                        for (const item of chunk) {
++                            const newCount = (item.retry_count || 0) + 1;
++                            const newStatus = newCount > 3 ? 'error' : 'pending';
++                            const errMsg = error.response ? `Server Error: ${error.response.status}` : 'Poor or unstable network connection.';
++                            await db.syncQueue.update(item.id, { retry_count: newCount, status: newStatus, error_message: errMsg });
++                        }
++                        syncResult.success = false;
++                    }
++                }
++
++            } catch (error) {
++                console.error("Global Sync Error:", error);
++                syncResult.success = false;
++            } finally {
++                this.isSyncing = false;
++                await this.loadFromLocal();
++            }
++            return syncResult;
++        },
++
++        increaseQty(index) {
++            if(this.cart[index]) {
++                this.cart[index].quantity++;
++            }
++        },
++
++        decreaseQty(index) {
++            if(this.cart[index] && this.cart[index].quantity > 1) {
++                this.cart[index].quantity--;
++            }
++        },
++
++        removeFromCart(index) {
++            this.cart.splice(index, 1);
++        },
++
++        removeItem(index) {
++            this.cart.splice(index, 1);
++        },
++
++        duplicateItem(index) {
++            if(this.cart[index]) {
++                const itemToDuplicate = JSON.parse(JSON.stringify(this.cart[index]));
++                this.cart.splice(index + 1, 0, itemToDuplicate);
++            }
++        }
++    }
++});
+diff --git a/resources/js/vue/PosApp.vue b/resources/js/vue/PosApp.vue
+new file mode 100644
+index 0000000..f95c610
+--- /dev/null
++++ b/resources/js/vue/PosApp.vue
+@@ -0,0 +1,420 @@
++<template>
++<ReAuthModal />
++<SyncQueueModal />
++<div v-if="fatalError" class="tw-absolute tw-inset-0 tw-z-50 tw-bg-red-50 tw-text-red-900 tw-p-8 tw-overflow-y-auto">
++    <h1 class="tw-text-2xl tw-font-bold tw-mb-4">Fatal UI Error</h1>
++    <pre class="tw-whitespace-pre-wrap tw-text-sm">{{ fatalError }}</pre>
++    <button @click="fatalError = null" class="tw-mt-4 tw-px-4 tw-py-2 tw-bg-red-600 tw-text-white tw-rounded">Dismiss</button>
++</div>
++<div :class="[isDarkMode ? 'premium-bg-dark' : 'premium-bg-light', 'tw-w-full tw-min-h-screen tw-transition-colors tw-duration-300']">
++    <div :class="[isDarkMode ? 'glass-panel-dark' : 'glass-panel-light', 'tw-w-full tw-flex tw-justify-between tw-items-center tw-shadow-sm tw-border-b tw-z-10 tw-relative']">
++        <div class="tw-flex tw-gap-2 tw-px-3 tw-py-2 tw-items-center">
++            <a href="/admin/orders" class="no-underline">
++                <button
++                    class="bg-primary-600 tw-text-white tw-text-xs radius-8 px-20 tw-py-2 d-flex align-items-center gap-2">
++                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5"
++                        stroke="currentColor" class="tw-size-4">
++                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
++                    </svg>
++                    <span>Back</span>
++                </button>
++            </a>
++            
++            <template v-if="detached">
++                <button
++                    class="tw-px-2 tw-py-1.5 bg-primary-600 tw-w-fit tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md"
++                    @click="shown = !shown">
++                    
++                        <div v-if="!shown" class="tw-flex  tw-items-center tw-gap-2">
++                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
++                                stroke-width="1.5" stroke="currentColor" class="tw-size-4">
++                                <path stroke-linecap="round" stroke-linejoin="round"
++                                    d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
++                            </svg>
++                            <span class="text-sm ">Cart</span>
++                        </div>
++                    
++                    
++                        <div v-else class="tw-flex tw-items-center tw-gap-2">
++                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
++                                stroke-width="1.5" stroke="currentColor" class="tw-size-4">
++                                <path stroke-linecap="round" stroke-linejoin="round"
++                                    d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
++                            </svg>
++
++                            <span class="text-sm ">Products</span>
++                        </div>
++                    
++                </button>
++            </template>
++            
++            <div class="tw-ml-4 tw-flex tw-items-center">
++                <span v-if="pos.isOnline" class="tw-bg-green-100 tw-text-green-800 tw-text-xs tw-font-bold tw-px-3 tw-py-1.5 tw-rounded tw-shadow-sm tw-flex tw-items-center tw-gap-1">
++                    <span class="tw-w-2 tw-h-2 tw-bg-green-500 tw-rounded-full"></span> Online
++                </span>
++                <span v-else class="tw-bg-red-100 tw-text-red-800 tw-text-xs tw-font-bold tw-px-3 tw-py-1.5 tw-rounded tw-shadow-sm tw-flex tw-items-center tw-gap-1">
++                    <span class="tw-w-2 tw-h-2 tw-bg-red-500 tw-rounded-full"></span> Offline Mode
++                </span>
++            </div>
++            <button @click="toggleTheme" class="tw-ml-4 tw-p-2 tw-rounded-full tw-transition-colors hover:tw-bg-slate-200 dark:hover:tw-bg-slate-700" aria-label="Toggle dark mode">
++                <svg v-if="!isDarkMode" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="tw-w-5 tw-h-5 tw-text-slate-600">
++                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
++                </svg>
++                <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="tw-w-5 tw-h-5 tw-text-slate-300">
++                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
++                </svg>
++            </button>
++            <button data-bs-toggle="modal" data-bs-target="#syncQueueModal" class="tw-ml-2 tw-p-2 tw-rounded-full tw-transition-colors hover:tw-bg-slate-200 dark:hover:tw-bg-slate-700 tw-text-slate-600 dark:tw-text-slate-300" title="Sync Manager" aria-label="Open Sync Manager">
++                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21v-5h5"/></svg>
++            </button>
++        </div>
++    </div>
++
++    <div class="tw-w-[100%] tw-h-[calc(100vh-3.5rem)] tw-flex lg:tw-flex-row tw-flex-col tw-relative tw-overflow-hidden">
++        <div class="lg:tw-w-5/12 tw-w-full tw-flex-col tw-h-full tw-p-3 tw-overflow-y-auto">
++            <ProductGrid 
++                v-model:searchQuery="searchQuery" 
++                :filteredServices="filteredServices" 
++                @select-service="selectService" 
++            />
++        </div>
++        <CartTable :shown="shown" :detached="detached" :isSyncing="isSyncingPrint" @save="saveOffline" @saveOffline="saveOffline" @syncAndPrint="syncAndPrint" @clearAll="clearAll" />
++    </div>
++    </div>
++
++
++    <Teleport to="body">
++        <InstallPrompt />
++        <ServiceTypeModal :availableServiceTypes="availableServiceTypes" :currency="pos.settings.currency" @add-items="addItems" />
++        <NotesModal />
++        <DiscountModal />
++        <AddonModal />
++    </Teleport>
++        <PaymentModal :isSyncing="isSyncingPrint" @saveOffline="saveOffline" @syncAndPrint="syncAndPrint" />
++        <CustomerModal @customer-created="(cust) => selectCustomer(cust)" />
++</template>
++
++<script setup>
++import { ref, computed, onMounted, onUnmounted, watch, onErrorCaptured } from 'vue';
++import { usePosStore } from '../stores/posStore';
++import { db } from '../db';
++import PaymentModal from './components/PaymentModal.vue';
++import CustomerModal from './components/CustomerModal.vue';
++import ProductGrid from './components/ProductGrid.vue';
++import ServiceTypeModal from './components/ServiceTypeModal.vue';
++import NotesModal from './components/NotesModal.vue';
++import DiscountModal from './components/DiscountModal.vue';
++import AddonModal from './components/AddonModal.vue';
++import CartTable from './components/CartTable.vue';
++import InstallPrompt from './components/InstallPrompt.vue';
++import ReAuthModal from './components/ReAuthModal.vue';
++import SyncQueueModal from './components/SyncQueueModal.vue';
++import { toast } from 'vue3-toastify';
++
++const pos = usePosStore();
++
++const fatalError = ref(null);
++onErrorCaptured((err, instance, info) => {
++    fatalError.value = `${err.name}: ${err.message}\n\nStack:\n${err.stack}\n\nInfo:\n${info}`;
++    console.error('Captured Vue Error:', err, info);
++    return false; // Prevent further propagation
++});
++
++const generateUUID = () => {
++    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
++        return crypto.randomUUID();
++    }
++    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
++        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
++        return v.toString(16);
++    });
++};
++
++const searchQuery = ref('');
++const selected_type = ref(null);
++const shown = ref(false);
++
++
++const detached = ref(false);
++const isMobileCartView = ref(false);
++
++const checkDetached = () => {
++    detached.value = window.innerWidth < 1024;
++};
++
++// Service Selection State
++const showServiceTypeModal = ref(false);
++const selectedService = ref(null);
++const availableServiceTypes = ref([]);
++
++// Customer State
++const customerQuery = ref('');
++const showNewCustomerModal = ref(false);
++const newCustomer = ref({ name: '', phone: '' });
++
++// Theme Logic
++const isDarkMode = ref(localStorage.getItem('theme') === 'dark');
++const toggleTheme = () => {
++    isDarkMode.value = !isDarkMode.value;
++    localStorage.setItem('theme', isDarkMode.value ? 'dark' : 'light');
++    if (isDarkMode.value) {
++        document.documentElement.setAttribute('data-theme', 'dark');
++    } else {
++        document.documentElement.removeAttribute('data-theme');
++    }
++};
++
++onMounted(async () => {
++  if (isDarkMode.value) {
++      document.documentElement.setAttribute('data-theme', 'dark');
++  }
++  
++  // Listen for cross-tab theme changes
++  window.addEventListener('storage', (e) => {
++      if (e.key === 'theme') {
++          isDarkMode.value = e.newValue === 'dark';
++          if (isDarkMode.value) {
++              document.documentElement.setAttribute('data-theme', 'dark');
++          } else {
++              document.documentElement.removeAttribute('data-theme');
++          }
++      }
++  });
++
++  checkDetached();
++  window.addEventListener('resize', checkDetached);
++  await pos.initialize();
++});
++
++onUnmounted(() => {
++  window.removeEventListener('resize', checkDetached);
++});
++
++// Computed properties
++const filteredServices = computed(() => {
++  if (!searchQuery.value) return pos.services;
++  const q = searchQuery.value.toLowerCase();
++  return pos.services.filter(s => s.service_name.toLowerCase().includes(q));
++});
++
++const selectCustomer = (cust) => {
++  pos.cartCustomer = cust;
++  pos.customerQuery = '';
++};
++
++// Actions
++const selectService = (service) => {
++  selectedService.value = service;
++  
++  // Find available types for this service by checking serviceDetails
++  const details = pos.serviceDetails.filter(sd => sd.service_id === service.id);
++  const typeIds = details.map(d => d.service_type_id);
++  
++  availableServiceTypes.value = pos.serviceTypes
++    .filter(st => typeIds.includes(st.id))
++    .sort((a, b) => {
++      if (a.position !== b.position) {
++        return (a.position || 0) - (b.position || 0);
++      }
++      return a.id - b.id;
++    })
++    .map(st => {
++      const d = details.find(d => d.service_type_id === st.id);
++      return { ...st, price: d.service_price };
++    });
++    
++  // Show modal
++  const modalEl = document.getElementById('servicetype');
++  if (modalEl) {
++      if (typeof window.bootstrap !== 'undefined') {
++          window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
++      } else if (typeof window.$ !== 'undefined') {
++          window.$('#servicetype').modal('show');
++      }
++  }
++};
++
++const addToCart = (service, type) => {
++  // Tax logic conversion for price based on PosScreen.php
++  let finalPrice = parseFloat(type.price);
++  
++  pos.cart.push({
++    service_id: service.id,
++    service_name: service.service_name,
++    service_type_id: type.id,
++    service_type_name: type.service_type_name,
++    price: finalPrice, // Keeping base price, tax computed in getters
++    quantity: 1,
++    color_code: ''
++  });
++};
++
++const clearAll = () => {
++  pos.cart = [];
++  pos.cartCustomer = null;
++  pos.customerQuery = '';
++  pos.payments = [];
++  pos.cartAddons = [];
++  pos.discount = 0;
++  pos.paymentNotes = '';
++};
++
++const isSyncingPrint = ref(false);
++
++const buildOrderData = (type = 'save') => {
++  if (pos.cart.length === 0) {
++    toast.error("Cart is empty");
++    return null;
++  }
++  
++  const orderData = {
++    uuid: generateUUID(),
++    customer_id: pos.cartCustomer ? pos.cartCustomer.id : null,
++    customer_name: pos.cartCustomer ? pos.cartCustomer.name : null,
++    phone_number: pos.cartCustomer ? pos.cartCustomer.phone : null,
++    new_customer: (pos.cartCustomer && pos.cartCustomer.sync_status === 'pending') ? pos.cartCustomer : null,
++    order_date: pos.orderDate,
++    delivery_date: pos.deliveryDate,
++    sub_total: pos.cartSubTotal,
++    addon_total: pos.cartAddonsTotal,
++    discount: pos.cartDiscount,
++    tax_percentage: pos.settings.tax_percentage,
++    tax_amount: pos.cartTax,
++    tax_type: pos.settings.tax_type,
++    taxable_amount: pos.cartTotal - pos.cartTax,
++    total: pos.cartTotal,
++    status: 0,
++    details: pos.cart.map(item => ({
++      service_id: item.service_id,
++      service_name: item.service_type_name,
++      service_quantity: item.quantity,
++      service_detail_total: item.price * item.quantity,
++      service_price: item.price,
++      color_code: item.color_code
++    })),
++    payments: [...pos.payments]
++  };
++
++  if(type === 'cash') {
++    orderData.payments.push({
++      payment_type: 1, // 1 is Cash
++      payment_type_name: 'Cash',
++      amount: orderData.total,
++      notes: "Offline Cash Payment"
++    });
++  }
++
++  return orderData;
++};
++
++const saveOffline = async (type = 'save') => {
++  const orderData = buildOrderData(type);
++  if (!orderData) return;
++
++  // Save to offline queue
++  const plainOrderData = JSON.parse(JSON.stringify(orderData));
++  await db.syncQueue.add({
++    type: 'order',
++    data: plainOrderData,
++    timestamp: Date.now(),
++    status: 'pending',
++    retry_count: 0
++  });
++
++  toast.success("Order Saved Offline! It will sync automatically in the background.");
++  closeModalsAndReset();
++};
++
++const syncAndPrint = async () => {
++  const orderData = buildOrderData('save');
++  if (!orderData) return;
++
++  isSyncingPrint.value = true;
++
++  try {
++    // 1. Temporarily save to queue
++    const plainOrderData = JSON.parse(JSON.stringify(orderData));
++    await db.syncQueue.add({
++      type: 'order',
++      data: plainOrderData,
++      timestamp: Date.now(),
++      status: 'pending',
++      retry_count: 0
++    });
++
++    // 2. Await full sync
++    const syncResult = await pos.syncOfflineData();
++
++    if (!syncResult.success) {
++      toast.warning("You are currently offline or sync failed. The order is queued securely.");
++      closeModalsAndReset();
++      return;
++    }
++
++    // 3. Find our specific order in the syncResult mapped IDs
++    const serverOrderId = syncResult.syncedOrders[orderData.uuid];
++    const requiresApproval = syncResult.requiresApproval[orderData.uuid];
++
++    if (!serverOrderId) {
++      toast.error("Sync completed, but could not retrieve the server Order ID for printing.");
++      closeModalsAndReset();
++      return;
++    }
++
++    if (requiresApproval) {
++      toast.info("Order requires manager approval. Cannot print receipt yet.");
++    } else {
++      // 4. Open the native thermal printer bypass!
++      window.open('/admin/orders/print/' + serverOrderId, '_blank');
++    }
++
++    closeModalsAndReset();
++
++  } catch (error) {
++    console.error("Print Sync Error:", error);
++    toast.error("An error occurred while syncing. Order is saved offline.");
++    closeModalsAndReset();
++  } finally {
++    isSyncingPrint.value = false;
++  }
++};
++
++const closeModalsAndReset = () => {
++  const paymentModalEl = document.getElementById('payment');
++  if (paymentModalEl && paymentModalEl.classList.contains('show')) {
++      if (typeof window.bootstrap !== 'undefined') {
++          const mInst = window.bootstrap.Modal.getOrCreateInstance(paymentModalEl);
++          if (mInst) mInst.hide();
++      } else if (typeof window.$ !== 'undefined') {
++          window.$('#payment').modal('hide');
++      }
++  }
++  clearAll();
++};
++
++// Handles multiple service type selections (matching the online POS behavior)
++const addItems = (typeIds) => {
++  if (!selectedService.value || !typeIds || typeIds.length === 0) return;
++  
++  typeIds.forEach(typeId => {
++    const type = availableServiceTypes.value.find(t => t.id == typeId);
++    if (type) {
++      addToCart(selectedService.value, type);
++    }
++  });
++  
++  selected_type.value = null;
++  
++  // Hide modal
++  const modalEl = document.getElementById('servicetype');
++  if (modalEl && modalEl.classList.contains('show')) {
++    if (typeof window.bootstrap !== 'undefined') {
++      const modalInstance = window.bootstrap.Modal.getOrCreateInstance(modalEl);
++      if (modalInstance) modalInstance.hide();
++    } else if (typeof window.$ !== 'undefined') {
++      window.$('#servicetype').modal('hide');
++    }
++  }
++};
++
++</script>
+\ No newline at end of file
+diff --git a/resources/js/vue/components/AddonModal.vue b/resources/js/vue/components/AddonModal.vue
+new file mode 100644
+index 0000000..ed854c3
+--- /dev/null
++++ b/resources/js/vue/components/AddonModal.vue
+@@ -0,0 +1,48 @@
++<template>
++  <div class="modal fade" id="addons" tabindex="-1" role="dialog" aria-labelledby="addons" aria-hidden="true" key="modal-addons">
++      <div class="modal-dialog modal-dialog-centered" role="document">
++          <div class="modal-content radius-16 bg-base">
++              <div class="modal-header py-16 px-24 border border-top-0 border-start-0 border-end-0">
++                  <h1 class="modal-title text-md" id="exampleModalLabel">Addons</h1>
++                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
++              </div>
++              <div class="modal-body p-24">
++                  <template v-for="row in pos.addons" :key="row.id">
++                      <div class="col-12 mb-20 tw-flex tw-justify-between tw-items-center">
++                          <div class="d-flex align-items-center gap-10 fw-medium text-lg">
++                              <div class="form-check style-check d-flex align-items-center">
++                                  <input class="form-check-input radius-4 border border-neutral-500" type="checkbox"
++                                      name="addon" :id="'addon' + row.id"
++                                      v-model="pos.cartAddonIds" :value="row.id">
++                              </div>
++                              <label :for="'addon' + row.id" class="form-label fw-medium text-primary-light mb-0">{{ row.addon_name }}</label>
++                          </div>
++                          <div class="text-primary">{{ formatCurrency(row.addon_price) }}</div>
++                      </div>
++                  </template>
++                  
++                  <div v-if="pos.addons.length === 0" class="tw-h-full tw-w-full tw-flex tw-items-center tw-justify-center">
++                      <div class="">No addons were found!</div>
++                  </div>
++                  
++                  <div class="d-flex align-items-start justify-content-end gap-3 mt-24">
++                      <button data-bs-dismiss="modal" class="border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-40 py-11 radius-8">
++                          Close
++                      </button>
++                  </div>
++              </div>
++          </div>
++      </div>
++  </div>
++</template>
++
++<script setup>
++import { usePosStore } from '../../stores/posStore';
++
++const pos = usePosStore();
++
++const formatCurrency = (val) => {
++  const amount = Number(val).toFixed(2);
++  return `${pos.settings.currency} ${amount}`;
++};
++</script>
+diff --git a/resources/js/vue/components/CartTable.vue b/resources/js/vue/components/CartTable.vue
+new file mode 100644
+index 0000000..e683bee
+--- /dev/null
++++ b/resources/js/vue/components/CartTable.vue
+@@ -0,0 +1,299 @@
++<template>
++  <div class="tw-h-[calc(100vh-4rem)] tw-flex tw-flex-col dark:tw-bg-slate-900/50 tw-bg-white/50 tw-backdrop-blur-xl tw-shadow-[-4px_0_24px_rgba(0,0,0,0.05)] tw-border-l tw-border-white/20 dark:tw-border-white/5 tw-p-4 lg:tw-p-6" :class="shown && detached ? 'tw-absolute tw-inset-0 tw-w-full tw-z-50' : 'tw-hidden lg:tw-block lg:tw-w-7/12 tw-w-full tw-shrink-0'">
++      <div class="tw-flex tw-items-center tw-gap-8 tw-w-full tw-shrink-0">
++          <div class="tw-flex tw-min-w-fit tw-shrink tw-flex-col">
++              <div class="tw-text-sm">Order : <span class="tw-font-bold">#{{ pos.cartOrderId }}</span></div>
++              <div class="tw-flex tw-items-center tw-gap-2">
++                  <div class="tw-text-sm tw-relative">
++                      Date : <span class="tw-font-bold">{{ pos.orderDate }}</span>
++                      <input type="date" v-model="pos.orderDate" name="" class="tw-opacity-0 tw-absolute tw-pointer-events-none" ref="datePicker">
++                  </div>
++                  <button @click="$refs.datePicker.showPicker()" class="tw-px-2 tw-py-1 bg-primary-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0">
++                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" class="bi bi-calendar3" viewBox="0 0 16 16">
++                          <path d="M14 0H2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2M1 3.857C1 3.384 1.448 3 2 3h12c.552 0 1 .384 1 .857v10.286c0 .473-.448.857-1 .857H2c-.552 0-1-.384-1-.857z" />
++                          <path d="M6.5 7a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m-9 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m-9 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2" />
++                      </svg>
++                  </button>
++              </div>
++
++              <div class="tw-flex tw-items-center tw-gap-2">
++                  <div class="tw-text-sm tw-relative">
++                      Delivery Date : <span class="tw-font-bold">{{ pos.deliveryDate }}</span>
++                      <input type="date" v-model="pos.deliveryDate" name="" class="tw-opacity-0 tw-absolute tw-pointer-events-none" ref="deliveryDatePicker">
++                  </div>
++                  <button @click="$refs.deliveryDatePicker.showPicker()" class="tw-px-2 tw-py-1 bg-primary-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0">
++                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" class="bi bi-calendar3" viewBox="0 0 16 16">
++                          <path d="M14 0H2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2M1 3.857C1 3.384 1.448 3 2 3h12c.552 0 1 .384 1 .857v10.286c0 .473-.448.857-1 .857H2c-.552 0-1-.384-1-.857z" />
++                          <path d="M6.5 7a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m-9 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m-9 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2m3 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2" />
++                      </svg>
++                  </button>
++              </div>
++          </div>
++          <div class="tw-flex tw-items-center tw-gap-2 tw-w-full tw-shrink">
++              <div class="tw-flex tw-flex-col tw-gap-2 tw-w-full">
++                  <div v-if="pos.cartCustomer" class="tw-flex tw-items-center tw-justify-between tw-w-full tw-border tw-rounded-lg tw-px-3 tw-py-2 tw-bg-green-50/80 dark:tw-bg-green-900/30 tw-border-green-300 dark:tw-border-green-700">
++                      <div class="tw-flex tw-flex-col">
++                          <span class="tw-font-bold tw-text-sm tw-text-green-800 dark:tw-text-green-300">{{ pos.cartCustomer.name }}</span>
++                          <span class="tw-text-xs tw-text-green-600 dark:tw-text-green-400">{{ pos.cartCustomer.phone }}</span>
++                      </div>
++                      <button @click="pos.cartCustomer = null" class="tw-text-red-500 hover:tw-text-red-700 dark:tw-text-red-400 dark:hover:tw-text-red-300 tw-font-bold tw-px-2 tw-text-lg" aria-label="Remove customer">&times;</button>
++                  </div>
++                  <div class="icon-field tw-relative tw-w-full tw-items-center">
++                      <span class="icon -tw-translate-y-[2px]">
++                          <iconify-icon icon="f7:person"></iconify-icon>
++                      </span>
++                      <input type="text" class="form-control" :placeholder="pos.cartCustomer ? 'Change Customer...' : 'Select A Customer'" @focus="showCustomerDropdown = true" @blur="hideCustomerDropdown" v-model="pos.customerQuery">
++                      <div v-show="showCustomerDropdown && filteredCustomers.length > 0" class="tw-absolute tw-top-[100%] tw-left-0 tw-w-full tw-z-20 tw-shadow-md tw-bg-white tw-rounded-lg">
++                          <ul>
++                              <li v-for="row in filteredCustomers" :key="row.id" class="dropdown-item px-16 py-8 rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 tw-cursor-pointer" @mousedown.prevent="selectCustomer(row)">{{ row.name }} - {{ row.phone }}</li>
++                          </ul>
++                      </div>
++                  </div>
++              </div>
++              <button type="button" data-bs-toggle="modal" data-bs-target="#addcustomer" class="tw-px-4 tw-py-3 bg-primary-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md">
++                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-person-fill-add" viewBox="0 0 16 16">
++                      <path d="M12.5 16a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7m.5-5v1h1a.5.5 0 0 1 0 1h-1v1a.5.5 0 0 1-1 0v-1h-1a.5.5 0 0 1 0-1h1v-1a.5.5 0 0 1 1 0m-2-6a3 3 0 1 1-6 0 3 3 0 0 1 6 0" />
++                      <path d="M2 13c0 1 1 1 1 1h5.256A4.5 4.5 0 0 1 8 12.5a4.5 4.5 0 0 1 1.544-3.393Q8.844 9.002 8 9c-5 0-6 3-6 4" />
++                  </svg>
++              </button>
++          </div>
++      </div>
++      <div class="tw-w-full tw-flex tw-flex-col tw-flex-1 tw-min-h-0 tw-mt-6 tw-rounded-2xl tw-overflow-clip tw-border tw-border-white/60 dark:tw-border-white/10 tw-shadow-lg tw-bg-white/60 dark:tw-bg-slate-800/60 tw-backdrop-blur-md">
++          <div class="tw-flex tw-flex-col lg:tw-w-full tw-overflow-x-auto">
++              <div class="tw-flex tw-flex-col lg:tw-w-full tw-w-full tw-min-w-[60rem]">
++                  <div class="tw-flex tw-flex-col tw-overflow-x-auto tw-w-full tw-shrink-0">
++                      <table class="tw-w-full tw-text-xs tw-shrink-0 tw-h-fit">
++                          <thead class="tw-bg-slate-100/50 dark:tw-bg-slate-700/50 tw-text-slate-600 dark:tw-text-slate-300 tw-uppercase tw-tracking-wider tw-font-semibold tw-border-b tw-border-white/40 dark:tw-border-white/10">
++                              <tr>
++                                  <th class="tw-py-3 tw-px-3 tw-text-xs tw-w-[10rem] lg:tw-w-[10%] tw-text-left">Service</th>
++                                  <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[15%] tw-text-center">Color</th>
++                                  <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[15%] tw-text-center">Price</th>
++                                  <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[15%] tw-text-center">Rate</th>
++                                  <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[15%] tw-text-center">QTY</th>
++                                  <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[10%] tw-text-center">Tax ({{ pos.settings.tax_percentage }}%)</th>
++                                  <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[10%] tw-text-center">Total</th>
++                                  <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[5%] tw-text-center"></th>
++                              </tr>
++                          </thead>
++                      </table>
++                  </div>
++
++                  <div class="tw-flex tw-h-[calc(100dvh-28rem)] tw-overflow-y-auto tw-overflow-x-auto tw-w-full tw-shrink-0">
++                      <table class="tw-w-full tw-text-xs tw-shrink-0 tw-h-fit">
++                          <TransitionGroup name="cart-list" tag="tbody">
++                              <tr v-for="(item, key) in pos.cart" :key="key" class="tw-border-b tw-border-neutral-200 dark:tw-border-neutral-800/50 tw-border-solid tw-transition-all tw-duration-200">
++                                  <td class="tw-py-2 tw-px-2 lg:tw-w-[10%] tw-w-[10rem] tw-text-left">
++                                      <div class="tw-flex tw-flex-col">
++                                          <div class="tw-text-xs tw-font-semibold">{{ item.service_name }}</div>
++                                          <div class="tw-text-xs tw-font-normal text-primary-600">[{{ item.service_type_name }}]</div>
++                                      </div>
++                                  </td>
++                                  <td class="tw-py-2 tw-px-1 lg:tw-w-[15%] tw-w-[10rem] tw-text-center">
++                                      <div class="tw-flex tw-items-center tw-justify-center tw-gap-1 tw-w-full">
++                                          <div class="tw-relative">
++                                              <button type="button" @click="openSwatchIndex = openSwatchIndex === key ? null : key" class="tw-flex tw-items-center tw-justify-center tw-w-7 tw-h-6 tw-bg-gray-100 hover:tw-bg-gray-200 tw-border tw-border-gray-300 tw-rounded tw-transition-colors" title="Choose from quick swatches">
++                                                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" class="tw-text-gray-600" viewBox="0 0 16 16">
++                                                      <path d="M8 5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm4 3a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM5.5 7a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm.5 6a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z" />
++                                                      <path d="M16 8c0 3.15-1.866 2.585-3.567 2.07C11.42 9.763 10.465 9.473 10 10c-.603.683-.475 1.819-.351 2.92C9.826 14.495 9.996 16 8 16a8 8 0 1 1 8-8zm-8 7c.611 0 .654-.171.655-.176.078-.146.124-.464.07-1.119-.014-.168-.037-.37-.061-.591-.052-.464-.112-1.005-.118-1.462-.01-.707.083-1.61.704-2.314.369-.417.845-.578 1.272-.618.404-.038.812.026 1.16.104.343.077.702.186 1.025.284 1.064.326 1.756.54 1.886.541.01 0 .013 0 .013-.001C15.823 13.064 16 11.233 16 8A7 7 0 1 0 8 15z" />
++                                                  </svg>
++                                              </button>
++                                              <div v-show="openSwatchIndex === key" class="tw-absolute tw-z-50 tw-bg-white tw-shadow-lg tw-border tw-border-gray-200" style="top: 32px; left: 0px; width: 170px; border-radius: 12px; padding: 12px;">
++                                                  <div class="tw-flex tw-justify-between tw-items-center" style="margin-bottom: 10px;">
++                                                      <span class="tw-text-xs tw-font-semibold tw-uppercase tw-tracking-wider" style="font-size: 10px; color: #4b5563;">Quick Colors</span>
++                                                      <button @click="openSwatchIndex = null" class="tw-text-gray-400 hover:tw-text-gray-600" aria-label="Close swatches">&times;</button>
++                                                  </div>
++                                                  <div style="display: flex; flex-wrap: wrap; gap: 8px;">
++                                                      <div v-for="(swatch, sIndex) in quickSwatches" :key="sIndex" class="tw-relative tw-group" style="display: flex; align-items: center; justify-content: center;">
++                                                          <button type="button" @click="applySwatch(item, swatch)" class="tw-rounded-full tw-shadow-sm hover:tw-scale-110 tw-transition-transform" style="cursor: pointer; padding: 0; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" :style="`background-color: ${swatch}; width: 22px; height: 22px;`" :title="swatch" :aria-label="'Apply color ' + swatch"></button>
++                                                          <button type="button" @click.stop="removeSwatch(sIndex)" class="tw-hidden group-hover:tw-flex tw-items-center tw-justify-center" style="position: absolute; top: -4px; right: -4px; z-index: 10; width: 14px; height: 14px; background-color: #ef4444; color: white; border-radius: 50%; font-size: 10px; line-height: 1; border: none; padding: 0; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.1);" title="Remove" aria-label="Remove swatch">&times;</button>
++                                                      </div>
++                                                  </div>
++                                              </div>
++                                          </div>
++                                          <input type="color" pattern="^#+([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$" class="tw-w-10 tw-h-6 tw-p-0 tw-border-0" v-model="item.color_code">
++                                          <button type="button" @click="addSwatch(item.color_code)" class="tw-flex tw-items-center tw-justify-center tw-w-6 tw-h-6 tw-bg-gray-100 hover:tw-bg-gray-200 tw-rounded tw-border tw-border-gray-300 tw-transition-colors tw-text-gray-700 tw-text-xs tw-font-bold" title="Save current color to quick swatches" aria-label="Save current color to quick swatches">+</button>
++                                      </div>
++                                  </td>
++                                  <td class="tw-py-2 tw-px-1 lg:tw-w-[15%] tw-w-[10rem] tw-text-center">
++                                      <div class="tw-h-full tw-w-full tw-flex tw-items-center tw-justify-center">
++                                          <input type="number" step="0.01" v-model.number="item.price" class="tw-ring-1 tw-px-1 tw-py-0.5 tw-rounded-md tw-w-[4.5rem]">
++                                      </div>
++                                  </td>
++                                  <td class="tw-py-2 tw-px-1 lg:tw-w-[15%] tw-w-[10rem] tw-text-center">
++                                      <div class="tw-h-full tw-w-full tw-flex tw-items-center tw-justify-center">{{ formatCurrency(item.price) }}</div>
++                                  </td>
++                                  <td class="tw-py-2 tw-px-1 lg:tw-w-[15%] tw-w-[10rem] tw-text-center">
++                                      <div class="tw-h-full tw-w-full tw-flex tw-items-center tw-justify-center">
++                                          <div class="tw-flex tw-items-center tw-gap-2 tw-justify-center tw-text-sm">
++                                              <button @click="pos.decreaseQty(key)" class="tw-px-2 tw-py-1 bg-primary-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md" aria-label="Decrease quantity">
++                                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-dash" viewBox="0 0 16 16"><path d="M4 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 4 8" /></svg>
++                                              </button>
++                                              {{ item.quantity }}
++                                              <button @click="pos.increaseQty(key)" class="tw-px-2 tw-py-1 bg-primary-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md" aria-label="Increase quantity">
++                                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-lg" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2" /></svg>
++                                              </button>
++                                          </div>
++                                      </div>
++                                  </td>
++                                  <td class="tw-py-2 tw-px-1 lg:tw-w-[10%] tw-w-[10rem] tw-text-center">
++                                      <div class="tw-h-full tw-w-full tw-flex tw-items-center tw-justify-center">{{ formatCurrency(pos.calculateItemTax(item)) }}</div>
++                                  </td>
++                                  <td class="tw-py-2 tw-px-1 lg:tw-w-[10%] tw-w-[10rem] tw-text-center">
++                                      <div class="tw-h-full tw-w-full tw-flex tw-items-center tw-justify-center">{{ formatCurrency(pos.calculateItemTotal(item)) }}</div>
++                                  </td>
++                                  <td class="tw-py-2 tw-px-1 lg:tw-w-[10%] tw-w-[10rem] tw-text-center">
++                                      <div class="tw-h-full tw-w-full tw-flex tw-items-center tw-justify-center tw-gap-2">
++                                          <button @click.prevent="pos.duplicateItem(key)" title="Duplicate" aria-label="Duplicate item" class="tw-px-2 tw-py-1 bg-info-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-justify-center tw-gap-1.5 tw-border-0 tw-shadow-md">
++                                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-copy" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1z"/></svg>
++                                          </button>
++                                          <button @click="pos.removeItem(key)" title="Remove item" aria-label="Remove item" class="tw-px-2 tw-py-1 tw-bg-red-500 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md">
++                                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z" /><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z" /></svg>
++                                          </button>
++                                      </div>
++                                  </td>
++                              </tr>
++                          </TransitionGroup>
++                      </table>
++                  </div>
++              </div>
++          </div>
++          <div class="tw-mt-2 tw-flex tw-justify-between tw-text-sm tw-p-4 tw-bg-slate-50/50 dark:tw-bg-slate-800/80 tw-border-t tw-border-white/40 dark:tw-border-white/10 tw-rounded-b-2xl dark:tw-text-slate-200">
++              <div class="tw-flex tw-flex-col tw-gap-2">
++                  <div class="tw-flex tw-items-end tw-justify-end tw-gap-2">
++                      <div class="tw-flex tw-items-center tw-gap-2">
++                          Addon <button data-bs-toggle="modal" data-bs-target="#addons" class="tw-px-1 tw-py-1 tw-rounded-md tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md bg-primary-600 tw-text-white tw-border tw-border-solid tw-bg-transparent tw-border-neutral-400" aria-label="Add Addon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-box-fill" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M15.528 2.973a.75.75 0 0 1 .472.696v8.662a.75.75 0 0 1-.472.696l-7.25 2.9a.75.75 0 0 1-.557 0l-7.25-2.9A.75.75 0 0 1 0 12.331V3.669a.75.75 0 0 1 .471-.696L7.443.184l.004-.001.274-.11a.75.75 0 0 1 .558 0l.274.11.004.001zm-1.374.527L8 5.962 1.846 3.5 1 3.839v.4l6.5 2.6v7.922l.5.2.5-.2V6.84l6.5-2.6v-.4l-.846-.339Z" /></svg></button> :
++                      </div>
++                      <div class="tw-font-bold">{{ formatCurrency(pos.cartAddonsTotal) }}</div>
++                  </div>
++                  <div class="tw-flex tw-items-center tw-gap-2">
++                      <div class="">Total Items :</div>
++                      <div class="tw-font-bold">{{ pos.cartTotalItems }}</div>
++                  </div>
++                  <div class="tw-flex tw-items-center tw-gap-2">
++                      <div class="">Sub Total :</div>
++                      <div class="tw-font-bold">{{ formatCurrency(pos.cartSubTotal) }}</div>
++                  </div>
++                  <div class="tw-flex tw-items-center tw-gap-2">
++                      <div class="tw-flex tw-items-center tw-gap-2">
++                          Notes : <button data-bs-toggle="modal" data-bs-target="#notesModal" class="tw-px-1 tw-py-1 tw-rounded-md tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md bg-primary-600 tw-text-white tw-border tw-border-solid tw-bg-transparent tw-border-neutral-400" aria-label="Edit Notes"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-pencil-square" viewBox="0 0 16 16"><path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z" /><path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5z" /></svg></button>
++                      </div>
++                  </div>
++              </div>
++              <div class="tw-flex tw-flex-col tw-gap-2">
++                  <div class="tw-flex tw-items-end tw-justify-end tw-gap-2">
++                      <div class="">Tax ({{ pos.settings.tax_percentage }}%) :</div>
++                      <div class="tw-font-bold">{{ formatCurrency(pos.cartTax) }}</div>
++                  </div>
++                  <div class="tw-flex tw-items-end tw-justify-end tw-gap-2">
++                      <div class="tw-flex tw-items-center tw-gap-2">
++                          Discount <button data-bs-toggle="modal" data-bs-target="#discount" class="tw-px-1 tw-py-1 tw-rounded-md tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md bg-primary-600 tw-text-white tw-border tw-border-solid tw-bg-transparent tw-border-neutral-400" aria-label="Apply Discount"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-tag-fill" viewBox="0 0 16 16"><path d="M2 1a1 1 0 0 0-1 1v4.586a1 1 0 0 0 .293.707l7 7a1 1 0 0 0 1.414 0l4.586-4.586a1 1 0 0 0 0-1.414l-7-7A1 1 0 0 0 6.586 1zm4 3.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0" /></svg></button> :
++                      </div>
++                      <div class="tw-font-bold">{{ formatCurrency(pos.cartDiscount) }}</div>
++                  </div>
++                  <div class="tw-flex tw-items-center tw-justify-end tw-gap-2">
++                      <div class="">Gross Total :</div>
++                      <div class="tw-font-extrabold">{{ formatCurrency(pos.cartTotal) }}</div>
++                  </div>
++              </div>
++          </div>
++      </div>
++      <div class="tw-flex tw-items-center tw-gap-2 tw-mt-1 tw-p-2 tw-w-full tw-h-14">
++          <button class="tw-px-2 tw-justify-center tw-font-semibold tw-py-2 tw-h-full bg-success-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-w-full tw-border-0 tw-shadow-md" data-bs-toggle="modal" data-bs-target="#payment">
++              <span>Payment</span>
++          </button>
++          <button class="tw-px-2 tw-justify-center tw-font-semibold tw-py-2 tw-h-full bg-info-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-w-full tw-border-0 tw-shadow-md" @click.prevent="$emit('save', 'cash')">
++              <span>Cash</span>
++          </button>
++          <button class="tw-px-2 tw-justify-center tw-font-semibold tw-py-2 tw-h-full tw-bg-orange-500 hover:tw-bg-orange-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-w-full tw-border-0 tw-shadow-md" @click.prevent="$emit('saveOffline')">
++              <span>Save</span>
++          </button>
++          <button :disabled="isSyncing" class="tw-px-2 tw-justify-center tw-font-semibold tw-py-2 tw-h-full bg-primary-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-w-full tw-border-0 tw-shadow-md disabled:tw-opacity-50" @click.prevent="$emit('syncAndPrint')">
++              <svg v-if="isSyncing" class="tw-animate-spin -tw-ml-1 tw-mr-2 tw-h-4 tw-w-4 tw-text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="tw-opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="tw-opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
++              <span>{{ isSyncing ? 'Syncing...' : 'Sync & Print' }}</span>
++          </button>
++          <button class="tw-px-2 tw-py-2 bg-danger-600 tw-rounded-md tw-text-white tw-h-full tw-flex tw-items-center tw-justify-center tw-gap-1.5 tw-border-0 tw-shadow-md" @click.prevent="$emit('clearAll')">
++              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-arrow-repeat" viewBox="0 0 16 16"><path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41m-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9" /><path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5 5 0 0 0 8 3M3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9z" /></svg>
++          </button>
++      </div>
++  </div>
++</template>
++
++<script setup>
++import { ref, computed, watch } from 'vue';
++import { usePosStore } from '../../stores/posStore';
++
++const props = defineProps({
++  shown: Boolean,
++  detached: Boolean,
++  isSyncing: Boolean
++});
++
++const emit = defineEmits(['save', 'clearAll', 'saveOffline', 'syncAndPrint']);
++
++const pos = usePosStore();
++
++const showCustomerDropdown = ref(false);
++
++const filteredCustomers = computed(() => {
++  if (!pos.customerQuery) return [...pos.customers].reverse().slice(0, 5);
++  const q = pos.customerQuery.toLowerCase();
++  return pos.customers.filter(c => 
++    (c.name && c.name.toLowerCase().includes(q)) || 
++    (c.phone && c.phone.includes(q))
++  ).slice(0, 5);
++});
++
++const hideCustomerDropdown = () => {
++    setTimeout(() => {
++        showCustomerDropdown.value = false;
++    }, 150);
++};
++
++const selectCustomer = (cust) => {
++  pos.cartCustomer = cust;
++  pos.customerQuery = '';
++  showCustomerDropdown.value = false;
++};
++
++const quickSwatches = ref(JSON.parse(localStorage.getItem('pos-quick-swatches') || '["#ffffff", "#000000", "#ff0000", "#00ff00", "#0000ff", "#ffff00", "#ff00ff", "#00ffff"]'));
++
++watch(quickSwatches, (newVal) => {
++    localStorage.setItem('pos-quick-swatches', JSON.stringify(newVal));
++}, { deep: true });
++
++const openSwatchIndex = ref(null);
++
++const addSwatch = (color) => {
++    if (!quickSwatches.value.includes(color) && color) {
++        if (quickSwatches.value.length >= 10) quickSwatches.value.shift();
++        quickSwatches.value.push(color);
++    }
++};
++
++const removeSwatch = (index) => {
++    quickSwatches.value.splice(index, 1);
++};
++
++const applySwatch = (item, color) => {
++    item.color_code = color;
++    openSwatchIndex.value = null;
++};
++
++const formatCurrency = (val) => {
++  const amount = Number(val).toFixed(2);
++  return `${pos.settings.currency} ${amount}`;
++};
++</script>
++
++<style>
++/* Vue Transition Group Animation for Cart items */
++.cart-list-enter-active,
++.cart-list-leave-active {
++  transition: all 0.2s ease;
++}
++.cart-list-enter-from,
++.cart-list-leave-to {
++  opacity: 0;
++  transform: translateX(30px);
++}
++</style>
+diff --git a/resources/js/vue/components/CustomerModal.vue b/resources/js/vue/components/CustomerModal.vue
+new file mode 100644
+index 0000000..c2ae444
+--- /dev/null
++++ b/resources/js/vue/components/CustomerModal.vue
+@@ -0,0 +1,146 @@
++<template>
++    <Teleport to="body">
++        <div class="modal fade" id="addcustomer" tabindex="-1" role="dialog" aria-labelledby="addcustomer"
++            aria-hidden="true" key="modal-addcustomer">
++            <div class="modal-dialog modal-md modal-dialog-centered" role="document">
++                <div class="modal-content radius-16 bg-base">
++                    <div class="modal-header py-16 px-24 border border-top-0 border-start-0 border-end-0">
++                        <h1 class="modal-title text-md" id="exampleModalLabel">
++                            Add Customer</h1>
++                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
++                    </div>
++                    <form action="" @submit.prevent="createCustomer">
++                        <div class="modal-body p-24">
++                            <div class="row">
++                                <div class="col-md-12 mb-1">
++                                    <label class="form-label">Name <span class="text-danger">*</span></label>
++                                    <input type="text" class="form-control" placeholder="Enter Name"
++                                        v-model="customer_name" required>
++                                </div>
++                                <div class="col-md-12 mb-1">
++                                    <label class="form-label">Phone <span class="text-danger">*</span></label>
++                                    <input type="text" class="form-control" placeholder="Enter Phone"
++                                        v-model="customer_phone" required>
++                                </div>
++                                <div class="col-md-12 mb-1">
++                                    <label class="form-label">Email</label>
++                                    <input type="text" class="form-control" placeholder="Enter Email"
++                                        v-model="email">
++                                </div>
++                                <div class="col-md-12 mb-1">
++                                    <label class="form-label">Tax Number</label>
++                                    <input type="text" class="form-control" placeholder="Enter Tax Number"
++                                        v-model="tax_no">
++                                </div>
++                                <div class="col-md-12 mb-3">
++                                    <label class="form-label">Address</label>
++                                    <textarea type="text" class="form-control" placeholder="Enter Address"
++                                        v-model="address"></textarea>
++                                </div>
++                                <div class="col-md-12 mb-1">
++                                    <div class="form-check form-switch">
++                                        <input class="form-check-input" type="checkbox" id="employee" checked
++                                            v-model="is_active">
++                                        <label class="form-check-label" for="employee">Is Active ?</label>
++                                    </div>
++                                </div>
++                            </div>
++                        </div>
++                        <div class="modal-footer">
++                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
++                            <button type="button" class="btn btn-primary" @click.prevent="createCustomer()">Save</button>
++                        </div>
++                    </form>
++                </div>
++            </div>
++        </div>
++    </Teleport>
++</template>
++
++<script setup>
++import { ref } from 'vue';
++import { usePosStore } from '../../stores/posStore';
++import { db } from '../../db';
++import { toast } from 'vue3-toastify';
++
++const pos = usePosStore();
++
++const emit = defineEmits(['customerCreated']);
++
++// Customer Modal Refs
++const customer_name = ref('');
++const customer_phone = ref('');
++const email = ref('');
++const tax_no = ref('');
++const address = ref('');
++const is_active = ref(true);
++
++const generateUUID = () => {
++    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
++        return crypto.randomUUID();
++    }
++    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
++        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
++        return v.toString(16);
++    });
++};
++
++const createCustomer = async () => {
++  if(!customer_name.value || !customer_phone.value) {
++    toast.error("Name and Phone required");
++    return;
++  }
++  
++  const cust = {
++    id: Date.now(), // Fallback ID for offline customers
++    uuid: generateUUID(),
++    name: customer_name.value,
++    phone: customer_phone.value,
++    email: email.value,
++    tax_number: tax_no.value,
++    address: address.value,
++    is_active: is_active.value ? 1 : 0,
++    sync_status: 'pending'
++  };
++  
++  await db.customers.add(cust);
++  pos.customers.push(cust);
++  
++  // Add to sync queue
++  await db.syncQueue.add({
++    type: 'customer',
++    data: cust,
++    timestamp: Date.now(),
++    status: 'pending',
++    retry_count: 0
++  });
++  
++  emit('customerCreated', cust);
++  
++  // Reset form
++  customer_name.value = '';
++  customer_phone.value = '';
++  email.value = '';
++  tax_no.value = '';
++  address.value = '';
++  
++  // Close modal via Bootstrap 5 native API if possible, or fallback to vanilla DOM
++  const modalEl = document.getElementById('addcustomer');
++  if (modalEl && modalEl.classList.contains('show')) {
++      if (typeof window.bootstrap !== 'undefined') {
++          const modalInstance = window.bootstrap.Modal.getOrCreateInstance(modalEl);
++          if (modalInstance) {
++              modalInstance.hide();
++          }
++      } else if (typeof window.$ !== 'undefined') {
++          // Fallback
++          window.$('#addcustomer').modal('hide');
++      }
++  }
++  
++  // Try sync
++  if(pos.isOnline) {
++    pos.syncOfflineData();
++  }
++};
++</script>
+diff --git a/resources/js/vue/components/DiscountModal.vue b/resources/js/vue/components/DiscountModal.vue
+new file mode 100644
+index 0000000..864b7ec
+--- /dev/null
++++ b/resources/js/vue/components/DiscountModal.vue
+@@ -0,0 +1,28 @@
++<template>
++  <div class="modal fade" id="discount" tabindex="-1" role="dialog" aria-labelledby="discount" aria-hidden="true" key="modal-discount">
++      <div class="modal-dialog modal-dialog-centered" role="document">
++          <div class="modal-content radius-16 bg-base">
++              <div class="modal-header py-16 px-24 border border-top-0 border-start-0 border-end-0">
++                  <h1 class="modal-title text-md" id="exampleModalLabel">Discount</h1>
++                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
++              </div>
++              <div class="modal-body p-24">
++                  <div class="tw-flex tw-gap-2 tw-flex-col">
++                      <div class="">Discount</div>
++                      <input type="number" v-model="pos.discount" class="form-control" placeholder="Enter Amount">
++                  </div>
++                  <div class="d-flex align-items-start justify-content-end gap-3 mt-24">
++                      <button data-bs-dismiss="modal" class="border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-40 py-11 radius-8">
++                          Close
++                      </button>
++                  </div>
++              </div>
++          </div>
++      </div>
++  </div>
++</template>
++
++<script setup>
++import { usePosStore } from '../../stores/posStore';
++const pos = usePosStore();
++</script>
+diff --git a/resources/js/vue/components/InstallPrompt.vue b/resources/js/vue/components/InstallPrompt.vue
+new file mode 100644
+index 0000000..8188711
+--- /dev/null
++++ b/resources/js/vue/components/InstallPrompt.vue
+@@ -0,0 +1,104 @@
++<template>
++  <div v-if="showPrompt" class="tw-fixed tw-bottom-0 tw-left-0 tw-w-full tw-p-4 tw-z-50 tw-animate-slide-up">
++    <div class="tw-bg-white tw-rounded-xl tw-shadow-2xl tw-p-4 tw-flex tw-flex-col sm:tw-flex-row tw-items-center tw-justify-between tw-border tw-border-slate-100 tw-gap-4">
++      <div class="tw-flex tw-items-center tw-gap-4">
++        <div class="tw-bg-primary-50 tw-p-3 tw-rounded-lg">
++          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="tw-w-8 tw-h-8 tw-text-primary-600">
++            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
++          </svg>
++        </div>
++        <div>
++          <h3 class="tw-text-base tw-font-bold tw-text-slate-900">Install TidyPOS</h3>
++          <p class="tw-text-sm tw-text-slate-500 tw-mt-0.5" v-if="!isIOS">Install our app for the fastest offline checkout experience.</p>
++          <p class="tw-text-sm tw-text-slate-500 tw-mt-0.5" v-else>Tap <span class="tw-font-bold">Share</span>, then <span class="tw-font-bold">Add to Home Screen</span> for the best offline experience.</p>
++        </div>
++      </div>
++      
++      <div class="tw-flex tw-items-center tw-gap-3 tw-w-full sm:tw-w-auto">
++        <button @click="dismissPrompt" class="tw-px-4 tw-py-2 tw-text-sm tw-font-medium tw-text-slate-600 tw-bg-slate-100 tw-rounded-lg hover:tw-bg-slate-200 tw-transition-colors tw-w-full sm:tw-w-auto">
++          Not Now
++        </button>
++        <button v-if="!isIOS" @click="installApp" class="tw-px-4 tw-py-2 tw-text-sm tw-font-medium tw-text-white tw-bg-primary-600 tw-rounded-lg hover:tw-bg-primary-700 tw-transition-colors tw-w-full sm:tw-w-auto tw-whitespace-nowrap">
++          Install App
++        </button>
++      </div>
++    </div>
++  </div>
++</template>
++
++<script setup>
++import { ref, onMounted } from 'vue';
++
++const showPrompt = ref(false);
++const deferredPrompt = ref(null);
++const isIOS = ref(false);
++
++onMounted(() => {
++  // Check if app is already installed
++  if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
++    return;
++  }
++
++  // Check if prompt was dismissed in this session
++  if (sessionStorage.getItem('install_prompt_dismissed')) {
++    return;
++  }
++
++  // Detect iOS Safari
++  const userAgent = window.navigator.userAgent.toLowerCase();
++  isIOS.value = /iphone|ipad|ipod/.test(userAgent);
++
++  // Standard PWA Install logic for Chrome/Edge
++  window.addEventListener('beforeinstallprompt', (e) => {
++    // Prevent the mini-infobar from appearing on mobile
++    e.preventDefault();
++    // Stash the event so it can be triggered later.
++    deferredPrompt.value = e;
++    // Update UI notify the user they can install the PWA
++    showPrompt.value = true;
++  });
++
++  // If iOS, show the prompt manually (they don't support beforeinstallprompt)
++  if (isIOS.value) {
++    showPrompt.value = true;
++  }
++});
++
++const dismissPrompt = () => {
++  showPrompt.value = false;
++  sessionStorage.setItem('install_prompt_dismissed', 'true');
++};
++
++const installApp = async () => {
++  if (!deferredPrompt.value) return;
++  
++  // Show the install prompt
++  deferredPrompt.value.prompt();
++  
++  // Wait for the user to respond to the prompt
++  const { outcome } = await deferredPrompt.value.userChoice;
++  
++  if (outcome === 'accepted') {
++    showPrompt.value = false;
++  }
++  
++  // We've used the prompt, and can't use it again, throw it away
++  deferredPrompt.value = null;
++};
++</script>
++
++<style scoped>
++@keyframes slideUp {
++  from {
++    transform: translateY(100%);
++    opacity: 0;
++  }
++  to {
++    transform: translateY(0);
++    opacity: 1;
++  }
++}
++.tw-animate-slide-up {
++  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
++}
++</style>
+diff --git a/resources/js/vue/components/NotesModal.vue b/resources/js/vue/components/NotesModal.vue
+new file mode 100644
+index 0000000..e6e637e
+--- /dev/null
++++ b/resources/js/vue/components/NotesModal.vue
+@@ -0,0 +1,28 @@
++<template>
++  <div class="modal fade" id="notesModal" tabindex="-1" role="dialog" aria-labelledby="notesModal" aria-hidden="true" key="modal-notesModal">
++      <div class="modal-dialog modal-dialog-centered" role="document">
++          <div class="modal-content radius-16 bg-base">
++              <div class="modal-header py-16 px-24 border border-top-0 border-start-0 border-end-0">
++                  <h1 class="modal-title text-md" id="exampleModalLabel">Notes / Remarks</h1>
++                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
++              </div>
++              <div class="modal-body p-24">
++                  <div class="tw-flex tw-gap-2 tw-flex-col">
++                      <div class="">Notes / Remarks</div>
++                      <textarea rows="3" v-model="pos.paymentNotes" class="form-control" placeholder="Enter Notes"></textarea>
++                  </div>
++                  <div class="d-flex align-items-start justify-content-end gap-3 mt-24">
++                      <button data-bs-dismiss="modal" class="border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-40 py-11 radius-8">
++                          Close
++                      </button>
++                  </div>
++              </div>
++          </div>
++      </div>
++  </div>
++</template>
++
++<script setup>
++import { usePosStore } from '../../stores/posStore';
++const pos = usePosStore();
++</script>
+diff --git a/resources/js/vue/components/PaymentModal.vue b/resources/js/vue/components/PaymentModal.vue
+new file mode 100644
+index 0000000..ab9c789
+--- /dev/null
++++ b/resources/js/vue/components/PaymentModal.vue
+@@ -0,0 +1,200 @@
++<template>
++    <div class="modal fade " id="payment" tabindex="-1" role="dialog" aria-labelledby="payment"
++        aria-hidden="true"  key="payment-modal">
++        <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
++            <div class="modal-content modal-content-lg radius-16 bg-base">
++                <div class="modal-header py-16 px-24 border border-top-0 border-start-0 border-end-0">
++                    <h1 class="modal-title text-md" id="exampleModalLabel">
++                        Payments
++                    </h1>
++                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
++                </div>
++                <div class="modal-body p-24">
++                    <div class="">
++                        <ul>
++                            <li class="d-flex align-items-center gap-1 tw-justify-between text-sm tw-mb-2">
++                                <span class="text-md fw-semibold text-primary-light">
++                                    Total Due :</span>
++                                <span class="text-secondary-light fw-bold text-lg"> {{ formatCurrency(pos.cartTotal) }}</span>
++                            </li>
++                            <li class="d-flex align-items-center gap-1 tw-justify-between text-sm">
++                                <span class="text-md fw-semibold text-primary-light">
++                                    Remaining Balance :</span>
++                                <span class="text-danger fw-bold text-lg"> {{ formatCurrency(remainingBalance) }}</span>
++                            </li>
++                        </ul>
++                    </div>
++                    <div class="col-12 tw-mb-6 tw-mt-4">
++                        <hr>
++                    </div>
++                    <div class="col-12 tw-my-6">
++                        
++                        <table class="table basic-border-table mb-0 tw-w-full tw-text-xs">
++                            <thead>
++                                <tr>
++                                    <th scope="col">#</th>
++                                    <th scope="col">Amount</th>
++                                    <th scope="col">Payment Type </th>
++                                    <th scope="col">Actions</th>
++                                </tr>
++                            </thead>
++                            <tbody>
++                                <template v-for="(item, key) in pos.payments" :key="key">
++                                    <tr>
++                                        <td>
++                                            {{ key + 1 }}
++                                        </td>
++                                        <td class="text-primary">{{ formatCurrency(item.amount) }}</td>
++                                        <td> {{ item.payment_type_name }}</td>
++                                        <td>
++                                            <button @click="removePayment(key)" type="button" class="remove-item-button bg-danger-focus bg-hover-danger-200 text-danger-600 fw-medium tw-size-6 d-flex justify-content-center align-items-center rounded-circle" aria-label="Remove Payment"> 
++                                                <iconify-icon icon="fluent:delete-24-regular" class="menu-icon"></iconify-icon>
++                                            </button>
++                                        </td>
++                                    </tr>
++                                </template>
++                            </tbody>
++                        </table>
++                        
++                        <div class="tw-py-16" v-if="pos.payments.length === 0">
++                            <div class="text-center tw-text-xs">No payments were added, Add a payment to show it here.</div>
++                        </div>
++                        
++                    </div>
++                    <div class="col-12 tw-my-6">
++                        <hr>
++                    </div>
++                    <div class="row mb-20 ">
++                        <div class="col-6 ">
++                            <label for="name"
++                                class="form-label fw-semibold text-primary-light text-sm mb-8">Paid Amount
++                                <span class="text-danger">*</span></label>
++                            <input type="text" class="form-control radius-8"
++                                placeholder="Enter Amount"
++                                v-model="payment_amount">
++                            
++                                <span class="error text-danger tw-text-xs"></span>
++                            
++                        </div>
++                        <div class="col-6 ">
++                            <label for="name"
++                                class="form-label fw-semibold text-primary-light text-sm mb-8">Payment Type
++                                <span class="text-danger">*</span></label>
++                            <select class="form-select radius-8" v-model="payment_type">
++                                <option value="">
++                                    Choose Payment Type
++                                </option>
++                                <option class="select-box" value="1">
++                                    Cash
++                                </option>
++                                <option class="select-box" value="2">
++                                    UPI
++                                </option>
++                                <option class="select-box" value="3">
++                                    Card
++                                </option>
++                                <option class="select-box" value="4">
++                                    Cheque
++                                </option>
++                                <option class="select-box" value="5">
++                                    Bank Transfer
++                                </option>
++                            </select>
++                            
++                                <span class="error text-danger tw-text-xs"></span>
++                            
++                        </div>
++                    </div>
++                    <div class="row mb-20 ">
++                        <div class="col-6 ">
++                            <label for="name"
++                                class="form-label fw-semibold text-primary-light text-sm mb-8">Notes
++                                </label>
++                            <input type="text" class="form-control radius-8"
++                                placeholder="Notes"
++                                v-model="notes">
++                            
++                                <span class="error text-danger tw-text-xs"></span>
++                            
++                        </div>
++                        <div class="col-6">
++                            <button
++                                class="tw-px-2 col-6 tw-text-xs tw-justify-center tw-font-semibold tw-py-3 tw-mt-[30px]  bg-success-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-w-full tw-border-0 tw-shadow-md "
++                                @click="add_payment">
++                                <span>Add Payment</span>
++                            </button>
++                        </div>
++                        
++                    </div>
++                  
++                    </div>
++                    <div class="modal-footer tw-mt-12 tw-flex tw-gap-2">
++                        <button
++                            class="tw-justify-center tw-font-semibold tw-py-2 tw-h-full tw-bg-orange-500 hover:tw-bg-orange-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-px-8 tw-border-0 tw-shadow-md"
++                            @click.prevent="$emit('saveOffline')">
++                            <span>Save</span>
++                        </button>
++                        <button
++                            :disabled="isSyncing"
++                            class="tw-justify-center tw-font-semibold tw-py-2 tw-h-full bg-primary-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-px-8 tw-border-0 tw-shadow-md disabled:tw-opacity-50"
++                            @click.prevent="$emit('syncAndPrint')">
++                            <svg v-if="isSyncing" class="tw-animate-spin -tw-ml-1 tw-mr-2 tw-h-4 tw-w-4 tw-text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="tw-opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="tw-opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
++                            <span>{{ isSyncing ? 'Syncing...' : 'Sync & Print' }}</span>
++                        </button>
++                    </div>
++                </div>
++            </div>
++        </div>
++</template>
++
++<script setup>
++import { ref, computed } from 'vue';
++import { usePosStore } from '../../stores/posStore';
++import { toast } from 'vue3-toastify';
++
++const pos = usePosStore();
++
++const remainingBalance = computed(() => {
++    const totalPaid = pos.payments.reduce((sum, p) => sum + Number(p.amount), 0);
++    const bal = pos.cartTotal - totalPaid;
++    return bal > 0 ? bal : 0;
++});
++const props = defineProps({
++  isSyncing: Boolean
++});
++const emit = defineEmits(['saveOffline', 'syncAndPrint']);
++
++const payment_type = ref('');
++const payment_amount = ref('');
++const notes = ref('');
++
++const formatCurrency = (val) => {
++  const amount = Number(val).toFixed(2);
++  return `${pos.settings.currency || '$'} ${amount}`;
++};
++
++const add_payment = () => {
++    if (!payment_type.value || !payment_amount.value) {
++        toast.error("Please enter both payment type and amount");
++        return;
++    }
++    const typeLabel = {
++        1: 'Cash', 2: 'UPI', 3: 'Card', 4: 'Cheque', 5: 'Bank Transfer'
++    }[payment_type.value] || 'Unknown';
++
++    pos.payments.push({
++        payment_type: payment_type.value,
++        payment_type_name: typeLabel,
++        amount: parseFloat(payment_amount.value),
++        notes: notes.value
++    });
++    
++    payment_type.value = '';
++    payment_amount.value = '';
++    notes.value = '';
++};
++
++const removePayment = (index) => {
++    pos.payments.splice(index, 1);
++};
++</script>
+diff --git a/resources/js/vue/components/ProductGrid.vue b/resources/js/vue/components/ProductGrid.vue
+new file mode 100644
+index 0000000..38d8436
+--- /dev/null
++++ b/resources/js/vue/components/ProductGrid.vue
+@@ -0,0 +1,61 @@
++<template>
++    <div class="tw-flex tw-flex-col">
++        <div class="icon-field has-validation">
++            <span class="icon tw-translate-y-[2px]">
++                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
++                    class="bi bi-search" viewBox="0 0 16 16">
++                    <path
++                        d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0" />
++                </svg>
++            </span>
++            <input type="text" class="form-control" v-model="internalSearch"
++                placeholder="Search Here" required="">
++        </div>
++        <div
++            class="tw-w-full tw-h-[calc(100vh-9rem)] tw-overflow-y-scroll custom-scroll tw-mt-4 tw-flex tw-px-1 tw-pb-4">
++            <div class="tw-grid tw-grid-cols-2 lg:tw-grid-cols-3 xl:tw-grid-cols-4 tw-gap-4 tw-h-fit tw-w-full">
++                <template v-for="item in filteredServices" :key="item.id">
++                    <a type="button" class="tw-block tw-h-full tw-w-full tw-group" data-bs-toggle="modal"
++                        data-bs-target="#servicetype" @click="$emit('select-service', item)">
++                        <div class="tw-bg-white/60 dark:tw-bg-slate-800/60 tw-backdrop-blur-sm tw-border tw-border-white/20 dark:tw-border-white/5 tw-shadow-sm tw-rounded-2xl tw-transition-all tw-duration-300 hover:tw-shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:hover:tw-shadow-[0_8px_30px_rgb(0,0,0,0.4)] hover:-tw-translate-y-1.5 tw-h-full">
++                            <div
++                                class="tw-p-4 tw-flex tw-items-center tw-justify-center tw-flex-col tw-h-full">
++                                <template v-if="item.icon && item.icon.includes(':')">
++                                    <div class="tw-h-20 tw-w-20 tw-flex tw-items-center tw-justify-center tw-bg-slate-50/50 dark:tw-bg-slate-900/50 tw-rounded-xl tw-transition-colors group-hover:tw-bg-primary-50 dark:group-hover:tw-bg-primary-900/30">
++                                        <iconify-icon :icon="item.icon" class="tw-text-4xl text-primary dark:tw-text-primary-400 tw-transition-transform tw-duration-300 group-hover:tw-scale-110"></iconify-icon>
++                                    </div>
++                                </template>
++                                <template v-else>
++                                    <div class="tw-h-20 tw-w-20 tw-flex tw-items-center tw-justify-center tw-bg-slate-50/50 dark:tw-bg-slate-900/50 tw-rounded-xl tw-overflow-hidden">
++                                        <img :src="'/assets/img/service-icons/' + item.icon" class="tw-h-full tw-w-full tw-object-cover tw-rounded-xl tw-transition-transform tw-duration-500 group-hover:tw-scale-110">
++                                    </div>
++                                </template>
++                                <div
++                                    class="tw-pt-3 tw-w-full tw-flex tw-justify-center tw-items-center">
++                                    <div class="tw-text-sm tw-text-center tw-truncate tw-font-semibold tw-text-slate-800 dark:tw-text-slate-200 tw-w-[95%]">
++                                        {{ item.service_name }}</div>
++                                </div>
++                            </div>
++                        </div>
++                    </a>
++                </template>
++            </div>
++        </div>
++    </div>
++</template>
++
++<script setup>
++import { computed } from 'vue';
++
++const props = defineProps({
++    searchQuery: String,
++    filteredServices: Array
++});
++
++const emit = defineEmits(['update:searchQuery', 'select-service']);
++
++const internalSearch = computed({
++    get: () => props.searchQuery,
++    set: (val) => emit('update:searchQuery', val)
++});
++</script>
+diff --git a/resources/js/vue/components/ReAuthModal.vue b/resources/js/vue/components/ReAuthModal.vue
+new file mode 100644
+index 0000000..cc90e2e
+--- /dev/null
++++ b/resources/js/vue/components/ReAuthModal.vue
+@@ -0,0 +1,274 @@
++<template>
++    <div v-if="pos.needsReAuth" class="reauth-overlay">
++        <div class="reauth-modal">
++            <div class="reauth-header">
++                <div class="icon-circle">
++                    <iconify-icon icon="mdi:lock-reset" class="lock-icon"></iconify-icon>
++                </div>
++                <h2>Session Expired</h2>
++                <p>Please verify your identity to securely resume synchronization.</p>
++            </div>
++            
++            <form @submit.prevent="handleReAuth" class="reauth-body">
++                <div class="user-chip">
++                    <div class="avatar">{{ userInitials }}</div>
++                    <div class="user-info">
++                        <span class="user-name">{{ userName }}</span>
++                        <span class="user-email">{{ userEmail }}</span>
++                    </div>
++                </div>
++
++                <div class="input-group">
++                    <label>Enter Password</label>
++                    <input 
++                        type="password" 
++                        v-model="password" 
++                        placeholder="ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó" 
++                        required 
++                        autofocus
++                    />
++                </div>
++
++                <button type="submit" class="submit-btn" :disabled="isLoading">
++                    <svg v-if="isLoading" class="spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
++                    <span>{{ isLoading ? 'Authenticating...' : 'Unlock & Resume' }}</span>
++                </button>
++            </form>
++        </div>
++    </div>
++</template>
++
++<script setup>
++import { ref, computed } from 'vue';
++import { usePosStore } from '../../stores/posStore';
++import { toast } from 'vue3-toastify';
++import axios from 'axios';
++
++const pos = usePosStore();
++const password = ref('');
++const isLoading = ref(false);
++
++const userName = computed(() => window.PosConfig?.user?.name || 'Cashier');
++const userEmail = computed(() => window.PosConfig?.user?.email || '');
++const userInitials = computed(() => {
++    return userName.value.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
++});
++
++const handleReAuth = async () => {
++    if (!password.value) return;
++    
++    isLoading.value = true;
++    try {
++        const response = await axios.post('/api/login', {
++            email: userEmail.value,
++            password: password.value
++        });
++
++        const token = response.data.token;
++        
++        // Update global Axios and config
++        window.PosConfig.apiToken = token;
++        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
++        
++        // Hide modal
++        pos.needsReAuth = false;
++        password.value = '';
++        
++        toast.success("Authentication successful! Resuming sync...");
++        
++        // Retry sync if online
++        if (pos.isOnline) {
++            pos.syncOfflineData();
++        }
++    } catch (error) {
++        toast.error("Incorrect password. Please try again.");
++        password.value = '';
++    } finally {
++        isLoading.value = false;
++    }
++};
++</script>
++
++<style scoped>
++.reauth-overlay {
++    position: fixed;
++    top: 0;
++    left: 0;
++    right: 0;
++    bottom: 0;
++    background: rgba(15, 23, 42, 0.85);
++    backdrop-filter: blur(8px);
++    z-index: 9999;
++    display: flex;
++    align-items: center;
++    justify-content: center;
++    animation: fadeIn 0.3s ease-out;
++}
++
++.reauth-modal {
++    background: #ffffff;
++    border-radius: 24px;
++    width: 100%;
++    max-width: 420px;
++    padding: 32px;
++    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
++    transform: translateY(0);
++    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
++}
++
++.reauth-header {
++    text-align: center;
++    margin-bottom: 28px;
++}
++
++.icon-circle {
++    width: 64px;
++    height: 64px;
++    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
++    border-radius: 50%;
++    display: flex;
++    align-items: center;
++    justify-content: center;
++    margin: 0 auto 16px;
++    box-shadow: inset 0 2px 4px rgba(255,255,255,0.5);
++}
++
++.lock-icon {
++    font-size: 32px;
++    color: #3b82f6;
++}
++
++.reauth-header h2 {
++    font-size: 24px;
++    font-weight: 700;
++    color: #1e293b;
++    margin-bottom: 8px;
++    font-family: 'Inter', sans-serif;
++}
++
++.reauth-header p {
++    font-size: 14px;
++    color: #64748b;
++    margin: 0;
++    line-height: 1.5;
++}
++
++.user-chip {
++    display: flex;
++    align-items: center;
++    gap: 12px;
++    background: #f8fafc;
++    border: 1px solid #e2e8f0;
++    padding: 12px;
++    border-radius: 12px;
++    margin-bottom: 24px;
++}
++
++.avatar {
++    width: 40px;
++    height: 40px;
++    background: #3b82f6;
++    color: white;
++    border-radius: 10px;
++    display: flex;
++    align-items: center;
++    justify-content: center;
++    font-weight: 600;
++    font-size: 14px;
++}
++
++.user-info {
++    display: flex;
++    flex-direction: column;
++}
++
++.user-name {
++    font-weight: 600;
++    color: #0f172a;
++    font-size: 14px;
++}
++
++.user-email {
++    font-size: 12px;
++    color: #64748b;
++}
++
++.input-group {
++    margin-bottom: 24px;
++}
++
++.input-group label {
++    display: block;
++    font-size: 13px;
++    font-weight: 600;
++    color: #475569;
++    margin-bottom: 8px;
++}
++
++.input-group input {
++    width: 100%;
++    padding: 14px 16px;
++    border: 1px solid #cbd5e1;
++    border-radius: 12px;
++    font-size: 15px;
++    color: #0f172a;
++    transition: all 0.2s;
++    background: #ffffff;
++}
++
++.input-group input:focus {
++    outline: none;
++    border-color: #3b82f6;
++    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
++}
++
++.submit-btn {
++    width: 100%;
++    padding: 14px;
++    background: #3b82f6;
++    color: white;
++    border: none;
++    border-radius: 12px;
++    font-weight: 600;
++    font-size: 15px;
++    cursor: pointer;
++    transition: background 0.2s;
++    display: flex;
++    align-items: center;
++    justify-content: center;
++    gap: 8px;
++}
++
++.submit-btn:hover:not(:disabled) {
++    background: #2563eb;
++}
++
++.submit-btn:disabled {
++    opacity: 0.7;
++    cursor: not-allowed;
++}
++
++.spinner {
++    width: 20px;
++    height: 20px;
++    animation: spin 1s linear infinite;
++}
++
++.opacity-25 { opacity: 0.25; }
++.opacity-75 { opacity: 0.75; }
++
++@keyframes spin {
++    from { transform: rotate(0deg); }
++    to { transform: rotate(360deg); }
++}
++
++@keyframes fadeIn {
++    from { opacity: 0; }
++    to { opacity: 1; }
++}
++
++@keyframes slideUp {
++    from { opacity: 0; transform: translateY(20px) scale(0.95); }
++    to { opacity: 1; transform: translateY(0) scale(1); }
++}
++</style>
+diff --git a/resources/js/vue/components/ServiceTypeModal.vue b/resources/js/vue/components/ServiceTypeModal.vue
+new file mode 100644
+index 0000000..3502d8d
+--- /dev/null
++++ b/resources/js/vue/components/ServiceTypeModal.vue
+@@ -0,0 +1,79 @@
++<template>
++  <div class="modal fade" id="servicetype" tabindex="-1" role="dialog" aria-labelledby="servicetype" aria-hidden="true" key="modal-servicetype">
++      <div class="modal-dialog modal-md modal-dialog-centered" role="document">
++          <div class="modal-content radius-16 bg-base">
++              <div class="modal-header py-16 px-24 border border-top-0 border-start-0 border-end-0">
++                  <h1 class="modal-title text-md" id="exampleModalLabel">Select Service Type</h1>
++                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
++              </div>
++              <div class="modal-body p-24">
++                  <div class="row">
++                      <template v-for="item in availableServiceTypes" :key="item.id">
++                          <div class="col-12 mb-20">
++                              <div class="tw-flex tw-items-center tw-justify-between">
++                                  <div class="d-flex align-items-center gap-10 fw-medium text-lg">
++                                      <div class="form-check style-check d-flex align-items-center">
++                                          <input class="form-check-input radius-4 border border-neutral-500"
++                                              type="checkbox" :id="'test' + item.id" name="test"
++                                              :value="item.id"
++                                              v-model="selected_types[item.id]">
++                                      </div>
++                                      <label :for="'test' + item.id" class="form-label fw-medium text-primary-light mb-0">{{ item.service_type_name }}</label>
++                                  </div>
++                                  <div class="">{{ formatPrice(item.price) }}</div>
++                              </div>
++                          </div>
++                      </template>
++                  </div>
++                  <div class="d-flex align-items-start justify-content-end gap-3 mt-24">
++                      <button type="button" data-bs-dismiss="modal" class="border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-40 py-11 radius-8">
++                          <span>Cancel</span>
++                      </button>
++                      <button type="submit" @click.prevent="addItem" class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8">
++                          <span>Save</span>
++                      </button>
++                  </div>
++              </div>
++          </div>
++      </div>
++  </div>
++</template>
++
++<script setup>
++import { ref, reactive, watch } from 'vue';
++
++const props = defineProps({
++  availableServiceTypes: Array,
++  currency: { type: String, default: '' }
++});
++
++const emit = defineEmits(['add-items']);
++
++// Reactive object mirroring Livewire's selected_type = { id: true/false }
++const selected_types = reactive({});
++
++// Watch for when the modal gets new service types (i.e. user clicked a new product)
++// and auto-select the first one, matching the online POS behavior
++watch(() => props.availableServiceTypes, (newTypes) => {
++  // Clear previous selections
++  Object.keys(selected_types).forEach(key => delete selected_types[key]);
++  
++  // Auto-select the first service type
++  if (newTypes && newTypes.length > 0) {
++    selected_types[newTypes[0].id] = true;
++  }
++}, { immediate: true });
++
++const formatPrice = (price) => {
++  const num = parseFloat(price);
++  return isNaN(num) ? price : num.toLocaleString();
++};
++
++const addItem = () => {
++  // Collect all checked type IDs
++  const checkedIds = Object.keys(selected_types).filter(id => selected_types[id] === true);
++  if (checkedIds.length > 0) {
++    emit('add-items', checkedIds.map(id => parseInt(id)));
++  }
++};
++</script>
+diff --git a/resources/js/vue/components/SyncQueueModal.vue b/resources/js/vue/components/SyncQueueModal.vue
+new file mode 100644
+index 0000000..7e3f03a
+--- /dev/null
++++ b/resources/js/vue/components/SyncQueueModal.vue
+@@ -0,0 +1,201 @@
++<template>
++    <div class="modal fade" id="syncQueueModal" tabindex="-1" role="dialog" aria-hidden="true" @show.bs.modal="fetchQueue">
++        <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
++            <div class="modal-content radius-16 bg-base">
++                <div class="modal-header py-16 px-24 border border-top-0 border-start-0 border-end-0">
++                    <div class="d-flex align-items-center gap-3">
++                        <div class="icon-circle-sm bg-primary-50 text-primary-600">
++                            <iconify-icon icon="mdi:cloud-sync-outline" class="fs-4"></iconify-icon>
++                        </div>
++                        <h1 class="modal-title text-md m-0">Sync Manager Dashboard</h1>
++                    </div>
++                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
++                </div>
++                
++                <div class="modal-body p-24">
++                    <div class="d-flex justify-content-between align-items-center mb-4">
++                        <p class="text-secondary-light m-0 text-sm">Manage pending offline orders and customers securely.</p>
++                        <button @click="forceSync" class="btn btn-primary btn-sm d-flex align-items-center gap-2" :disabled="pos.isSyncing">
++                            <iconify-icon icon="mdi:refresh" :class="{'tw-animate-spin': pos.isSyncing}"></iconify-icon>
++                            {{ pos.isSyncing ? 'Syncing...' : 'Sync Now' }}
++                        </button>
++                    </div>
++
++                    <div v-if="isLoading" class="text-center py-5">
++                        <div class="spinner-border text-primary" role="status">
++                            <span class="visually-hidden">Loading...</span>
++                        </div>
++                    </div>
++                    
++                    <div v-else-if="queueItems.length === 0" class="text-center py-5 empty-state">
++                        <iconify-icon icon="mdi:cloud-check" class="display-1 text-success opacity-50 mb-3"></iconify-icon>
++                        <h5 class="fw-semibold">All Caught Up!</h5>
++                        <p class="text-secondary-light text-sm">There are no pending items in the offline queue.</p>
++                    </div>
++
++                    <div v-else class="table-responsive">
++                        <table class="table basic-border-table mb-0 tw-text-sm">
++                            <thead>
++                                <tr>
++                                    <th>Type</th>
++                                    <th>Details</th>
++                                    <th>Status</th>
++                                    <th>Time</th>
++                                    <th class="text-end">Actions</th>
++                                </tr>
++                            </thead>
++                            <tbody>
++                                <tr v-for="item in queueItems" :key="item.id" class="align-middle">
++                                    <td>
++                                        <span :class="['badge radius-8 px-12 py-4', item.type === 'order' ? 'bg-primary-50 text-primary-600' : 'bg-info-50 text-info-600']">
++                                            {{ item.type.toUpperCase() }}
++                                        </span>
++                                    </td>
++                                    <td>
++                                        <div class="fw-medium text-dark">{{ getDetails(item) }}</div>
++                                        <div class="text-xs text-secondary-light">Retries: {{ item.retry_count }}</div>
++                                    </td>
++                                    <td>
++                                        <span v-if="item.status === 'pending'" class="badge bg-warning-50 text-warning-600 radius-8 px-12 py-4">Pending</span>
++                                        <span v-else-if="item.status === 'error'" class="badge bg-danger-50 text-danger-600 radius-8 px-12 py-4">Error</span>
++                                        <div v-if="item.error_message" class="tw-text-xs tw-text-red-500 tw-mt-1 tw-max-w-[200px]">
++                                            {{ item.error_message }}
++                                        </div>
++                                    </td>
++                                    <td class="text-secondary-light text-xs">
++                                        {{ formatTime(item.timestamp) }}
++                                    </td>
++                                    <td class="text-end">
++                                        <div class="d-flex justify-content-end gap-2">
++                                            <button v-if="item.type === 'order' && item.status === 'error'" @click="editAndFix(item)" class="btn btn-sm btn-outline-primary radius-8 d-inline-flex align-items-center justify-content-center p-2 tw-gap-1" title="Edit & Fix Order">
++                                                <iconify-icon icon="mdi:pencil-outline"></iconify-icon> Fix
++                                            </button>
++                                            <button @click="deleteItem(item.id)" class="btn btn-sm btn-outline-danger radius-8 d-inline-flex align-items-center justify-content-center p-2" title="Delete Offline Data">
++                                                <iconify-icon icon="mdi:trash-can-outline"></iconify-icon>
++                                            </button>
++                                        </div>
++                                    </td>
++                                </tr>
++                            </tbody>
++                        </table>
++                    </div>
++                </div>
++            </div>
++        </div>
++    </div>
++</template>
++
++<script setup>
++import { ref, onMounted } from 'vue';
++import { usePosStore } from '../../stores/posStore';
++import { db } from '../../db';
++import { toast } from 'vue3-toastify';
++
++const pos = usePosStore();
++const queueItems = ref([]);
++const isLoading = ref(true);
++
++const fetchQueue = async () => {
++    isLoading.value = true;
++    try {
++        queueItems.value = await db.syncQueue.orderBy('timestamp').reverse().toArray();
++    } catch (e) {
++        console.error(e);
++        toast.error("Failed to load sync queue.");
++    } finally {
++        isLoading.value = false;
++    }
++};
++
++const forceSync = async () => {
++    if (!pos.isOnline) {
++        toast.warning("You are currently offline. Cannot sync.");
++        return;
++    }
++    const result = await pos.syncOfflineData();
++    if (result.success) {
++        toast.success("Sync completed successfully.");
++    } else {
++        toast.error("Sync failed for some items.");
++    }
++    await fetchQueue();
++};
++
++const deleteItem = async (id) => {
++    if (confirm("Are you sure you want to delete this offline item? This cannot be undone.")) {
++        await db.syncQueue.delete(id);
++        toast.success("Item deleted from queue.");
++        await fetchQueue();
++    }
++};
++
++const getDetails = (item) => {
++    if (item.type === 'order') {
++        return `${item.data.customer_name || 'Walk-in Customer'} - ${pos.settings.currency || '$'}${item.data.total}`;
++    }
++    if (item.type === 'customer') {
++        return `${item.data.name} (${item.data.phone})`;
++    }
++    return 'Unknown Data';
++};
++
++const formatTime = (ts) => {
++    return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' });
++};
++
++const editAndFix = async (item) => {
++    // Load into cart
++    pos.cart = item.data.details.map(d => ({
++        service_id: d.service_id,
++        service_type_name: d.service_name,
++        quantity: d.service_quantity,
++        price: d.service_price,
++        color_code: d.color_code || ''
++    }));
++    
++    pos.cartCustomer = item.data.new_customer || pos.customers.find(c => c.id === item.data.customer_id) || null;
++    pos.payments = item.data.payments || [];
++    pos.orderDate = item.data.order_date;
++    pos.deliveryDate = item.data.delivery_date;
++    pos.discount = item.data.discount;
++    
++    // Delete the failed order from queue since we're fixing it
++    await db.syncQueue.delete(item.id);
++    
++    toast.info("Order loaded for fixing.");
++    
++    // Close modal
++    const modalEl = document.getElementById('syncQueueModal');
++    if (typeof window.bootstrap !== 'undefined') {
++        const mInst = window.bootstrap.Modal.getOrCreateInstance(modalEl);
++        if (mInst) mInst.hide();
++    } else if (typeof window.$ !== 'undefined') {
++        window.$('#syncQueueModal').modal('hide');
++    }
++};
++
++// Expose fetchQueue to global scope so bootstrap modal events can trigger it if needed
++onMounted(() => {
++    // Listen for bootstrap modal show event
++    const modal = document.getElementById('syncQueueModal');
++    if (modal) {
++        modal.addEventListener('show.bs.modal', fetchQueue);
++    }
++});
++</script>
++
++<style scoped>
++.icon-circle-sm {
++    width: 40px;
++    height: 40px;
++    border-radius: 50%;
++    display: flex;
++    align-items: center;
++    justify-content: center;
++}
++.empty-state {
++    background: #f8fafc;
++    border-radius: 16px;
++    border: 1px dashed #cbd5e1;
++}
++</style>
+diff --git a/vite.config.js b/vite.config.js
+index 421b569..2f101e0 100644
+--- a/vite.config.js
++++ b/vite.config.js
+@@ -1,11 +1,96 @@
+ import { defineConfig } from 'vite';
+ import laravel from 'laravel-vite-plugin';
++import vue from '@vitejs/plugin-vue';
++import { VitePWA } from 'vite-plugin-pwa';
+ 
+ export default defineConfig({
+     plugins: [
+         laravel({
+-            input: ['resources/css/app.css', 'resources/js/app.js'],
++            input: ['resources/css/app.css', 'resources/js/app.js', 'resources/js/pos-app.js'],
+             refresh: true,
+         }),
++        vue({
++            template: {
++                transformAssetUrls: {
++                    base: null,
++                    includeAbsolute: false,
++                },
++            },
++        }),
++        VitePWA({
++            outDir: 'public/build',
++            buildBase: '/build/',
++            scope: '/admin/pos/',
++            registerType: 'autoUpdate',
++            injectRegister: 'script',
++            workbox: {
++                navigateFallback: '/admin/pos',
++                globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,ttf,eot}'],
++                runtimeCaching: [
++                    {
++                        urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
++                        handler: 'CacheFirst',
++                        options: {
++                            cacheName: 'google-fonts-cache',
++                            expiration: {
++                                maxEntries: 10,
++                                maxAgeSeconds: 60 * 60 * 24 * 365, // 365 days
++                            },
++                            cacheableResponse: {
++                                statuses: [0, 200]
++                            }
++                        }
++                    },
++                    {
++                        urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
++                        handler: 'CacheFirst',
++                        options: {
++                            cacheName: 'gstatic-fonts-cache',
++                            expiration: {
++                                maxEntries: 10,
++                                maxAgeSeconds: 60 * 60 * 24 * 365, // 365 days
++                            },
++                            cacheableResponse: {
++                                statuses: [0, 200]
++                            }
++                        }
++                    },
++                    {
++                        // Ensure API sync routes are NetworkOnly to prevent Service Worker proxy timeouts on chunked data
++                        urlPattern: /\/api\/pos\/.*/i,
++                        handler: 'NetworkOnly',
++                        options: {
++                            // Workbox backgroundSync removed to prevent conflicts with custom Dexie queue
++                        }
++                    }
++                ]
++            },
++            manifest: {
++                name: 'TidyPOS Offline',
++                short_name: 'TidyPOS',
++                description: 'Offline capable Point of Sale',
++                theme_color: '#ffffff',
++                background_color: '#ffffff',
++                display: 'standalone',
++                start_url: '/admin/pos',
++                icons: [
++                    {
++                        src: '/assets/img/logo-ct.png',
++                        sizes: '192x192',
++                        type: 'image/png'
++                    },
++                    {
++                        src: '/assets/img/logo-ct.png',
++                        sizes: '512x512',
++                        type: 'image/png'
++                    }
++                ]
++            }
++        })
+     ],
++    resolve: {
++        alias: {
++            vue: 'vue/dist/vue.esm-bundler.js',
++        },
++    },
+ });

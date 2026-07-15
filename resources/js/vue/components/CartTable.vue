@@ -1,6 +1,6 @@
 <template>
   <div class="tw-h-[calc(100vh-4rem)] tw-flex tw-flex-col dark:tw-bg-slate-900/50 tw-bg-white/50 tw-backdrop-blur-xl tw-shadow-[-4px_0_24px_rgba(0,0,0,0.05)] tw-border-l tw-border-white/20 dark:tw-border-white/5 tw-p-4 lg:tw-p-6" :class="shown && detached ? 'tw-absolute tw-inset-0 tw-w-full tw-z-50' : 'tw-hidden lg:tw-block lg:tw-w-7/12 tw-w-full tw-shrink-0'">
-      <div class="tw-flex tw-items-center tw-gap-8 tw-w-full tw-shrink-0">
+      <div class="tw-flex lg:tw-flex-row tw-flex-col lg:tw-items-center tw-items-start tw-gap-4 lg:tw-gap-8 tw-w-full tw-shrink-0">
           <div class="tw-flex tw-min-w-fit tw-shrink tw-flex-col">
               <div class="tw-text-sm">Order : <span class="tw-font-bold">#{{ pos.cartOrderId }}</span></div>
               <div class="tw-flex tw-items-center tw-gap-2">
@@ -59,7 +59,7 @@
           </div>
       </div>
       <div class="tw-w-full tw-flex tw-flex-col tw-flex-1 tw-min-h-0 tw-mt-6 tw-rounded-2xl tw-overflow-clip tw-border tw-border-white/60 dark:tw-border-white/10 tw-shadow-lg tw-bg-white/60 dark:tw-bg-slate-800/60 tw-backdrop-blur-md">
-          <div class="tw-flex tw-flex-col lg:tw-w-full tw-overflow-x-auto">
+          <div class="tw-flex tw-flex-col lg:tw-w-full tw-overflow-x-auto custom-scroll tw-shadow-[inset_-12px_0_15px_-15px_rgba(0,0,0,0.15)] tw-pr-2">
               <div class="tw-flex tw-flex-col lg:tw-w-full tw-w-full tw-min-w-[60rem]">
                   <div class="tw-flex tw-flex-col tw-overflow-x-auto tw-w-full tw-shrink-0">
                       <table class="tw-w-full tw-text-xs tw-shrink-0 tw-h-fit">
@@ -197,7 +197,7 @@
               </div>
           </div>
       </div>
-      <div class="tw-flex tw-items-center tw-gap-2 tw-mt-1 tw-p-2 tw-w-full tw-h-14">
+      <div class="tw-grid tw-grid-cols-2 lg:tw-flex tw-items-center tw-gap-2 tw-mt-1 tw-p-2 tw-w-full lg:tw-h-14">
           <button class="tw-px-2 tw-justify-center tw-font-semibold tw-py-2 tw-h-full bg-success-600 tw-rounded-md tw-text-white tw-flex tw-items-center tw-gap-1.5 tw-w-full tw-border-0 tw-shadow-md" data-bs-toggle="modal" data-bs-target="#payment">
               <span>Payment</span>
           </button>
@@ -211,7 +211,7 @@
               <svg v-if="isSyncing" class="tw-animate-spin -tw-ml-1 tw-mr-2 tw-h-4 tw-w-4 tw-text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="tw-opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="tw-opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
               <span>{{ isSyncing ? 'Syncing...' : 'Sync & Print' }}</span>
           </button>
-          <button class="tw-px-2 tw-py-2 bg-danger-600 tw-rounded-md tw-text-white tw-h-full tw-flex tw-items-center tw-justify-center tw-gap-1.5 tw-border-0 tw-shadow-md" @click.prevent="$emit('clearAll')">
+          <button class="tw-px-2 tw-py-2 bg-danger-600 tw-rounded-md tw-text-white tw-h-full tw-flex tw-items-center tw-justify-center tw-gap-1.5 tw-border-0 tw-shadow-md tw-col-span-2 lg:tw-col-span-1 tw-min-h-[2.5rem]" @click.prevent="$emit('clearAll')">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-arrow-repeat" viewBox="0 0 16 16"><path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41m-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9" /><path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5 5 0 0 0 8 3M3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9z" /></svg>
           </button>
       </div>

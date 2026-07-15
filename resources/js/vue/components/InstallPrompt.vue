@@ -1,5 +1,5 @@
 <template>
-  <div v-if="showPrompt" class="tw-fixed tw-bottom-0 tw-left-0 tw-w-full tw-p-4 tw-z-50 tw-animate-slide-up">
+  <div v-if="showPrompt" class="tw-fixed tw-bottom-6 tw-left-0 tw-w-full tw-p-4 tw-z-50 tw-animate-slide-up">
     <div class="tw-bg-white tw-rounded-xl tw-shadow-2xl tw-p-4 tw-flex tw-flex-col sm:tw-flex-row tw-items-center tw-justify-between tw-border tw-border-slate-100 tw-gap-4">
       <div class="tw-flex tw-items-center tw-gap-4">
         <div class="tw-bg-primary-50 tw-p-3 tw-rounded-lg">
@@ -39,9 +39,13 @@ onMounted(() => {
     return;
   }
 
-  // Check if prompt was dismissed in this session
-  if (sessionStorage.getItem('install_prompt_dismissed')) {
-    return;
+  // Check cooling-off period
+  const cooldownStr = localStorage.getItem('pwa_install_cooldown');
+  if (cooldownStr) {
+    const cooldownTime = parseInt(cooldownStr);
+    if (Date.now() < cooldownTime) {
+      return; // Still in cooldown
+    }
   }
 
   // Detect iOS Safari
@@ -56,21 +60,41 @@ onMounted(() => {
     deferredPrompt.value = e;
     // Update UI notify the user they can install the PWA
     showPrompt.value = true;
+    startAutoDismiss();
   });
 
   // If iOS, show the prompt manually (they don't support beforeinstallprompt)
   if (isIOS.value) {
     showPrompt.value = true;
+    startAutoDismiss();
   }
 });
 
+let dismissTimeout;
+const startAutoDismiss = () => {
+    dismissTimeout = setTimeout(() => {
+        if(showPrompt.value) {
+            autoDismiss();
+        }
+    }, 10000); // 10 seconds
+};
+
+const autoDismiss = () => {
+    showPrompt.value = false;
+    // 24 hours cooldown for auto-dismiss
+    localStorage.setItem('pwa_install_cooldown', Date.now() + (24 * 60 * 60 * 1000));
+};
+
 const dismissPrompt = () => {
   showPrompt.value = false;
-  sessionStorage.setItem('install_prompt_dismissed', 'true');
+  clearTimeout(dismissTimeout);
+  // 7 days cooldown for manual dismiss
+  localStorage.setItem('pwa_install_cooldown', Date.now() + (7 * 24 * 60 * 60 * 1000));
 };
 
 const installApp = async () => {
   if (!deferredPrompt.value) return;
+  clearTimeout(dismissTimeout);
   
   // Show the install prompt
   deferredPrompt.value.prompt();

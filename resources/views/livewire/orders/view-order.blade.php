@@ -75,12 +75,12 @@
                 </div>
             </div>
             <div class="card-body p-24">
-                <div class="table-responsive scroll-sm">
-                    <table class="table bordered-table sm-table mb-0">
+                <div class="table-responsive scroll-sm tw-w-full tw-overflow-x-auto custom-scroll">
+                    <table class="table bordered-table sm-table mb-0 tw-whitespace-nowrap">
                       <thead>
                         <tr>
                           <th scope="col" class="">#</th>
-                          <th scope="col" class="">{{ $lang->data['service_name'] ?? 'Service Name' }}</th>
+                          <th scope="col" class="tw-sticky tw-left-0 tw-bg-white tw-z-10 tw-shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{{ $lang->data['service_name'] ?? 'Service Name' }}</th>
                           <th scope="col" class=""> {{ $lang->data['color'] ?? 'Color' }}</th>
                           <th scope="col" class="">{{ $lang->data['rate'] ?? 'Rate' }}</th>
                           <th scope="col" class=""> {{ $lang->data['qty'] ?? 'QTY' }}</th>
@@ -96,13 +96,13 @@
                                 <td>
                                     {{ $loop->index + 1 }}
                                 </td>
-                                <td class="">
-                                    <div class="tw-flex tw-gap-4">
-                                        <div class="tw-size-10 tw-flex tw-items-center tw-justify-center tw-bg-neutral-50 tw-rounded-md">
+                                <td class="tw-sticky tw-left-0 tw-bg-white tw-z-10 tw-shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                                    <div class="tw-flex tw-gap-4 tw-min-w-[12rem]">
+                                        <div class="tw-w-10 tw-aspect-square tw-shrink-0 tw-flex tw-items-center tw-justify-center tw-bg-neutral-50 tw-rounded-md">
                                             @if(str_contains($service->icon, ':'))
                                                 <iconify-icon icon="{{ $service->icon }}" class="tw-text-2xl text-primary"></iconify-icon>
                                             @else
-                                                <img src="{{ asset('assets/img/service-icons/' . $service->icon) }}" class="tw-object-contain" alt="">
+                                                <img src="{{ asset('assets/img/service-icons/' . $service->icon) }}" class="tw-h-full tw-w-full tw-object-contain tw-rounded-md" alt="">
                                             @endif
                                         </div>
                                         <div class="tw-flex tw-flex-col">
