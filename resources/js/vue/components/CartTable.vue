@@ -1,6 +1,6 @@
 <template>
   <div class="tw-h-[calc(100vh-4rem)] tw-flex tw-flex-col dark:tw-bg-slate-900/50 tw-bg-white/50 tw-backdrop-blur-xl tw-shadow-[-4px_0_24px_rgba(0,0,0,0.05)] tw-border-l tw-border-white/20 dark:tw-border-white/5 tw-p-4 lg:tw-p-6" :class="shown && detached ? 'tw-absolute tw-inset-0 tw-w-full tw-z-50' : 'tw-hidden lg:tw-block lg:tw-w-7/12 tw-w-full tw-shrink-0'">
-      <div class="tw-flex tw-items-center tw-gap-8 tw-w-full">
+      <div class="tw-flex lg:tw-flex-row tw-flex-col lg:tw-items-center tw-items-start tw-gap-4 lg:tw-gap-8 tw-w-full tw-shrink-0">
           <div class="tw-flex tw-min-w-fit tw-shrink tw-flex-col">
               <div class="tw-text-sm">Order : <span class="tw-font-bold">#{{ pos.cartOrderId }}</span></div>
               <div class="tw-flex tw-items-center tw-gap-2">
