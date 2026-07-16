@@ -46,7 +46,7 @@
                             $tax_amount_expense = 0;
                             $i=1;
                             @endphp
-                            @foreach($reports as $row)
+                            @foreach($this->reports as $row)
                         <tr>
                             <td >
                                 <p class="">
@@ -138,11 +138,11 @@
                 <div class="tw-flex tw-items-center  tw-gap-4">
                     <div class="">{{$lang->data['total_amount'] ?? 'Total Amount'}}: <span class="tw-font-bold">  {{-- sales --}}
                          @if($category ==1 )
-                            {{getFormattedCurrency($reports->sum('total'))}}
+                            {{getFormattedCurrency($this->reports->sum('total'))}}
                          @endif
                          {{-- expense --}}
                          @if($category == 2) 
-                         {{getFormattedCurrency($reports->sum('expense_amount'))}}
+                         {{getFormattedCurrency($this->reports->sum('expense_amount'))}}
                          @endif</span></div>
                     <div class="">{{$lang->data['total_tax_amount'] ?? 'Total Tax Amount'}}: <span class="tw-font-bold">  {{-- sales --}}
                         @if($category ==1 )

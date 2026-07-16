@@ -11,7 +11,7 @@ use Carbon\Carbon;
 
 class SalesReport extends Component
 {
-    public $from_date, $to_date, $orders, $lang;
+    public $from_date, $to_date, $lang;
     
     // New Metrics
     public $kpi = [];
@@ -84,12 +84,7 @@ class SalesReport extends Component
               'growth' => round($salesGrowth, 1)
           ];
           
-          // Fetch orders for the table display (keep ->get() since the table needs all rows)
-          $this->orders = \App\Models\Order::whereDate('order_date', '>=', $this->from_date)
-              ->whereDate('order_date', '<=', $this->to_date)
-              ->where('status', 3)
-              ->latest()
-              ->get();
+          // Fetch orders for the table display is now handled by #[Computed]
           
           // Service Breakdown (already uses DB-level aggregation - keep as is)
           $services = DB::table('order_details')
@@ -121,5 +116,15 @@ class SalesReport extends Component
           $to_date = $this->to_date;
           $pdfContent = Pdf::loadView('livewire.reports.download-report.sales-report', compact('from_date', 'to_date'))->output();
           return response()->streamDownload(fn () => print($pdfContent), "SalesReport_from_" . $from_date . ".pdf");
+      }
+
+      #[\Livewire\Attributes\Computed]
+      public function orders()
+      {
+          return \App\Models\Order::whereDate('order_date', '>=', $this->from_date)
+              ->whereDate('order_date', '<=', $this->to_date)
+              ->where('status', 3)
+              ->latest()
+              ->get();
       }
 }

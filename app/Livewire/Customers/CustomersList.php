@@ -13,6 +13,9 @@ use App\Exports\CustomersExport;
 use App\Models\Payment;
 use App\Models\Order;
 use Excel;
+use App\DTOs\CustomerData;
+use App\Actions\Customers\CreateCustomerAction;
+use App\Actions\Customers\UpdateCustomerAction;
 
 class CustomersList extends Component
 {
@@ -67,32 +70,29 @@ class CustomersList extends Component
             'phone' => 'required',
         ]);
 
-        $customer = new Customer();
-        $customer->name = $this->name;
-        $customer->phone = $this->phone;
-        $customer->email = empty($this->email) ? null : $this->email;
-        $customer->tax_number = empty($this->tax_number) ? null : $this->tax_number;
-        $customer->address = empty($this->address) ? null : $this->address;
-        $customer->created_by = Auth::user()->id;
-        $customer->is_active = ($this->is_active) ? "1" : "0";
-        $customer->save();
-        $this->customers = Customer::latest()->get();
+        $dto = new CustomerData(
+            name: $this->name,
+            phone: $this->phone,
+            email: empty($this->email) ? null : $this->email,
+            tax_number: empty($this->tax_number) ? null : $this->tax_number,
+            address: empty($this->address) ? null : $this->address,
+            is_active: $this->is_active ? 1 : 0
+        );
+
+        CreateCustomerAction::execute($dto, Auth::id());
+
+        $this->reloadCustomers();
         $this->resetInputFields();
         $this->dispatch('closemodal');
         $this->dispatch(
             'alert',
-            ['type' => 'success',  'message' => 'Customer  has been created!']
+            ['type' => 'success',  'message' => 'Customer has been created!']
         );
     }
     /* process while update */
     public function updated($name, $value)
     {
-        if ($name == 'search' && $value != '') {
-            $this->customers = Customer::where('name', 'like', '%' . $value)->latest()->get();
-            $this->reloadCustomers();
-        } elseif ($name == 'search' && $value == '') {
-
-            $this->customers = new EloquentCollection();
+        if ($name == 'search') {
             $this->reloadCustomers();
         }
         /*if the updated element is address */
@@ -124,13 +124,16 @@ class CustomersList extends Component
             'email' => 'nullable|unique:customers,email,' . $this->customer->id,
         ]);
 
-        $this->customer->name = $this->name;
-        $this->customer->phone = $this->phone;
-        $this->customer->email = empty($this->email) ? null : $this->email;
-        $this->customer->tax_number = empty($this->tax_number) ? null : $this->tax_number;
-        $this->customer->address = empty($this->address) ? null : $this->address;
-        $this->customer->is_active = ($this->is_active) ? "1" : "0";
-        $this->customer->save();
+        $dto = new CustomerData(
+            name: $this->name,
+            phone: $this->phone,
+            email: empty($this->email) ? null : $this->email,
+            tax_number: empty($this->tax_number) ? null : $this->tax_number,
+            address: empty($this->address) ? null : $this->address,
+            is_active: $this->is_active ? 1 : 0
+        );
+
+        UpdateCustomerAction::execute($this->customer, $dto);
         $this->refresh();
         $this->resetInputFields();
         $this->editMode = false;

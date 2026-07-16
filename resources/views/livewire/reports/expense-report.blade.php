@@ -76,7 +76,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($expenses as $item)
+                        @forelse($this->expenses as $item)
                         <tr>
                             <td><p class="text-sm mb-0">{{ \Carbon\Carbon::parse($item->expense_date)->format('d/m/Y') }}</p></td>
                             <td>

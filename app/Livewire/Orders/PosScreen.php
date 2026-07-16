@@ -52,7 +52,10 @@ class PosScreen extends Component
         $this->addons = Addon::where('is_active', 1)->latest()->get();
         $this->delivery_date = Carbon::today()->addDays(2)->toDateString();
         $this->tax_percent = getTaxPercentage();
-        $this->generateOrderID();
+        
+        // Remove prospective ID guessing to prevent race conditions.
+        // True ID is securely generated inside CreateOrderAction lockForUpdate.
+        $this->order_id = '[New Order]';
 
         if (request()->routeIs('orders.requests.edit') && $id) {
             $this->request_id = $id;
@@ -403,91 +406,52 @@ class PosScreen extends Component
         $this->customer_query = '';
         $this->customers = collect();
     }
-    /* generate order Id */
+    /* legacy generateOrderID removed - securely handled in CreateOrderAction */
     public function generateOrderID()
     {
-        $code_prefix = 'ORD-';
-        $ordernumber = Order::Orderby('id', 'desc')->first();
-        /*if order number is exist*/
-        if ($ordernumber && $ordernumber->order_number != "") {
-            /* if invoice code not empty */
-            $code = explode("-", $ordernumber->order_number);
-            $new_code = $code[1] + 1;
-            $new_code = str_pad($new_code, 4, "0", STR_PAD_LEFT);
-            $this->order_id = $code_prefix . $new_code;
-        } else {
-            /* if order code is empty set start */
-            $this->order_id = $code_prefix . '0001';
-        }
+        // Method intentionally left blank or removed, as Livewire UI should not guess IDs.
     }
-    /* calculate service total */
+    /* calculate service total using enterprise action */
     public function calculateTotal()
     {
-        $this->sub_total = 0;
-        $this->addon_total = 0;
-
-        $this->total = 0;
-        $this->sub_total = 0;
-        $this->taxamount = 0;
-        $this->taxable = 0;
-
-        $unitprice = 0;
-        $itemtotal = 0;
-        $itemtaxtotal2 = 0;
-        $sub_total = 0;
-
-        $tax_type = getTaxType();
+        $cartItems = [];
         foreach ($this->selling_price as $key => $value) {
-            $this->sub_total += $value * $this->quantity[$key];
-            $itemtaxtotal = 0;
-            if ($tax_type == 2) {
-                $itemtotallocal =  ($this->selling_price[$key] * $this->quantity[$key])  * (100 / (100 + $this->tax_percent ?? 0));
-                $itemtaxtotal +=  ($this->selling_price[$key] * $this->quantity[$key]) - $itemtotallocal ?? 0;
-
-                $itemtotal += ($this->selling_price[$key] * $this->quantity[$key]);
-                $itemtaxtotal2 += $itemtaxtotal;
-                $this->taxable += $itemtotal;
-                $sub_total += $itemtotallocal;
-            } else {
-                $itemtotallocal =  ($this->selling_price[$key] * $this->quantity[$key]);
-                $itemtaxtotal += $itemtotallocal * $this->tax_percent / 100;
-                $itemtotal += $itemtotallocal + $itemtaxtotal;
-                $itemtaxtotal2 += $itemtaxtotal;
-                $this->taxable += $itemtotallocal;
-                $sub_total += $itemtotallocal;
-            }
+            $cartItems[] = new \App\DTOs\CartItemData(
+                service_id: $this->selservices[$key]['service'] ?? 0,
+                service_price: (float) $value,
+                service_quantity: (int) ($this->quantity[$key] ?? 1),
+                service_detail_total: (float) ($value * ($this->quantity[$key] ?? 1)),
+                service_name: null,
+                color_code: $this->colors[$key] ?? null
+            );
         }
 
-        /* if any addons selected */
+        $addonTotal = 0;
         if ($this->selected_addons) {
             foreach ($this->selected_addons as $key => $value) {
                 if ($value === true) {
-                    $itemtaxtotal = 0;
                     $addon = Addon::where('id', $key)->first();
-                    if ($tax_type == 2) {
-                        $itemtotallocal =  ($addon->addon_price)  * (100 / (100 + $this->tax_percent ?? 0));
-                        $itemtaxtotal +=  ($addon->addon_price) - $itemtotallocal ?? 0;
-                        $itemtotal +=  ($addon->addon_price);
-                        $itemtaxtotal2 += $itemtaxtotal;
-                        $this->taxable += $itemtotal;
-                        $sub_total += $itemtotallocal;
-                        $this->addon_total += $itemtotallocal;
-                    } else {
-                        $itemtotallocal =   ($addon->addon_price);
-                        $itemtaxtotal += $itemtotallocal * $this->tax_percent / 100;
-                        $itemtotal += $itemtotallocal + $itemtaxtotal;
-                        $itemtaxtotal2 += $itemtaxtotal;
-                        $this->taxable += $itemtotallocal;
-                        $this->addon_total += $itemtotallocal;
-                        $sub_total += $itemtotallocal;
+                    if ($addon) {
+                        $addonTotal += $addon->addon_price;
                     }
                 }
             }
         }
-        $this->sub_total = $sub_total;
-        $this->tax = $itemtaxtotal2;
-        $this->total = ($this->sub_total + $itemtaxtotal2) - $this->discount;
-        $this->total = round($this->total,3,PHP_ROUND_HALF_UP);
+
+        $totals = \App\Actions\Orders\CalculateCartTotals::execute(
+            cartItems: $cartItems,
+            addonTotal: $addonTotal,
+            discount: (float) ($this->discount ?? 0)
+        );
+
+        $this->sub_total = $totals['sub_total'];
+        $this->addon_total = $totals['addon_total'];
+        $this->discount = $totals['discount'];
+        $this->tax_percent = $totals['tax_percentage'];
+        $this->tax = $totals['tax_amount'];
+        $this->taxable = $totals['taxable_amount'];
+        $this->total = $totals['total'];
+        
         $this->balance = $this->total - $this->paid_amount;
         
         if (!$this->order && !$this->request_id) {
@@ -725,26 +689,50 @@ class PosScreen extends Component
                 }
 
                 if ($canBypass) {
-                    $order = \App\Services\OrderService::establishOrder($payload, Auth::id());
-                    $this->order_id = $order->order_number;
-                    
-                    if ($this->request_id) {
-                        \App\Models\OrderRequest::whereId($this->request_id)->delete();
-                    }
-                    
-                    if ($this->selected_customer) {
-                        $message = sendOrderCreateSMS($order->id, $this->selected_customer->id);
-                        if ($message) {
-                            $this->dispatch('alert', ['type' => 'error',  'message' => $message, 'title' => 'SMS Error']);
+                    try {
+                        // 1. Build the strictly typed DTO
+                        $orderDto = \App\DTOs\OrderData::from([
+                            'customer_id' => $payload['customer_id'],
+                            'customer_name' => $payload['customer_name'],
+                            'phone_number' => $payload['phone_number'],
+                            'order_date' => $payload['order_date'],
+                            'delivery_date' => $payload['delivery_date'],
+                            'sub_total' => $payload['sub_total'],
+                            'addon_total' => $payload['addon_total'],
+                            'discount' => $payload['discount'],
+                            'tax_percentage' => $payload['tax_percentage'],
+                            'tax_amount' => $payload['tax_amount'],
+                            'tax_type' => $payload['tax_type'],
+                            'taxable_amount' => $payload['taxable_amount'],
+                            'total' => $payload['total'],
+                            'note' => $payload['note'],
+                            'status' => 0,
+                            'details' => $payload['details'],
+                            'payments' => $payload['payments']
+                        ]);
+
+                        // 2. Dispatch to the secure Action
+                        $order = \App\Actions\Orders\CreateOrderAction::execute($orderDto, Auth::id());
+                        
+                        $this->order_id = $order->order_number;
+                        
+                        if ($this->request_id) {
+                            \App\Models\OrderRequest::whereId($this->request_id)->delete();
                         }
-                    }
-                    $this->dispatch('alert', ['type' => 'success',  'message' => $order->order_number . ' Was Successfully Created!']);
-                    
-                    if(\Illuminate\Support\Facades\Gate::allows('order_print')){
-                        $this->dispatch('printPage', $order->id);
-                        $this->clearAll();
-                    } else {
-                        $this->clearAll();
+                        
+                        // SMS is now handled completely asynchronously by SendOrderNotifications Event Listener.
+                        // We no longer block the main thread or risk rolling back the DB here!
+                        
+                        $this->dispatch('alert', ['type' => 'success',  'message' => $order->order_number . ' Was Successfully Created!']);
+                        
+                        if(\Illuminate\Support\Facades\Gate::allows('order_print')){
+                            $this->dispatch('printPage', $order->id);
+                            $this->clearAll();
+                        } else {
+                            $this->clearAll();
+                        }
+                    } catch (\Exception $e) {
+                        $this->dispatch('alert', ['type' => 'error',  'message' => 'Failed to create order: ' . $e->getMessage()]);
                     }
                 } else {
                     if ($this->request_id) {

@@ -7,6 +7,7 @@ use App\Models\MasterSettings;
 use App\Models\Order;
 use App\Services\WhatsAppService;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class WhatsAppWebhookController extends Controller
 {
@@ -36,30 +37,67 @@ class WhatsAppWebhookController extends Controller
 
             if ($changes && isset($changes['messages'][0])) {
                 $message = $changes['messages'][0];
+                $messageId = $message['id'] ?? null;
                 $senderPhone = $message['from']; // The phone number that sent the message
+
+                // Cache-based Idempotency (prevent multiple processing of the same Webhook trigger)
+                if ($messageId) {
+                    if (Cache::has("whatsapp_msg_{$messageId}")) {
+                        return response()->json(['status' => 'success'], 200);
+                    }
+                    Cache::put("whatsapp_msg_{$messageId}", true, now()->addMinutes(10));
+                }
 
                 if ($message['type'] === 'text') {
                     $textBody = trim($message['text']['body']);
                     
-                    // Fuzzy search for the order number
-                    // Remove '#', 'ORD-', and spaces, then look for it.
-                    // E.g., "#ORD-000001", "000001", "ORD 000001"
-                    $cleanText = preg_replace('/[^a-zA-Z0-9]/', '', $textBody);
-                    $strippedText = str_ireplace(['ORD-', 'ORD', '#'], '', $cleanText);
-                    $strippedText = trim($strippedText);
-                    
+                    // Split text: e.g. "ORD-000012 08012345678"
+                    $parts = explode(' ', $textBody);
+                    $orderPart = array_shift($parts);
+                    $phonePart = implode('', $parts); // Any remaining text is the challenge response
+
+                    // Normalize order number (Exact formatting reconstruction)
+                    $cleanOrder = preg_replace('/[^0-9]/', '', $orderPart);
                     $order = null;
-                    if (strlen($strippedText) >= 4) {
-                        // Try to match exact first
-                        $order = Order::with('details.service')->where('order_number', $textBody)->first();
-                        
-                        if (!$order) {
-                            $order = Order::with('details.service')->where('order_number', 'LIKE', '%' . $strippedText . '%')->first();
-                        }
+                    
+                    if (!empty($cleanOrder)) {
+                        $formattedOrderNumber = "ORD-" . str_pad($cleanOrder, 6, "0", STR_PAD_LEFT);
+                        $order = Order::with('details.service', 'customer')->where('order_number', $formattedOrderNumber)->first();
                     }
 
-                    // Send the reply (passing $order=null sends the friendly Not Found message)
-                    $whatsAppService->sendReply($senderPhone, $order);
+                    if ($order && $order->customer) {
+                        $customerPhone = preg_replace('/[^0-9]/', '', $order->customer->phone);
+                        $senderPhoneClean = preg_replace('/[^0-9]/', '', $senderPhone);
+                        $secondaryPhoneClean = preg_replace('/[^0-9]/', '', $phonePart);
+
+                        $isAuthorized = false;
+
+                        // Match by last 10 digits to safely ignore country codes
+                        $customerLast10 = substr($customerPhone, -10);
+                        if (substr($senderPhoneClean, -10) === $customerLast10) {
+                            $isAuthorized = true;
+                        }
+
+                        // Secondary Verification Challenge check
+                        if (!$isAuthorized && !empty($secondaryPhoneClean)) {
+                            if (substr($secondaryPhoneClean, -10) === $customerLast10) {
+                                $isAuthorized = true;
+                            }
+                        }
+
+                        if ($isAuthorized) {
+                            $whatsAppService->sendReply($senderPhone, $order);
+                        } else {
+                            // Dispatch Secondary Verification Challenge
+                            $whatsAppService->sendMessagePayload(
+                                $senderPhone, 
+                                "To protect your privacy, we require verification.\n\nPlease reply with your Order Number followed by your registered phone number.\n\nExample: *{$order->order_number} {$order->customer->phone}*"
+                            );
+                        }
+                    } else {
+                        // Send friendly Not Found message
+                        $whatsAppService->sendReply($senderPhone, null);
+                    }
                 }
             }
 

@@ -52,7 +52,7 @@
     </div>
 
     <!-- Data Table -->
-    @if(count($data) > 0)
+    @if(count($this->data) > 0)
     <div class="card h-100 p-0 radius-12">
         <div class="tw-p-4 tw-flex tw-justify-end">
             <button type="button" onclick="window.print()" class="btn btn-success-100 text-success-600 radius-8 px-16 py-9 tw-flex tw-items-center tw-gap-2">
@@ -73,7 +73,7 @@
                     </thead>
                     <tbody>
                         @php
-                            $runningBalance = $first_data['debits'] - $first_data['credits'];
+                            $runningBalance = $this->firstData['debits'] - $this->firstData['credits'];
                         @endphp
                         <tr class="bg-light">
                             <td colspan="4" class="text-end fw-bold">Opening Balance:</td>
@@ -81,7 +81,7 @@
                                 {{ getFormattedCurrency(abs($runningBalance)) }} {{ $runningBalance > 0 ? '(Dr)' : '(Cr)' }}
                             </td>
                         </tr>
-                        @foreach($data as $row)
+                        @foreach($this->data as $row)
                         @php
                             if($row['type'] == 'debit') {
                                 $runningBalance += $row['total'];

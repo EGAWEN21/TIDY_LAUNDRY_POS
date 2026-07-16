@@ -11,11 +11,8 @@ Route::get('/sw.js', function () {
     ]);
 });
 
-Route::get('/manifest.webmanifest', function () {
-    return response()->file(public_path('build/manifest.webmanifest'), [
-        'Content-Type' => 'application/manifest+json',
-    ]);
-});
+Route::get('/manifest.webmanifest', [\App\Http\Controllers\PwaManifestController::class, 'generate']);
+Route::get('/manifest.json', [\App\Http\Controllers\PwaManifestController::class, 'generate']);
 Route::get('/license', \App\Livewire\Installer\LicenseExpired::class)->name('license');
 Route::get('/install', \App\Livewire\Installer\InstallApp::class)->name('install');
 Route::get('/update', \App\Livewire\Installer\UpdaterApp::class)->name('update');

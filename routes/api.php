@@ -15,4 +15,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/pos/check-update', [PosApiController::class, 'checkUpdates']);
     Route::post('/pos/sync-customers', [PosApiController::class, 'syncCustomers']);
     Route::post('/pos/sync-orders', [PosApiController::class, 'syncOrders']);
+    Route::get('/pos/rejected-orders', [PosApiController::class, 'getRejectedOrders']);
 });

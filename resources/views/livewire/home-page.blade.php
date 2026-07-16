@@ -97,7 +97,7 @@
                         <div class="tw-flex tw-items-center tw-gap-4">
                             <input type="text" class="form-control"
                                 placeholder="{{ $lang->data['search_here'] ?? 'Search Here...' }}"
-                                wire:model.live="search_query">
+                                wire:model.live.debounce.500ms="search_query">
 
                             <select class="form-select" wire:model.live="order_filter">
                                 <option class="select-box" value="">
@@ -116,7 +116,7 @@
                         </div>
                     </div>
                     <div class="tw-grid tw-mt-4 tw-grid-cols-1 lg:tw-grid-cols-2 xl:tw-grid-cols-3  align-items-center tw-gap-2">
-                        @foreach ($orders as $item)
+                        @foreach ($this->orders as $item)
                             <div class=" bg-neutral-50 p-16 radius-8 ">
                                 <div class="tw-flex tw-justify-between tw-items-center">
                                     <div class="tw-flex tw-flex-col">
@@ -171,7 +171,7 @@
                             </div>
                         @endforeach
                     </div>
-                    @if(count($orders) <= 0)
+                    @if(count($this->orders) <= 0)
                     <x-empty-item/>
                     @endif
                 </div>

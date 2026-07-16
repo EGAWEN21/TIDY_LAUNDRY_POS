@@ -8,10 +8,11 @@ use App\Models\Translation;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Livewire\Attributes\Computed;
 
 class CustomerReport extends Component
 {
-    public $lang, $customersData = [], $statusFilter = 'all';
+    public $lang, $statusFilter = 'all';
 
     #[Title('Customer Report')]
     public function render()
@@ -30,15 +31,10 @@ class CustomerReport extends Component
         } else {
             $this->lang = Translation::where('default', 1)->first();
         }
-        $this->report();
     }
 
-    public function updatedStatusFilter()
-    {
-        $this->report();
-    }
-
-    public function report()
+    #[Computed]
+    public function customersData()
     {
         /** 
          * OPTIMIZATION (Preventing N+1 & Memory Exhaustion):
@@ -106,6 +102,6 @@ class CustomerReport extends Component
         }
         
         // Sort by highest lifetime spend
-        $this->customersData = collect($data)->sortByDesc('total_spend')->values()->all();
+        return collect($data)->sortByDesc('total_spend')->values()->all();
     }
 }

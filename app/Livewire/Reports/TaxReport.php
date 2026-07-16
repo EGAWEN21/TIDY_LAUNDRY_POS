@@ -9,7 +9,7 @@ use App\Models\Translation;
 
 class TaxReport extends Component
 {
-    public $from_date, $to_date, $reports, $category = 1, $lang;
+    public $from_date, $to_date, $category = 1, $lang;
     #[Title('Tax Report')]
     public function render()
     {
@@ -35,18 +35,7 @@ class TaxReport extends Component
      {
          $this->report();
      }
-     /* report section */
-     public function report()
-     {
-         /* sales */
-         if ($this->category == 1) {
-             $this->reports = \App\Models\Order::whereDate('order_date', '>=', $this->from_date)->whereDate('order_date', '<=', $this->to_date)->where('status', 3)->latest()->get();
-         }
-         /* expense */
-         if ($this->category == 2) {
-             $this->reports = \App\Models\Expense::whereDate('expense_date', '>=', $this->from_date)->whereDate('expense_date', '<=', $this->to_date)->latest()->get();
-         }
-     }
+         // Fetching reports is handled by #[Computed]
  
      /* download pdf file */
      public function downloadFile()
@@ -56,5 +45,19 @@ class TaxReport extends Component
          $category = $this->category;
          $pdfContent = Pdf::loadView('livewire.reports.download-report.tax-report', compact('from_date', 'to_date', 'category'))->output();
          return response()->streamDownload(fn () => print($pdfContent), "TaxReport_from_" . $from_date . ".pdf");
+     }
+
+     #[\Livewire\Attributes\Computed]
+     public function reports()
+     {
+         if ($this->category == 1) {
+             return \App\Models\Order::whereDate('order_date', '>=', $this->from_date)->whereDate('order_date', '<=', $this->to_date)->where('status', 3)->latest()->get();
+         }
+         
+         if ($this->category == 2) {
+             return \App\Models\Expense::whereDate('expense_date', '>=', $this->from_date)->whereDate('expense_date', '<=', $this->to_date)->latest()->get();
+         }
+
+         return collect();
      }
 }

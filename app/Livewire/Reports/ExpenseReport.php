@@ -11,7 +11,7 @@ use Carbon\Carbon;
 
 class ExpenseReport extends Component
 {
-    public $from_date, $to_date, $expenses, $lang;
+    public $from_date, $to_date, $lang;
     
     // New Metrics
     public $kpi = [];
@@ -62,11 +62,7 @@ class ExpenseReport extends Component
              'net_profit' => $totalIncome - $totalExpenses
          ];
          
-         // Fetch expenses for the table display
-         $this->expenses = \App\Models\Expense::whereDate('expense_date', '>=', $this->from_date)
-             ->whereDate('expense_date', '<=', $this->to_date)
-             ->latest()
-             ->get();
+         // Fetch expenses for the table display is now handled by #[Computed]
          
          $categories = DB::table('expenses')
              ->join('expense_categories', 'expenses.expense_category_id', '=', 'expense_categories.id')
@@ -96,5 +92,14 @@ class ExpenseReport extends Component
          $to_date = $this->to_date;
          $pdfContent = Pdf::loadView('livewire.reports.download-report.expense-report', compact('from_date', 'to_date'))->output();
          return response()->streamDownload(fn () => print($pdfContent), "ExpenseReport_from_" . $from_date . ".pdf");
+     }
+
+     #[\Livewire\Attributes\Computed]
+     public function expenses()
+     {
+         return \App\Models\Expense::whereDate('expense_date', '>=', $this->from_date)
+             ->whereDate('expense_date', '<=', $this->to_date)
+             ->latest()
+             ->get();
      }
 }
