@@ -43,3 +43,14 @@ db.version(3).stores({
         queueItem.error_message = '';
     });
 });
+
+db.version(4).stores({
+    services: 'id, service_name, is_active',
+    serviceTypes: 'id, service_type_name, position',
+    serviceDetails: 'id, service_id, service_type_id, service_price',
+    addons: 'id, addon_name, addon_price',
+    customers: 'id, uuid, phone, name, email, tax_number, address, sync_status',
+    settings: 'id, tax_percentage, tax_type, financial_year_id, currency',
+    cart: 'id, uuid, user_id, items, addons, customer_id, total, tax, discount, payments, status, notes',
+    syncQueue: '++id, type, data, timestamp, status, retry_count, error_message'
+});

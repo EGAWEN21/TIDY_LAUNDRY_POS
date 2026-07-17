@@ -24,6 +24,8 @@ class PermissionSeeder extends Seeder
             ['name' => 'order_force_delete', 'display_name' => 'Permanently Delete Orders', 'category' => 'Order'],
             ['name' => 'order_print','display_name' => 'Print Order','category' => 'Order'],
             ['name' => 'order_status_change','display_name' => 'Change Order Status','category' => 'Order'],
+            ['name' => 'order_price_override', 'display_name' => 'Edit Service/Addon Prices', 'category' => 'Order'],
+            ['name' => 'order_discount_apply', 'display_name' => 'Apply Custom Discounts', 'category' => 'Order'],
             ['name' => 'bulk_order_status_change','display_name' => 'Bulk Change Order Status','category' => 'Bulk Actions'],
             ['name' => 'bulk_order_delete','display_name' => 'Bulk Order Delete','category' => 'Bulk Actions'],
 

@@ -110,7 +110,10 @@
                                   </td>
                                   <td class="tw-py-2 tw-px-1 lg:tw-w-[15%] tw-w-[10rem] tw-text-center">
                                       <div class="tw-h-full tw-w-full tw-flex tw-items-center tw-justify-center">
-                                          <input type="number" step="0.01" v-model.number="item.price" class="tw-ring-1 tw-px-1 tw-py-0.5 tw-rounded-md tw-w-[4.5rem]">
+                                          <input type="number" step="0.01" v-model.number="item.price" 
+                                                 :readonly="!hasPermission('order_price_override')"
+                                                 :class="{'tw-bg-neutral-100 tw-text-neutral-500': !hasPermission('order_price_override')}"
+                                                 class="tw-ring-1 tw-px-1 tw-py-0.5 tw-rounded-md tw-w-[4.5rem]">
                                       </div>
                                   </td>
                                   <td class="tw-py-2 tw-px-1 lg:tw-w-[15%] tw-w-[10rem] tw-text-center">
@@ -179,7 +182,7 @@
                   </div>
                   <div class="tw-flex tw-items-end tw-justify-end tw-gap-2">
                       <div class="tw-flex tw-items-center tw-gap-2">
-                          Discount <button data-bs-toggle="modal" data-bs-target="#discount" class="tw-px-1 tw-py-1 tw-rounded-md tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md bg-primary-600 tw-text-white tw-border tw-border-solid tw-bg-transparent tw-border-neutral-400" aria-label="Apply Discount"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-tag-fill" viewBox="0 0 16 16"><path d="M2 1a1 1 0 0 0-1 1v4.586a1 1 0 0 0 .293.707l7 7a1 1 0 0 0 1.414 0l4.586-4.586a1 1 0 0 0 0-1.414l-7-7A1 1 0 0 0 6.586 1zm4 3.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0" /></svg></button> :
+                          Discount <button v-if="hasPermission('order_discount_apply')" data-bs-toggle="modal" data-bs-target="#discount" class="tw-px-1 tw-py-1 tw-rounded-md tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md bg-primary-600 tw-text-white tw-border tw-border-solid tw-bg-transparent tw-border-neutral-400" aria-label="Apply Discount"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-tag-fill" viewBox="0 0 16 16"><path d="M2 1a1 1 0 0 0-1 1v4.586a1 1 0 0 0 .293.707l7 7a1 1 0 0 0 1.414 0l4.586-4.586a1 1 0 0 0 0-1.414l-7-7A1 1 0 0 0 6.586 1zm4 3.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0" /></svg></button> :
                       </div>
                       <div class="tw-font-bold">{{ formatCurrency(pos.cartDiscount) }}</div>
                   </div>
@@ -224,6 +227,11 @@ const props = defineProps({
 const emit = defineEmits(['save', 'clearAll', 'saveOffline', 'syncAndPrint']);
 
 const pos = usePosStore();
+
+const hasPermission = (perm) => {
+    const perms = window.PosConfig?.permissions || [];
+    return perms.includes('all') || perms.includes(perm);
+};
 
 const showCustomerDropdown = ref(false);
 

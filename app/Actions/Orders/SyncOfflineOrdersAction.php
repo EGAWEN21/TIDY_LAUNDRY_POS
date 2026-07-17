@@ -8,9 +8,8 @@ use App\Models\OrderRequest;
 use App\Models\Customer;
 use App\Models\User;
 use App\Notifications\SystemNotification;
-use App\Services\OrderService;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Class SyncOfflineOrdersAction
@@ -40,11 +39,11 @@ class SyncOfflineOrdersAction
 
         // 1. Pre-fetch Managers to avoid N+1 queries during notification dispatch
         $managers = collect();
-        $canBypass = $user->hasPermission('accept_reject_order');
+        $canBypass = $user->hasPermission('bypass_order_approval');
         if (!$canBypass) {
             $managers = User::whereHas('role', function($q) {
                 $q->whereHas('permissions', function($p) {
-                    $p->where('permission_name', 'accept_reject_order');
+                    $p->where('name', 'accept_reject_order');
                 });
             })->get();
         }
@@ -63,41 +62,54 @@ class SyncOfflineOrdersAction
                     DB::transaction(function () use ($offlinePayload, $uuid, $user, $canBypass, &$syncedIds, &$requiresApproval, &$createdRequestIds) {
                         
                         // Idempotency Check: Did we already sync this specific UUID?
-                        $existingRequest = null;
-                        if ($canBypass) {
-                            $existingOrder = Order::where('uuid', $uuid)->first();
-                            if ($existingOrder) {
-                                $syncedIds[$uuid] = $existingOrder->id;
-                                $requiresApproval[$uuid] = false;
+                        // Universal Check: Always check BOTH tables to prevent replay attacks
+                        // (e.g. an unprivileged cashier resyncs an order that a manager already approved)
+                        $existingOrder = Order::where('uuid', $uuid)->first();
+                        if ($existingOrder) {
+                            $syncedIds[$uuid] = $existingOrder->id;
+                            $requiresApproval[$uuid] = false;
+                            return; // Already processed and approved, safely skip
+                        }
+
+                        $existingRequest = OrderRequest::where('uuid', $uuid)->first();
+                        if ($existingRequest) {
+                            if ($existingRequest->status == 2) {
+                                // Order was previously rejected! We will resurrect it by updating it below.
+                            } else {
+                                // Still pending approval
+                                $syncedIds[$uuid] = $existingRequest->id;
+                                $requiresApproval[$uuid] = true;
                                 return; // Already processed, safely skip
-                            }
-                        } else {
-                            $existingRequest = OrderRequest::where('uuid', $uuid)->first();
-                            if ($existingRequest) {
-                                if ($existingRequest->status == 2) {
-                                    // Order was previously rejected! We will resurrect it by updating it below.
-                                } else {
-                                    $syncedIds[$uuid] = $existingRequest->id;
-                                    $requiresApproval[$uuid] = true;
-                                    return; // Already processed, safely skip
-                                }
                             }
                         }
 
                         // Unified Graph Sync: Handle Offline Customer Creation safely
                         if (!empty($offlinePayload['new_customer']) && !empty($offlinePayload['new_customer']['phone'])) {
                             $custData = $offlinePayload['new_customer'];
-                            $customer = Customer::updateOrCreate(
-                                ['phone' => $custData['phone']],
-                                [
+                            $customer = Customer::where('phone', $custData['phone'])->first();
+                            if ($customer) {
+                                if ($user->hasPermission('customer_edit')) {
+                                    $customer->update([
+                                        'name' => $custData['name'],
+                                        'email' => $custData['email'] ?? null,
+                                        'tax_number' => $custData['tax_number'] ?? null,
+                                        'address' => $custData['address'] ?? null,
+                                    ]);
+                                } else {
+                                    $conflictMsg = "[AUDIT] Offline sync attempted to overwrite existing customer profile for {$custData['phone']}. Blocked due to missing customer_edit permission.";
+                                    $offlinePayload['note'] = empty($offlinePayload['note']) ? $conflictMsg : $offlinePayload['note'] . " | " . $conflictMsg;
+                                }
+                            } else {
+                                $customer = Customer::create([
+                                    'phone' => $custData['phone'],
                                     'uuid' => $custData['uuid'] ?? null,
                                     'name' => $custData['name'],
                                     'email' => $custData['email'] ?? null,
                                     'tax_number' => $custData['tax_number'] ?? null,
                                     'address' => $custData['address'] ?? null,
                                     'is_active' => 1
-                                ]
-                            );
+                                ]);
+                            }
                             $offlinePayload['customer_id'] = $customer->id;
                             $offlinePayload['phone_number'] = $custData['phone'];
                         } elseif (!empty($offlinePayload['phone_number'])) {
@@ -110,6 +122,29 @@ class SyncOfflineOrdersAction
 
                         // Cast the raw array payload into our strictly typed Enterprise DTO
                         $dto = OrderData::from($offlinePayload);
+                        
+                        // Securely recalculate the cart totals based on user permissions
+                        $dto = \App\Actions\Orders\CalculateSecureOrderMathAction::execute($dto, clone $user);
+                        
+                        // Enforce Payments Math
+                        $totalPaid = 0;
+                        if ($dto->payments) {
+                            foreach ($dto->payments as $payment) {
+                                $totalPaid += $payment->amount;
+                            }
+                        }
+                        
+                        if ($totalPaid > $dto->total) {
+                            throw new \Exception("Overpayment detected: Paid Amount ({$totalPaid}) cannot be greater than total ({$dto->total}).");
+                        }
+                        
+                        $balance = $dto->total - $totalPaid;
+                        if ($balance > 0 && empty($dto->customer_id)) {
+                            throw new \Exception("Ledger violation: A registered customer is required for orders with an unpaid balance.");
+                        }
+
+                        // Re-sync the secured DTO back into the raw array for clean storage in OrderRequests
+                        $offlinePayload = $dto->toArray();
 
                         if ($canBypass || ($dto->total <= getBypassLimit() && $user->hasPermission('bypass_approval_under_limit'))) {
                             if (isset($existingRequest) && $existingRequest->status == 2) {
@@ -144,7 +179,6 @@ class SyncOfflineOrdersAction
                             } else {
                                 // Manager Approval Required - Store as a Request
                                 $orderRequest = OrderRequest::create([
-                                    'request_number' => OrderService::generateRequestID(),
                                     'customer_id' => $dto->customer_id,
                                     'customer_name' => $dto->customer_name,
                                     'total_amount' => $dto->total,

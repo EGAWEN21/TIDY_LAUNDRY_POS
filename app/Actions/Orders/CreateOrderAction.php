@@ -44,7 +44,7 @@ class CreateOrderAction
                 'taxable_amount' => $dto->taxable_amount,
                 'total' => $dto->total,
                 'note' => $dto->note ?? null,
-                'status' => $dto->status,
+                'status' => 0, // Hardcoded to 0 to prevent status spoofing from API payload
                 'order_type' => 1,
                 'created_by' => $userId,
                 'financial_year_id' => getFinancialYearId()
@@ -62,8 +62,16 @@ class CreateOrderAction
                 ]);
             }
 
-            // Note: Addons were removed from the DTO for brevity, assuming legacy arrays if needed
-            // If addons are present in legacy arrays (from PosApiController), handle them here if added to DTO.
+            if ($dto->addons) {
+                foreach ($dto->addons as $addon) {
+                    \App\Models\OrderAddonDetail::create([
+                        'order_id' => $order->id,
+                        'addon_id' => $addon->addon_id,
+                        'addon_name' => $addon->addon_name,
+                        'addon_price' => $addon->addon_price,
+                    ]);
+                }
+            }
 
             foreach ($dto->payments as $payment) {
                 Payment::create([

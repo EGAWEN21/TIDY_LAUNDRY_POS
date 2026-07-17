@@ -34,6 +34,10 @@ class PosApiController extends Controller
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
+        if (!$user->is_active) {
+            return response()->json(['message' => 'Account is deactivated. Please contact administrator.'], 403);
+        }
+
         $token = $user->createToken('pos-pwa')->plainTextToken;
 
         return response()->json([
@@ -96,13 +100,15 @@ class PosApiController extends Controller
                 }
                 
                 if ($customer) {
-                    $customer->update([
-                        'uuid' => $uuid ?? $customer->uuid,
-                        'name' => $cust['name'],
-                        'email' => $cust['email'] ?? $customer->email,
-                        'tax_number' => $cust['tax_number'] ?? $customer->tax_number,
-                        'address' => $cust['address'] ?? $customer->address,
-                    ]);
+                    if (\Illuminate\Support\Facades\Auth::user()->hasPermission('customer_edit')) {
+                        $customer->update([
+                            'uuid' => $uuid ?? $customer->uuid,
+                            'name' => $cust['name'],
+                            'email' => $cust['email'] ?? $customer->email,
+                            'tax_number' => $cust['tax_number'] ?? $customer->tax_number,
+                            'address' => $cust['address'] ?? $customer->address,
+                        ]);
+                    }
                 } else {
                     $customer = Customer::create([
                         'phone' => $phone,
@@ -131,8 +137,15 @@ class PosApiController extends Controller
     {
         $orders = $request->input('orders', []);
 
+        if (count($orders) > 50) {
+            return response()->json([
+                'synced_orders' => [], 
+                'failed' => ['bulk' => 'Payload exceeds maximum limit of 50 orders per request']
+            ], 413);
+        }
+
         // Delegate entire complex batch processing to the decoupled Action
-        $response = \App\Actions\Orders\SyncOfflineOrdersAction::execute($orders, Auth::user());
+        $response = \App\Actions\Orders\SyncOfflineOrdersAction::execute($orders, \Illuminate\Support\Facades\Auth::user());
 
         // Return the strictly formatted response expected by the Vue PWA's syncQueue
         return response()->json($response);

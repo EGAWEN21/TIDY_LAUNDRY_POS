@@ -42,6 +42,9 @@ class OrderData extends Data
         #[DataCollectionOf(CartItemData::class)]
         public DataCollection $details,
         
+        #[DataCollectionOf(AddonData::class)]
+        public ?DataCollection $addons,
+        
         #[DataCollectionOf(PaymentData::class)]
         public DataCollection $payments,
     ) {

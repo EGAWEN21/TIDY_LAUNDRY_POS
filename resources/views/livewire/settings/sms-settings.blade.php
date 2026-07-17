@@ -33,9 +33,19 @@
                             {{ $lang->data['twilio_number'] ?? 'Twilio Number' }} <span
                                 class="text-danger">*</span>
                         </label>
-                        <input type="text" required autofocus class="form-control radius-8" id="mail_username"
+                        <input type="text" required class="form-control radius-8" id="mail_username"
                             wire:model="twilio_number">
                         @error('twilio_number') <span class="text-danger">{{$message}}</span>  @enderror
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="mb-20">
+                        <label class="form-label fw-semibold text-primary-light text-sm mb-8">
+                            Global Daily Limit <span class="text-danger">*</span>
+                        </label>
+                        <input type="number" min="100" required class="form-control radius-8" wire:model="global_daily_limit">
+                        <small class="text-muted">Minimum 100 SMS per day to prevent Twilio billing abuse.</small>
+                        @error('global_daily_limit') <span class="text-danger">{{$message}}</span>  @enderror
                     </div>
                 </div>
                 <div class="col-sm-12 row mb-20 tw-pl-6 ">

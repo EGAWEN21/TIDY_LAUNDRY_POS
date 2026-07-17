@@ -10,6 +10,7 @@ use Livewire\Attributes\Title;
 class SmsSettings extends Component
 {  
     public $accountsid,$auth_token,$twilio_number,$store,$enabled,$format,$replacer,$replacement,$create_order,$status_change,$delivered_only,$ready_to_deliver_only,$lang;
+    public $global_daily_limit = 100;
     #[Title('SMS Settings')]
     public function render()
     {
@@ -42,6 +43,7 @@ class SmsSettings extends Component
         $this->status_change = (isset($site['sms_statuschange']) && !empty($site['sms_statuschange'])) ? $site['sms_statuschange'] : 'Hi <name> Your Order #<order_number> status has been changed to <status> on <current_time>';
         $this->delivered_only = (isset($site['sms_delivered_only']) && !empty($site['sms_delivered_only'])) ? $site['sms_delivered_only'] : 0;
         $this->ready_to_deliver_only = (isset($site['sms_ready_to_deliver_only']) && !empty($site['sms_ready_to_deliver_only'])) ? $site['sms_ready_to_deliver_only'] : 0;
+        $this->global_daily_limit = (isset($site['sms_global_daily_limit']) && !empty($site['sms_global_daily_limit'])) ? $site['sms_global_daily_limit'] : 100;
         $this->enabled = $this->enabled == 1 ? true: false;
         if(session()->has('selected_language'))
         {   /*if session has selected language */
@@ -72,6 +74,10 @@ class SmsSettings extends Component
         $site['sms_statuschange'] = $this->status_change;
         $site['sms_delivered_only'] = $this->delivered_only;
         $site['sms_ready_to_deliver_only'] = $this->ready_to_deliver_only;
+        if($this->global_daily_limit < 100) {
+            $this->global_daily_limit = 100;
+        }
+        $site['sms_global_daily_limit'] = $this->global_daily_limit;
         foreach ($site as $key => $value) {
             MasterSettings::updateOrCreate(['master_title' => $key], ['master_value' => $value]);
         }

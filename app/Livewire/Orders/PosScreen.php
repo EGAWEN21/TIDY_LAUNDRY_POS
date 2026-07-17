@@ -379,7 +379,7 @@ class PosScreen extends Component
         $this->validate([
             'customer_name'  => 'required',
             'customer_phone'    => 'required',
-            'email' => 'unique:customers|nullable'
+            'email' => 'nullable|email'
 
         ]);
         $customer = Customer::create([
@@ -683,34 +683,46 @@ class PosScreen extends Component
                     }
                 }
 
+                // 1. Build the strictly typed DTO
+                $orderDto = \App\DTOs\OrderData::from([
+                    'customer_id' => $payload['customer_id'],
+                    'customer_name' => $payload['customer_name'],
+                    'phone_number' => $payload['phone_number'],
+                    'order_date' => $payload['order_date'],
+                    'delivery_date' => $payload['delivery_date'],
+                    'sub_total' => $payload['sub_total'],
+                    'addon_total' => $payload['addon_total'],
+                    'discount' => $payload['discount'],
+                    'tax_percentage' => $payload['tax_percentage'],
+                    'tax_amount' => $payload['tax_amount'],
+                    'tax_type' => $payload['tax_type'],
+                    'taxable_amount' => $payload['taxable_amount'],
+                    'total' => $payload['total'],
+                    'note' => $payload['note'],
+                    'status' => 0,
+                    'details' => $payload['details'],
+                    'addons' => $payload['addons'],
+                    'payments' => $payload['payments']
+                ]);
+                
+                // Securely recalculate the cart totals based on user permissions
+                try {
+                    $orderDto = \App\Actions\Orders\CalculateSecureOrderMathAction::execute($orderDto, Auth::user());
+                } catch (\Exception $e) {
+                    $this->dispatch('alert', ['type' => 'error', 'message' => $e->getMessage()]);
+                    return 0;
+                }
+                
+                // Update the raw array payload so OrderRequest receives the secured math
+                $payload = $orderDto->toArray();
+
                 $canBypass = Auth::user()->hasPermission('bypass_order_approval');
-                if (!$canBypass && Auth::user()->hasPermission('bypass_approval_under_limit') && $this->total <= getBypassLimit()) {
+                if (!$canBypass && Auth::user()->hasPermission('bypass_approval_under_limit') && $orderDto->total <= getBypassLimit()) {
                     $canBypass = true;
                 }
 
                 if ($canBypass) {
                     try {
-                        // 1. Build the strictly typed DTO
-                        $orderDto = \App\DTOs\OrderData::from([
-                            'customer_id' => $payload['customer_id'],
-                            'customer_name' => $payload['customer_name'],
-                            'phone_number' => $payload['phone_number'],
-                            'order_date' => $payload['order_date'],
-                            'delivery_date' => $payload['delivery_date'],
-                            'sub_total' => $payload['sub_total'],
-                            'addon_total' => $payload['addon_total'],
-                            'discount' => $payload['discount'],
-                            'tax_percentage' => $payload['tax_percentage'],
-                            'tax_amount' => $payload['tax_amount'],
-                            'tax_type' => $payload['tax_type'],
-                            'taxable_amount' => $payload['taxable_amount'],
-                            'total' => $payload['total'],
-                            'note' => $payload['note'],
-                            'status' => 0,
-                            'details' => $payload['details'],
-                            'payments' => $payload['payments']
-                        ]);
-
                         // 2. Dispatch to the secure Action
                         $order = \App\Actions\Orders\CreateOrderAction::execute($orderDto, Auth::id());
                         
@@ -740,19 +752,17 @@ class PosScreen extends Component
                             'payload' => $payload,
                             'status' => 0,
                             'rejection_note' => null,
-                            'total_amount' => $this->total,
+                            'total_amount' => $orderDto->total,
                             'customer_id' => $this->selected_customer->id ?? null,
                             'customer_name' => $this->selected_customer->name ?? null,
                         ]);
                         $this->dispatch('alert', ['type' => 'success',  'message' => 'Order Request Updated!']);
                     } else {
-                        $reqNum = \App\Services\OrderService::generateRequestID();
                         \App\Models\OrderRequest::create([
-                            'request_number' => $reqNum,
                             'created_by' => Auth::id(),
                             'customer_id' => $this->selected_customer->id ?? null,
                             'customer_name' => $this->selected_customer->name ?? null,
-                            'total_amount' => $this->total,
+                            'total_amount' => $orderDto->total,
                             'payload' => $payload,
                             'status' => 0,
                         ]);

@@ -14,6 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        $middleware->appendToGroup('web', \App\Http\Middleware\CheckUserIsActive::class);
+        $middleware->appendToGroup('api', \App\Http\Middleware\CheckUserIsActive::class);
+
         $middleware->alias([
             'admin' => \App\Http\Middleware\Admin::class,
             'store' => \App\Http\Middleware\Store::class,
