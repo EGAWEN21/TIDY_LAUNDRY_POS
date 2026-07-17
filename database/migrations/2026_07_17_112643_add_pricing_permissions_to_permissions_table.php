@@ -17,21 +17,37 @@ return new class extends Migration
         ];
 
         foreach ($permissions as $permission) {
-            $id = \Illuminate\Support\Facades\DB::table('permissions')->insertGetId([
-                'name' => $permission['name'],
-                'display_name' => $permission['display_name'],
-                'category' => $permission['category'],
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+            $existing = \Illuminate\Support\Facades\DB::table('permissions')->where('name', $permission['name'])->first();
+            if ($existing) {
+                $id = $existing->id;
+            } else {
+                $id = \Illuminate\Support\Facades\DB::table('permissions')->insertGetId([
+                    'name' => $permission['name'],
+                    'display_name' => $permission['display_name'],
+                    'category' => $permission['category'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
 
             // Assign to Super Admin role if it exists (role_id 1)
             $superAdmin = \Illuminate\Support\Facades\DB::table('user_roles')->where('id', 1)->first();
             if ($superAdmin) {
-                \Illuminate\Support\Facades\DB::table('user_role_permissions')->insert([
-                    'role_id' => 1,
-                    'permission_id' => $id,
-                ]);
+                $exists = \Illuminate\Support\Facades\DB::table('user_role_permissions')
+                    ->where('role_id', 1)
+                    ->where('permission_id', $id)
+                    ->exists();
+
+                if (!$exists) {
+                    \Illuminate\Support\Facades\DB::table('user_role_permissions')->insert([
+                        'role_id' => 1,
+                        'permission_id' => $id,
+                        'name' => $permission['name'],
+                        'permission_name' => $permission['display_name'],
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                }
             }
         }
     }
