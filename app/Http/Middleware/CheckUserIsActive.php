@@ -15,7 +15,7 @@ class CheckUserIsActive
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (\Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->is_active == 0) {
+        if (\Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->user_type != 1 && \Illuminate\Support\Facades\Auth::user()->is_active == 0) {
             \Illuminate\Support\Facades\Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();

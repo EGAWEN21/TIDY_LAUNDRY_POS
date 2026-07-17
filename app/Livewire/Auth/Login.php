@@ -31,9 +31,9 @@ class Login extends Component
             'email' => 'required|email',
             'password'  => 'required'
         ]);
-        // Check if account is deactivated
+        // Check if account is deactivated (skip for Super Admins user_type = 1)
         $user = User::where('email', $this->email)->first();
-        if ($user && $user->is_active == 0) {
+        if ($user && $user->user_type != 1 && $user->is_active == 0) {
             $this->addError('login_error','Account is deactivated. Please contact administrator.');
             return;
         }
