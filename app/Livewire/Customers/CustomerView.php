@@ -38,13 +38,13 @@ class CustomerView extends Component
         else{
             $this->lang = Translation::where('default',1)->first();
         }
-        $this->invoice_amount = Order::where('customer_id', $id)->sum('total');
-        $this->invoice_count = Order::where('customer_id', $id)->count();
+        $this->invoice_amount = Order::where('customer_id', $id)->where('status', '!=', 4)->sum('total');
+        $this->invoice_count = Order::where('customer_id', $id)->where('status', '!=', 4)->count();
         $this->payment = Payment::where('customer_id', $id)->sum('received_amount');
         $this->balance = $this->invoice_amount - $this->payment;
         
         $this->avg_order_value = $this->invoice_count > 0 ? $this->invoice_amount / $this->invoice_count : 0;
-        $lastOrder = Order::where('customer_id', $id)->latest('order_date')->first();
+        $lastOrder = Order::where('customer_id', $id)->where('status', '!=', 4)->latest('order_date')->first();
         $this->last_order_date = $lastOrder ? $lastOrder->order_date : null;
     }
 }

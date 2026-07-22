@@ -11,7 +11,7 @@ use Carbon\Carbon;
 
 class OrderReport extends Component
 {
-    public $from_date, $to_date, $orders, $status = -1, $lang;
+    public $from_date, $to_date, $status = -1, $lang;
     
     // New Metrics
     public $kpi = [];
@@ -52,10 +52,16 @@ class OrderReport extends Component
              $query->where('status', $this->status);
          }
          
-         $this->orders = $query->latest()->get();
          
          // Calculate Current Period KPIs
-         $currentOrders = $this->orders->count();
+         $currentOrders = \App\Models\Order::whereDate('order_date', '>=', $this->from_date)
+             ->whereDate('order_date', '<=', $this->to_date);
+             
+         if ($this->status != -1) {
+             $currentOrders->where('status', $this->status);
+         }
+         
+         $currentOrders = $currentOrders->count();
          
          // Calculate Previous Period
          $daysDiff = Carbon::parse($this->from_date)->diffInDays(Carbon::parse($this->to_date)) + 1;
@@ -118,5 +124,18 @@ class OrderReport extends Component
          $status = $this->status;
          $pdfContent = Pdf::loadView('livewire.reports.download-report.order-report', compact('from_date', 'to_date', 'status'))->output();
          return response()->streamDownload(fn () => print($pdfContent), "OrderReport_from_" . $from_date . ".pdf");
+     }
+
+     #[\Livewire\Attributes\Computed]
+     public function orders()
+     {
+         $query = \App\Models\Order::whereDate('order_date', '>=', $this->from_date)
+             ->whereDate('order_date', '<=', $this->to_date);
+             
+         if ($this->status != -1) {
+             $query->where('status', $this->status);
+         }
+         
+         return $query->latest()->get();
      }
 }

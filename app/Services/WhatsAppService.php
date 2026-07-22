@@ -79,7 +79,7 @@ class WhatsAppService
         return $message;
     }
 
-    protected function sendMessagePayload($to, $text)
+    public function sendMessagePayload($to, $text)
     {
         $endpoint = "{$this->apiUrl}/{$this->phoneNumberId}/messages";
 

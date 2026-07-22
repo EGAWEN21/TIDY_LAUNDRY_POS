@@ -139,6 +139,35 @@ export const usePosStore = defineStore('pos', {
                     }
                 }
             }, 60000); // 60 seconds
+
+            // Persist cart state to IndexedDB on every mutation
+            this.$subscribe(async (mutation, state) => {
+                if (!window.PosConfig || !window.PosConfig.user) return;
+                
+                try {
+                    if (state.cart.length > 0 || state.cartAddons.length > 0 || state.cartCustomer) {
+                        await db.cart.put({
+                            id: window.PosConfig.user.id, // Isolate draft per user
+                            uuid: 'OFFLINE-CART',
+                            user_id: window.PosConfig.user.id,
+                            items: JSON.parse(JSON.stringify(state.cart)),
+                            addons: JSON.parse(JSON.stringify(state.cartAddons)),
+                            customer_id: state.cartCustomer ? state.cartCustomer.id : null,
+                            total: state.cartTotal,
+                            tax: state.cartTax,
+                            discount: state.discount,
+                            payments: JSON.parse(JSON.stringify(state.payments)),
+                            status: 'draft',
+                            notes: state.paymentNotes
+                        });
+                    } else {
+                        // Cart has been explicitly cleared (e.g., checkout complete), so delete the draft
+                        await db.cart.delete(window.PosConfig.user.id);
+                    }
+                } catch (err) {
+                    console.error('Failed to save draft to IndexedDB:', err);
+                }
+            });
         },
 
         updateOnlineStatus(e) {
@@ -197,6 +226,21 @@ export const usePosStore = defineStore('pos', {
             const settings = await db.settings.get(1);
             if(settings) {
                 this.settings = settings;
+            }
+            
+            // Hydrate offline cart if exists for this user
+            if (window.PosConfig && window.PosConfig.user) {
+                const draft = await db.cart.get(window.PosConfig.user.id);
+                if (draft) {
+                    this.cart = draft.items || [];
+                    this.cartAddons = draft.addons || [];
+                    this.payments = draft.payments || [];
+                    this.discount = draft.discount || 0;
+                    this.paymentNotes = draft.notes || '';
+                    if (draft.customer_id) {
+                        this.cartCustomer = this.customers.find(c => c.id === draft.customer_id) || null;
+                    }
+                }
             }
         },
         

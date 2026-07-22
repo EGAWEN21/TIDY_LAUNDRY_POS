@@ -90,6 +90,7 @@ import { ref, onMounted } from 'vue';
 import { usePosStore } from '../../stores/posStore';
 import { db } from '../../db';
 import { toast } from 'vue3-toastify';
+import axios from 'axios';
 
 const pos = usePosStore();
 const queueItems = ref([]);
@@ -98,6 +99,35 @@ const isLoading = ref(true);
 const fetchQueue = async () => {
     isLoading.value = true;
     try {
+        if (pos.isOnline) {
+            try {
+                const response = await axios.get('/api/pos/rejected-orders');
+                const rejected = response.data.rejected_orders || [];
+                
+                for (const req of rejected) {
+                    const existing = await db.syncQueue.where('uuid').equals(req.uuid).first().catch(() => null);
+                    // If index fails, fallback check
+                    if (!existing) {
+                        const queueArr = await db.syncQueue.toArray();
+                        const existsInArray = queueArr.find(q => q.uuid === req.uuid || (q.data && q.data.uuid === req.uuid));
+                        if (!existsInArray) {
+                            await db.syncQueue.add({
+                                uuid: req.uuid,
+                                type: 'order',
+                                status: 'error',
+                                error_message: `Manager Rejected: ${req.rejection_reason || 'No reason provided'}`,
+                                retry_count: 0,
+                                timestamp: new Date(req.updated_at).getTime(),
+                                data: req.payload
+                            });
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Could not fetch rejected orders:", err);
+            }
+        }
+        
         queueItems.value = await db.syncQueue.orderBy('timestamp').reverse().toArray();
     } catch (e) {
         console.error(e);

@@ -81,7 +81,7 @@ class ExpenseList extends Component
         $expense->expense_date = $this->expense_date;
         $expense->payment_mode = $this->payment_mode;
         $expense->tax_included = ($this->tax_included);
-        $expense->financial_year_id = getFinancialYearId();
+        $expense->financial_year_id = resolveFinancialYearId($this->expense_date);
         $expense->note = $this->note;
         $expense->created_by = Auth::user()->id;
         $expense->save();

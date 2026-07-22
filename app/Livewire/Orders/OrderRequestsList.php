@@ -45,13 +45,13 @@ class OrderRequestsList extends Component
 
         $req = OrderRequest::findOrFail($id);
         
-        $order = \App\Services\OrderService::establishOrder($req->payload, $req->created_by);
+        $dto = \App\DTOs\OrderData::from($req->payload);
+        $order = \App\Actions\Orders\CreateOrderAction::execute($dto, $req->created_by);
         
-        if ($order->customer_id) {
-            $message = sendOrderCreateSMS($order->id, $order->customer_id);
-            if ($message) {
-                $this->dispatch('alert', ['type' => 'error',  'message' => $message, 'title' => 'SMS Error']);
-            }
+        // Preserve UUID for idempotency
+        if (!empty($req->uuid)) {
+            $order->uuid = $req->uuid;
+            $order->save();
         }
         
         $req->delete();

@@ -321,6 +321,11 @@ const buildOrderData = (type = 'save') => {
       service_price: item.price,
       color_code: item.color_code
     })),
+    addons: pos.cartAddons.map(addon => ({
+      addon_id: addon.id,
+      addon_name: addon.addon_name,
+      addon_price: addon.price
+    })),
     payments: [...pos.payments]
   };
 
@@ -331,6 +336,13 @@ const buildOrderData = (type = 'save') => {
       amount: orderData.total,
       notes: "Offline Cash Payment"
     });
+  }
+
+  const totalPaid = orderData.payments.reduce((t, p) => t + parseFloat(p.amount), 0);
+  const balance = orderData.total - totalPaid;
+  if (balance > 0 && !orderData.customer_id) {
+    toast.error("A registered customer is required for orders with an unpaid balance.");
+    return null;
   }
 
   return orderData;

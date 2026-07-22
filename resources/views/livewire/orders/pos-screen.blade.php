@@ -365,7 +365,8 @@
                                                     <input type="text" name=""
                                                         wire:model.live="selling_price.{{ $key }}"
                                                         id=""
-                                                        class="tw-ring-1 tw-px-1 tw-py-0.5 tw-rounded-md tw-w-[4rem]">
+                                                        @if(!Auth::user()->hasPermission('order_price_override')) readonly @endif
+                                                        class="tw-ring-1 tw-px-1 tw-py-0.5 tw-rounded-md tw-w-[4rem] @if(!Auth::user()->hasPermission('order_price_override')) tw-bg-neutral-100 tw-text-neutral-500 @endif">
                                                 </div>
                                             </td>
                                             <td class="tw-py-2 tw-px-1 lg:tw-w-[15%] tw-w-[10rem]  tw-text-center">
@@ -491,6 +492,7 @@
                         <div class="tw-flex tw-items-end tw-justify-end tw-gap-2">
                             <div class="tw-flex tw-items-center tw-gap-2">
                                 {{ $lang->data['discount'] ?? 'Discount' }}
+                                @if(Auth::user()->hasPermission('order_discount_apply'))
                                 <button data-bs-toggle="modal" data-bs-target="#discount"
                                     class="tw-px-1 tw-py-1  tw-rounded-md  tw-flex tw-items-center tw-gap-1.5 tw-border-0 tw-shadow-md @if ($discount && $discount > 0) bg-primary-600 tw-text-white @else tw-border tw-border-solid tw-bg-transparent tw-border-neutral-400 @endif">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
@@ -499,6 +501,7 @@
                                             d="M2 1a1 1 0 0 0-1 1v4.586a1 1 0 0 0 .293.707l7 7a1 1 0 0 0 1.414 0l4.586-4.586a1 1 0 0 0 0-1.414l-7-7A1 1 0 0 0 6.586 1zm4 3.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0" />
                                     </svg>
                                 </button>
+                                @endif
                                 :
                             </div>
                             <div class="tw-font-bold">{{ getFormattedCurrency($discount) }}</div>

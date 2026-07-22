@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 
 class LedgerReport extends Component
 {
-    public $selected_customer,$customers,$customer_query,$start_date,$end_date,$first_data,$lang,$data;
+    public $selected_customer,$customers,$customer_query,$start_date,$end_date,$lang;
     public $ageingData = [];
     #[Title('Ledger Report')]
     public function render()
@@ -34,7 +34,6 @@ class LedgerReport extends Component
         }
         $this->start_date = Carbon::now()->startOfMonth()->toDateString();
         $this->end_date = Carbon::now()->endOfMonth()->toDateString();
-        $this->data = collect();
         $this->customers = collect();
         $this->calculateAgeing();
     }
@@ -53,6 +52,7 @@ class LedgerReport extends Component
             })
             ->select('orders.id', 'orders.order_date', 'orders.total', DB::raw('COALESCE(paid_orders.total_paid, 0) as paid'))
             ->whereRaw('orders.total > COALESCE(paid_orders.total_paid, 0)')
+            ->where('orders.status', '!=', 4)
             ->get();
             
         $ageing = [ '0_30' => 0, '31_60' => 0, '61_90' => 0, '90_plus' => 0 ];
@@ -110,22 +110,34 @@ class LedgerReport extends Component
                 'alert', ['type' => 'error','title' => 'Fetching failed',  'message' => 'You have not selected a customer!']);
             return;
         }
+    }
+
+    #[\Livewire\Attributes\Computed]
+    public function data()
+    {
+        if(!$this->selected_customer) return [];
         $customerId = $this->selected_customer->id;
         $startDate = Carbon::parse($this->start_date)->toDateString();
         $endDate = Carbon::parse($this->end_date)->toDateString();
 
-        $this->data = array_map(function($row) { return (array) $row; }, DB::select("
+        return array_map(function($row) { return (array) $row; }, DB::select("
             SELECT order_date as date, 'debit' as type, order_number, total, 0 as received_amount
             FROM orders 
-            WHERE customer_id = ? AND DATE(order_date) >= ? AND DATE(order_date) <= ?
+            WHERE customer_id = ? AND DATE(order_date) >= ? AND DATE(order_date) <= ? AND status != 4
             UNION ALL
             SELECT payment_date as date, 'credit' as type, NULL as order_number, 0 as total, received_amount
             FROM payments 
             WHERE customer_id = ? AND DATE(payment_date) >= ? AND DATE(payment_date) <= ?
             ORDER BY date ASC
         ", [$customerId, $startDate, $endDate, $customerId, $startDate, $endDate]));
-        $this->first_data = [
-            'debits'    => Order::where('customer_id',$this->selected_customer->id)->whereDate('order_date','<',Carbon::parse($this->start_date)->toDateString())->sum('total'),
+    }
+
+    #[\Livewire\Attributes\Computed]
+    public function firstData()
+    {
+        if(!$this->selected_customer) return ['debits' => 0, 'credits' => 0];
+        return [
+            'debits'    => Order::where('customer_id',$this->selected_customer->id)->where('status', '!=', 4)->whereDate('order_date','<',Carbon::parse($this->start_date)->toDateString())->sum('total'),
             'credits'    => Payment::where('customer_id',$this->selected_customer->id)->whereDate('payment_date','<',Carbon::parse($this->start_date)->toDateString())->sum('received_amount'),
         ];
     }

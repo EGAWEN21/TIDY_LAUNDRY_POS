@@ -340,7 +340,7 @@ class OrdersList extends Component
         $this->customer = Customer::where('id', $this->order->customer_id)->first();
         $this->customer_name = $this->customer->name ?? null;
         $this->paid_amount = Payment::where('order_id', $this->order->id)->sum('received_amount');
-        $this->balance = number_format($this->order->total - $this->paid_amount, 2);
+        $this->balance = round($this->order->total - $this->paid_amount, 2);
     }
     /* reset input fields */
     private function resetInputFields()
@@ -354,41 +354,23 @@ class OrdersList extends Component
     /* add paymentinformation */
     public function addPayment()
     {
-        /* if balance is < 0 */
-        if ($this->balance < 0) {
-            $this->addError('balance', 'Pls Provide Valid Amount.');
-            return 0;
-        }
-        /* if the balance is > order total */
-        if ($this->balance > $this->order->total) {
-            $this->addError('balance', 'Paid Amount cannot be greater than total.');
-            return 0;
-        }
-        if ($this->order->status == 4) {
-            return 0;
-        }
         $this->validate([
             'payment_mode' => 'required',
+            'balance' => 'required|numeric'
         ]);
-        /* if any balance */
-        if ($this->balance) {
-            \App\Models\Payment::create([
-                'payment_date'  => \Carbon\Carbon::today()->toDateString(),
-                'customer_id'   => $this->customer->id ?? null,
-                'customer_name' => $this->customer->name ?? null,
-                'order_id'  => $this->order->id,
-                'payment_type'  => $this->payment_mode,
-                'payment_note'  => $this->note,
-                'financial_year_id' => getFinancialYearId(),
-                'received_amount'   => $this->balance,
-                'created_by'    => Auth::user()->id,
-            ]);
+
+        try {
+            \App\Actions\Payments\ProcessPaymentAction::execute(
+                $this->order,
+                (float) $this->balance,
+                $this->payment_mode,
+                $this->note
+            );
             $this->resetInputFields();
             $this->dispatch('closemodal');
-            $this->dispatch(
-                'alert',
-                ['type' => 'success',  'message' => 'Payment Updated has been updated!']
-            );
+            $this->dispatch('alert', ['type' => 'success',  'message' => 'Payment has been updated!']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->addError('balance', $e->validator->errors()->first('payment_error') ?? $e->getMessage());
         }
     }
     /* refresh the page */
@@ -537,59 +519,24 @@ class OrdersList extends Component
             abort(404);
         }
         
-        $order = Order::find($orderId);
-        if($order) {
-            $order->status = $status;
-            $order->save();
-            
-            // 1. Trigger Email Automation
-            sendOrderStatusChangeEmail($order->id, $status);
-            if (Auth::user()) {
-                $statusText = getOrderStatus($status, true);
-                Auth::user()->notify(new \App\Notifications\SystemNotification('Email Automation', "Automated Status Email triggered for Order {$order->order_number} ({$statusText})", 'info'));
-            }
-
-            // 2. Trigger WhatsApp Hybrid Automation
-            $settings = new \App\Models\MasterSettings();
-            $site = $settings->siteData();
-            
-            if (isset($site['enable_automated_whatsapp']) && $site['enable_automated_whatsapp'] == 1) {
-                // Strategy 3: Burner API (Automated)
-                $waService = new \App\Services\WhatsAppService();
-                $messagePayload = getFormatedTextSMS($order->id, ($status == 2 ? 3 : 2));
-                $waService->sendAutomatedStatusUpdate($order, $messagePayload); 
-                if (Auth::user()) {
-                    Auth::user()->notify(new \App\Notifications\SystemNotification('WhatsApp Automation', "Automated WhatsApp Message sent for Order {$order->order_number} via Burner API", 'success'));
-                }
-            } else {
-                // Strategy 1: wa.me Fallback (Manual Assist)
-                if (!$isBulk) {
-                    $customer = \App\Models\Customer::find($order->customer_id);
-                    if ($customer && !empty($customer->phone)) {
-                        $phone = ltrim($customer->phone, '+');
-                        if (!str_starts_with($phone, ltrim(getCountryCode(), '+')) && strlen($phone) <= 10) {
-                            $phone = ltrim(getCountryCode(), '+') . $phone;
-                        }
-                        $messagePayload = getFormatedTextSMS($order->id, ($status == 2 ? 3 : 2));
-                        $url = "https://wa.me/{$phone}?text=" . urlencode($messagePayload);
-                        $this->dispatch('open-url', [['url' => $url]]);
-                        if (Auth::user()) {
-                            Auth::user()->notify(new \App\Notifications\SystemNotification('WhatsApp Fallback', "Manual wa.me link generated for Order {$order->order_number}", 'warning'));
-                        }
-                    }
-                }
-            }
-
-            // 3. Trigger SMS Automation
-            $message = sendOrderStatusChangeSMS($order->id, $status);
-            if($message) {
-                $this->dispatch('alert', ['type' => 'error',  'message' => $message, 'title'=>'SMS Error']);
-            } else {
-                $this->dispatch('alert', ['type' => 'success', 'message' => 'Status successfully updated!']);
-            }
-            
-            $this->reloadOrders();
+        $result = \App\Actions\Orders\ChangeOrderStatusAction::execute($orderId, $status, $isBulk);
+        
+        if (!$result['success']) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => $result['message']]);
+            return;
         }
+
+        if (isset($result['open_url'])) {
+            $this->dispatch('open-url', [['url' => $result['open_url']]]);
+        }
+
+        if (isset($result['sms_error'])) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => $result['sms_error'], 'title' => 'SMS Error']);
+        } else {
+            $this->dispatch('alert', ['type' => 'success', 'message' => $result['message']]);
+        }
+        
+        $this->reloadOrders();
     }
 
     public function deleteOrder($order)

@@ -57,7 +57,8 @@
         // Pass the token and user details to the Vue application
         window.PosConfig = {
             apiToken: "{{ $token }}",
-            user: @json($user)
+            user: @json($user),
+            permissions: @json($user->user_type == 1 ? ['all'] : ($user->role ? $user->role->permissions->pluck('permission_name')->toArray() : []))
         };
         
         // Request Persistent Storage to prevent accidental data loss

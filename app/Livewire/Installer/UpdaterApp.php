@@ -30,7 +30,7 @@ class UpdaterApp extends Component
         }
     }
 
-    #[Layout('components.layouts.install-layout'),Title('Laundry Updater')]
+    #[Layout('components.layouts.install-layout'),Title('Tidy LMS Updater')]
     public function render()
     {
         return view('livewire.installer.updater-app');

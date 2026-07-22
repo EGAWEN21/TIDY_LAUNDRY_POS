@@ -75,33 +75,28 @@ class OrderStatusScreen extends Component
 
       
     }
-    /* change the order status */
     public function changestatus($order, $status)
     {
-        $orderz = Order::where('id', $order)->first();
+        $statusInt = 0;
         switch ($status) {
-            case 'processing':
-                $orderz->status = 1;
-                $orderz->save();
-                $message = sendOrderStatusChangeSMS($orderz->id, 1);
-                break;
-            case 'ready':
-                $orderz->status = 2;
-                $orderz->save();
-                $message = sendOrderStatusChangeSMS($orderz->id, 2);
-                break;
-            case 'pending':
-                $orderz->status = 0;
-                $orderz->save();
-                $message = sendOrderStatusChangeSMS($orderz->id, 3);
-                break;
+            case 'processing': $statusInt = 1; break;
+            case 'ready': $statusInt = 2; break;
+            case 'pending': $statusInt = 0; break;
         }
 
-        if ($message) {
-            $this->dispatch(
-                'alert',
-                ['type' => 'error',  'message' => $message, 'title' => 'SMS Error']
-            );
+        $result = \App\Actions\Orders\ChangeOrderStatusAction::execute($order, $statusInt);
+
+        if (!$result['success']) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => $result['message']]);
+            return;
+        }
+
+        if (isset($result['open_url'])) {
+            $this->dispatch('open-url', [['url' => $result['open_url']]]);
+        }
+
+        if (isset($result['sms_error'])) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => $result['sms_error'], 'title' => 'SMS Error']);
         }
     }
 }

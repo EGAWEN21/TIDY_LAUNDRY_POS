@@ -68,7 +68,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($orders as $item)
+                        @forelse($this->orders as $item)
                         <tr>
                             <td><span class="text-primary fw-bold">{{ $item->order_number }}</span></td>
                             <td><p class="text-sm mb-0">{{ \Carbon\Carbon::parse($item->order_date)->format('d/m/Y') }}</p></td>

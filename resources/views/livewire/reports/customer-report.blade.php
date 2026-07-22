@@ -37,7 +37,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($customersData as $row)
+                        @forelse($this->customersData as $row)
                         <tr>
                             <td>
                                 <p class="text-sm font-weight-bold tw-text-black mb-0">{{$row['name']}}</p>

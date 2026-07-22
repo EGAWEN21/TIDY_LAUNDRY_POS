@@ -83,6 +83,25 @@ function getFinancialYearId()
     }
     return null;
 }
+
+/* get financial year by date dynamically */
+function resolveFinancialYearId($date)
+{
+    if (!$date) return getFinancialYearId();
+    
+    $dateObj = \Carbon\Carbon::parse($date)->toDateString();
+    
+    $financialYear = \App\Models\FinancialYear::where('starting_date', '<=', $dateObj)
+        ->where('ending_date', '>=', $dateObj)
+        ->first();
+        
+    if ($financialYear) {
+        return $financialYear->id;
+    }
+    
+    // Fallback if transaction date doesn't match any explicitly configured year
+    return getFinancialYearId();
+}
 /* get Currency */
 function getCurrency()
 {
@@ -211,10 +230,10 @@ function getApplicationName()
     $settings = new App\Models\MasterSettings();
     $site = $settings->siteData();
     if (isset($site['default_application_name'])) {
-        $favicon = (($site['default_application_name']) && ($site['default_application_name'] != "")) ? $site['default_application_name'] : 'Laundry Box';
+        $favicon = (($site['default_application_name']) && ($site['default_application_name'] != "")) ? $site['default_application_name'] : 'Tidy LMS';
         return $favicon;
     }
-    return 'Laundry Box';
+    return 'Tidy LMS';
 }
 
 
@@ -313,10 +332,19 @@ function sendOrderCreateSMS($order, $to)
             if ($customer) {
                 $phoneInt = (int)$customer->phone;
                 $message = getFormatedTextSMS($order, 1);
+
+                $dailyLimit = isset($site['sms_global_daily_limit']) ? max((int)$site['sms_global_daily_limit'], 100) : 100;
+                if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts('global-sms-limit', $dailyLimit)) {
+                    \Illuminate\Support\Facades\Log::warning('Global SMS limit reached. Blocking outgoing SMS to ' . $phoneInt);
+                    return 'Global SMS limit reached';
+                }
+
                 $client->messages->create(
                     getCountryCode() . $phoneInt,
                     ['from' => $twilio_number, 'body' => $message]
                 );
+                
+                \Illuminate\Support\Facades\RateLimiter::hit('global-sms-limit', 86400);
             }
         } catch (\Exception $e) {
             $messageerror = $e->getMessage();
@@ -363,10 +391,19 @@ function sendOrderStatusChangeSMS($order, $to_status)
                     $message = getFormatedTextSMS($order, 2);
                 }
                 $phoneInt = (int)$customer->phone;
+                
+                $dailyLimit = isset($site['sms_global_daily_limit']) ? max((int)$site['sms_global_daily_limit'], 100) : 100;
+                if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts('global-sms-limit', $dailyLimit)) {
+                    \Illuminate\Support\Facades\Log::warning('Global SMS limit reached. Blocking outgoing SMS to ' . $phoneInt);
+                    return 'Global SMS limit reached';
+                }
+
                 $client->messages->create(
                     getCountryCode() . $phoneInt,
                     ['from' => $twilio_number, 'body' => $message]
                 );
+                
+                \Illuminate\Support\Facades\RateLimiter::hit('global-sms-limit', 86400);
             }
         } catch (\Exception $e) {
             $messageerror = $e->getMessage();

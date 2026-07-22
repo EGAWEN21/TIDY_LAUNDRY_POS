@@ -37,8 +37,9 @@ class ServiceList extends Component
     public function delete($id)
     {
         try{
-            $service = Service::where('id',$id)->delete();
-            ServiceDetail::where('service_id',$id)->delete();
+            $service = Service::findOrFail($id);
+            $service->delete();
+            // We intentionally do NOT delete ServiceDetail to preserve historical order integrity.
             $this->services = Service::latest()->get();
         }
         catch(\Exception $e)

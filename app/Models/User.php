@@ -53,8 +53,11 @@ class User extends Authenticatable
     }
 
     public function hasPermission($permission){
-        if($this->user_type == 1 || $this->user_type == null){
+        if($this->user_type == 1){
             return true;
+        }
+        if(!$this->role){
+            return false;
         }
         return $this->permissions()->where('permission_name',$permission)->first() ? true : false;
     }

@@ -31,13 +31,13 @@ class Login extends Component
             'email' => 'required|email',
             'password'  => 'required'
         ]);
-        // $installController  = new InstallController();
-        // $validation = $installController->verify_license();
-        // if(!isset($validation['status']) || $validation['status'] != true)
-        // {
-        //     $this->addError('login_error','Invalid License');
-        //     return redirect()->route('license');
-        // }
+        // Check if account is deactivated (skip for Super Admins user_type = 1)
+        $user = User::where('email', $this->email)->first();
+        if ($user && $user->user_type != 1 && $user->is_active == 0) {
+            $this->addError('login_error','Account is deactivated. Please contact administrator.');
+            return;
+        }
+
         if (Auth::attempt(['email' => $this->email, 'password' => $this->password, 'user_type' => '1'])) {
             /* user type admin and login is successful */
             DB::table('password_resets')->where('email',$this->email)->delete();

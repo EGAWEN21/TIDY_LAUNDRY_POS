@@ -114,48 +114,54 @@ class MasterSetting extends Component
         $site['default_currency_alignment'] = $this->default_currency_alignment;
         $site['bypass_approval_limit'] = $this->bypass_approval_limit;
         if ($this->default_logo) {
-            ini_set('memory_limit', '512M'); // Temporarily increase memory for large images
-            $default_logo = $this->default_logo;
-            $input['file'] = time() . '.' . $default_logo->getClientOriginalExtension();
-            $destinationPath = public_path('/logo');
+            try {
+                ini_set('memory_limit', '512M');
+                $filename = 'logo_' . time() . '.' . $this->default_logo->getClientOriginalExtension();
+                $tempPath = sys_get_temp_dir() . '/' . $filename;
+                
+                if (isset($site['default_logo'])) {
+                    $oldPath = str_replace('/storage/', '', $site['default_logo']);
+                    if (\Illuminate\Support\Facades\Storage::disk('public')->exists($oldPath)) {
+                        \Illuminate\Support\Facades\Storage::disk('public')->delete($oldPath);
+                    }
+                }
             
-            // Check if the logo file already exists and delete it
-            if (isset($site['default_logo']) && file_exists(public_path($site['default_logo']))) {
-                unlink(public_path($site['default_logo']));
+                $imgFile = Image::read($this->default_logo->getRealPath());
+                $imgFile->scaleDown(width: 500)->save($tempPath);
+                
+                \Illuminate\Support\Facades\Storage::disk('public')->putFileAs('logo', new \Illuminate\Http\File($tempPath), $filename);
+                @unlink($tempPath);
+            
+                $site['default_logo'] = '/storage/logo/' . $filename;
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error("Logo upload failed: " . $e->getMessage());
             }
-        
-            if (!file_exists($destinationPath)) {
-                mkdir($destinationPath, 0777, true);
-            }
-        
-            $imgFile = Image::read($this->default_logo->getRealPath());
-        
-            $imgFile->scaleDown(width: 500)->save($destinationPath . '/' . $input['file']);
-        
-            $site['default_logo'] = '/logo/' . $input['file'];
         }
         
         /* if default_favicon exists */
         if ($this->default_favicon) {
-            ini_set('memory_limit', '512M'); // Temporarily increase memory for large images
-            $default_favicon = $this->default_favicon;
-            $input['file'] = time() . '.' . $default_favicon->getClientOriginalExtension();
-            $destinationPath = public_path('/favicon');
+            try {
+                ini_set('memory_limit', '512M');
+                $filename = 'favicon_' . time() . '.' . $this->default_favicon->getClientOriginalExtension();
+                $tempPath = sys_get_temp_dir() . '/' . $filename;
+                
+                if (isset($site['default_favicon'])) {
+                    $oldPath = str_replace('/storage/', '', $site['default_favicon']);
+                    if (\Illuminate\Support\Facades\Storage::disk('public')->exists($oldPath)) {
+                        \Illuminate\Support\Facades\Storage::disk('public')->delete($oldPath);
+                    }
+                }
             
-            // Check if the favicon file already exists and delete it
-            if (isset($site['default_favicon']) && file_exists(public_path($site['default_favicon']))) {
-                unlink(public_path($site['default_favicon']));
+                $imgFile = Image::read($this->default_favicon->getRealPath());
+                $imgFile->scaleDown(width: 100)->save($tempPath);
+                
+                \Illuminate\Support\Facades\Storage::disk('public')->putFileAs('favicon', new \Illuminate\Http\File($tempPath), $filename);
+                @unlink($tempPath);
+            
+                $site['default_favicon'] = '/storage/favicon/' . $filename;
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error("Favicon upload failed: " . $e->getMessage());
             }
-        
-            if (!file_exists($destinationPath)) {
-                mkdir($destinationPath, 0777, true);
-            }
-        
-            $imgFile = Image::read($this->default_favicon->getRealPath());
-        
-            $imgFile->scaleDown(width: 100)->save($destinationPath . '/' . $input['file']);
-        
-            $site['default_favicon'] = '/favicon/' . $input['file'];
         }
         foreach ($site as $key => $value) {
             MasterSettings::updateOrCreate(['master_title' => $key], ['master_value' => $value]);

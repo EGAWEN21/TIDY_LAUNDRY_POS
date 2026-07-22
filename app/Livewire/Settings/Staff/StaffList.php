@@ -95,6 +95,7 @@ class StaffList extends Component
         $staff = User::find($id);
         if ($staff->is_active == 1) {
             $staff->is_active = 0;
+            $staff->tokens()->delete(); // Forcefully revoke API tokens
         } elseif ($staff->is_active == 0) {
             $staff->is_active = 1;
         }
@@ -136,6 +137,9 @@ class StaffList extends Component
         $this->staff->phone = $this->phone;
         $this->staff->role_id = $this->user_role;
         $this->staff->is_active = $this->is_active_edit ?? 0;
+        if ($this->staff->is_active == 0) {
+            $this->staff->tokens()->delete(); // Forcefully revoke API tokens
+        }
         
         $viewable_staff_orders = null;
         if ($this->can_view_all_orders) {
