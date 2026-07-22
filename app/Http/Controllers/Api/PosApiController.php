@@ -108,6 +108,8 @@ class PosApiController extends Controller
                             'tax_number' => $cust['tax_number'] ?? $customer->tax_number,
                             'address' => $cust['address'] ?? $customer->address,
                         ]);
+                    } else {
+                        throw new \Exception("Missing customer_edit permission. Cannot overwrite existing customer profile.");
                     }
                 } else {
                     $customer = Customer::create([

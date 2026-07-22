@@ -15,7 +15,7 @@ class MaterControlSeeder extends Seeder
         $settings = new MasterSettings();
         $site = $settings->siteData();
         $site['default_currency'] = '$';
-        $site['default_application_name'] = 'Laundry Box';
+        $site['default_application_name'] = 'Tidy LMS';
         $site['default_phone_number'] = '123456';
         $site['default_tax_percentage'] = '1';
         $site['default_state'] = 'kerala';

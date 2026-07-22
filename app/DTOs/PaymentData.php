@@ -18,7 +18,8 @@ class PaymentData extends Data
         public int $payment_type,
         public float $amount,
         public ?string $payment_type_name = null,
-        public ?string $notes = null
+        public ?string $notes = null,
+        public ?int $payment_id = null
     ) {
     }
 }

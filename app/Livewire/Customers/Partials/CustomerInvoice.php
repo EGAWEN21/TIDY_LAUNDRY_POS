@@ -110,7 +110,7 @@ class CustomerInvoice extends Component
         $this->customer = Customer::where('id', $this->order->customer_id)->first();
         $this->customer_name = $this->customer->name ?? null;
         $this->paid_amount = Payment::where('order_id', $this->order->id)->sum('received_amount');
-        $this->balance = number_format($this->order->total - $this->paid_amount, 2);
+        $this->balance = round($this->order->total - $this->paid_amount, 2);
     }
     /* reset input fields */
     private function resetInputFields()
@@ -124,41 +124,23 @@ class CustomerInvoice extends Component
     /* add paymentinformation */
     public function addPayment()
     {
-        /* if balance is < 0 */
-        if ($this->balance < 0) {
-            $this->addError('balance', 'Pls Provide Valid Amount.');
-            return 0;
-        }
-        /* if the balance is > order total */
-        if ($this->balance > $this->order->total) {
-            $this->addError('balance', 'Paid Amount cannot be greater than total.');
-            return 0;
-        }
-        if ($this->order->status == 4) {
-            return 0;
-        }
         $this->validate([
             'payment_mode' => 'required',
+            'balance' => 'required|numeric'
         ]);
-        /* if any balance */
-        if ($this->balance) {
-            \App\Models\Payment::create([
-                'payment_date'  => \Carbon\Carbon::today()->toDateString(),
-                'customer_id'   => $this->customer->id ?? null,
-                'customer_name' => $this->customer->name ?? null,
-                'order_id'  => $this->order->id,
-                'payment_type'  => $this->payment_mode,
-                'payment_note'  => $this->note,
-                'financial_year_id' => getFinancialYearId(),
-                'received_amount'   => $this->balance,
-                'created_by'    => Auth::user()->id,
-            ]);
+
+        try {
+            \App\Actions\Payments\ProcessPaymentAction::execute(
+                $this->order,
+                (float) $this->balance,
+                $this->payment_mode,
+                $this->note
+            );
             $this->resetInputFields();
             $this->dispatch('closemodal');
-            $this->dispatch(
-                'alert',
-                ['type' => 'success',  'message' => 'Payment Updated has been updated!']
-            );
+            $this->dispatch('alert', ['type' => 'success',  'message' => 'Payment has been updated!']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->addError('balance', $e->validator->errors()->first('payment_error') ?? $e->getMessage());
         }
     }
 }

@@ -28,14 +28,13 @@ class TaxReport extends Component
          } else {
              $this->lang = Translation::where('default', 1)->first();
          }
-         $this->report();
      }
+     
      /*processed on update of the element */
      public function updated($name, $value)
      {
-         $this->report();
+         // Computed properties are automatically updated
      }
-         // Fetching reports is handled by #[Computed]
  
      /* download pdf file */
      public function downloadFile()

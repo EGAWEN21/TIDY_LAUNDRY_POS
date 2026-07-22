@@ -12,7 +12,7 @@ class HomePage extends Component
 {
     #[Title('Dashboard')]
     public $pending_count,$processing_count,$ready_count,$delivered_count,$returned_count,$array,$search_query = '',$order_filter = '',$lang;
-    public function render()
+    private function loadOrderCounts()
     {
         $counts = \Illuminate\Support\Facades\Cache::remember('dashboard_order_counts', 300, function() {
             return Order::select('status', \Illuminate\Support\Facades\DB::raw('count(*) as total'))
@@ -26,24 +26,18 @@ class HomePage extends Component
         $this->ready_count = $counts[2] ?? 0;
         $this->delivered_count = $counts[3] ?? 0;
         $this->returned_count = $counts[4] ?? 0;
+    }
+
+    public function render()
+    {
+        $this->loadOrderCounts();
         return view('livewire.home-page');
     }
 
     /* process before mount */
     public function mount()
     {
-        $counts = \Illuminate\Support\Facades\Cache::remember('dashboard_order_counts', 300, function() {
-            return Order::select('status', \Illuminate\Support\Facades\DB::raw('count(*) as total'))
-                ->groupBy('status')
-                ->pluck('total', 'status')
-                ->toArray();
-        });
-
-        $this->pending_count = $counts[0] ?? 0;
-        $this->processing_count = $counts[1] ?? 0;
-        $this->ready_count = $counts[2] ?? 0;
-        $this->delivered_count = $counts[3] ?? 0;
-        $this->returned_count = $counts[4] ?? 0;
+        $this->loadOrderCounts();
         if(session()->has('selected_language'))
         {
             /* if the session has selected language */

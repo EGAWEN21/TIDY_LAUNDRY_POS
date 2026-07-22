@@ -52,7 +52,7 @@ class ViewOrder extends Component
         $site = $settings->siteData();
         if(isset($site['default_application_name']))
         {   /* if site  has default application name */
-            $sitename = (($site['default_application_name']) && ($site['default_application_name'] !=""))? $site['default_application_name'] : 'Laundry Box';
+            $sitename = (($site['default_application_name']) && ($site['default_application_name'] !=""))? $site['default_application_name'] : 'Tidy LMS';
             $this->sitename = $sitename;
         }
         if(isset($site['default_phone_number']))
@@ -94,54 +94,54 @@ class ViewOrder extends Component
     /* add the payment */
     public function addPayment()
     {
-        if($this->order->status == 4)
-        {
-            return 0;
-        }
         $this->validate([
-            'paid_amount'   => 'required',
+            'paid_amount'   => 'required|numeric',
             'payment_type'  => 'required',
         ]);
-        /* if paid amount > balance */
-        if($this->paid_amount > $this->balance)
-        {
-            $this->addError('payment_type','Amount cannot be greater than balance');
-            return 0;
+
+        try {
+            \App\Actions\Payments\ProcessPaymentAction::execute(
+                $this->order,
+                (float) $this->paid_amount,
+                $this->payment_type,
+                $this->notes
+            );
+            
+            $this->payments = Payment::where('order_id',$this->order->id)->get();
+            $this->balance = $this->order->total -  Payment::where('order_id',$this->order->id)->sum('received_amount');
+            $this->paid_amount = $this->balance;
+            $this->notes = '';
+            $this->payment_type = '';
+            
+            $this->dispatch('closemodal');
+            $this->dispatch('alert', ['type' => 'success',  'message' => 'Payment Successfully Added!']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->addError('payment_type', $e->validator->errors()->first('payment_error') ?? $e->getMessage());
         }
-        Payment::create([
-            'payment_date'  => \Carbon\Carbon::today(),
-            'customer_id'   => $this->customer->id ?? null,
-            'customer_name' => $this->customer->name ?? null,
-            'payment_note'  => $this->notes,
-            'order_id'  => $this->order->id,
-            'payment_type'  => $this->payment_type,
-            'financial_year_id' => getFinancialYearId(),
-            'received_amount'   => $this->paid_amount,
-            'created_by'    => Auth::user()->id,
-        ]);
-        $this->payments = Payment::where('order_id',$this->order->id)->get();
-        $this->balance = $this->order->total -  Payment::where('order_id',$this->order->id)->sum('received_amount');
-        $this->paid_amount = $this->balance;
-        $this->notes = '';
-        $this->payment_type = '';
-        $this->dispatch('closemodal');
-        $this->dispatch(
-            'alert', ['type' => 'success',  'message' => 'Payment Successfully Added!']);
     }
     /* change the status */
     public function changeStatus($status)
     {
-        $this->order->status = $status;
-        
-        $this->order->save();
-        $message = sendOrderStatusChangeSMS($this->order->id,$status);
-        if($message)
-        {
-            $this->dispatch(
-                'alert', ['type' => 'error',  'message' => $message,'title'=>'SMS Error']);
+        if(!\Illuminate\Support\Facades\Gate::allows('order_status_change')){
+            abort(404);
         }
-        $this->dispatch(
-            'alert', ['type' => 'success',  'message' => 'Status Successfully Updated!']);
+        
+        $result = \App\Actions\Orders\ChangeOrderStatusAction::execute($this->order->id, $status);
+        
+        if (!$result['success']) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => $result['message']]);
+            return;
+        }
+
+        if (isset($result['open_url'])) {
+            $this->dispatch('open-url', [['url' => $result['open_url']]]);
+        }
+
+        if (isset($result['sms_error'])) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => $result['sms_error'], 'title' => 'SMS Error']);
+        } else {
+            $this->dispatch('alert', ['type' => 'success', 'message' => $result['message']]);
+        }
     }
 
     public function changeDeliveryDate(){

@@ -41,12 +41,6 @@ class PosScreen extends Component
         if(!\Illuminate\Support\Facades\Gate::allows('order_create')){
             abort(404);
         }
-        // $posManager = new InstallController();
-        // $validation = $posManager->verify_license();
-        // if(!isset($validation['status']) || $validation['status'] != true)
-        // {
-        //     return redirect()->route('license');
-        // }
         $this->services = Service::where('is_active', 1)->latest()->get();
         $this->date = Carbon::today()->toDateString();
         $this->addons = Addon::where('is_active', 1)->latest()->get();
@@ -68,6 +62,7 @@ class PosScreen extends Component
             if (isset($payload['payments'])) {
                 foreach($payload['payments'] as $payment){
                     array_push($this->payments,[
+                        'payment_id' => $payment['payment_id'] ?? null,
                         'payment_type' => $payment['payment_type'],
                         'amount' => $payment['amount'],
                         'notes' => $payment['notes']
@@ -118,6 +113,7 @@ class PosScreen extends Component
             $payments = Payment::where('order_id', $this->order->id)->get();
             foreach($payments as $payment){
                 array_push($this->payments,[
+                    'payment_id' => $payment->id,
                     'payment_type' => $payment->payment_type,
                     'amount' => $payment->received_amount,
                     'notes' => $payment->notes
@@ -547,235 +543,180 @@ class PosScreen extends Component
             return 0;
         }
         $this->generateOrderID();
-        if ($this->flag == 0) {
-            $order = $this->order;
-            if($this->order)
-            {
-                \Illuminate\Support\Facades\DB::transaction(function() use ($order) {
-                    Order::whereId($order->id)->update([
-                        'customer_id'   => $this->selected_customer->id ?? null,
-                        'customer_name' => $this->selected_customer->name ?? null,
-                        'phone_number'  => $this->selected_customer->phone ?? null,
-                        'order_date'    => Carbon::parse($this->date)->toDateTimeString(),
-                        'delivery_date' => Carbon::parse($this->delivery_date)->toDateTimeString(),
-                        'sub_total' => $this->sub_total,
-                        'addon_total'   => $this->addon_total,
-                        'discount'  => $this->discount ?? 0,
-                        'tax_percentage'    => $this->tax_percent,
-                        'tax_amount'    => $this->tax,
-                        'tax_type'  => getTaxType(),
-                        'taxable_amount'    => $this->taxable,
-                        'total' => $this->total,
-                        'note'  => $this->payment_notes,
-                        'status'    => 0,
-                        'order_type'    => 1,
-                    ]);
-                    OrderDetail::whereOrderId($order->id)->forceDelete();
-                    OrderAddonDetail::whereOrderId($order->id)->forceDelete();
-                    Payment::whereOrderId($order->id)->forceDelete();
-                    
-                    $amount = 0;
-                    foreach ($this->selservices as $key => $value) {
-                        $service = Service::where('id', $value['service'])->first();
-                        $service_type = ServiceType::where('id', $value['service_type'])->first();
-                        $service_type_detail = ServiceDetail::where('service_type_id', $service_type->id)->first();
-                        $amount += $this->prices[$key];
-                        OrderDetail::create([
-                            'order_id'  => $order->id,
-                            'service_id'    => $service->id,
-                            'service_name'  => $service_type->service_type_name,
-                            'service_quantity'  => $this->quantity[$key],
-                            'service_detail_total'  => $this->selling_price[$key] * $this->quantity[$key],
-                            'service_price' => $this->selling_price[$key],
-                            'color_code' => $this->colors[$key] ?? null,
-                        ]);
-                    }
-                    if ($this->selected_addons) {
-                        foreach ($this->selected_addons as $key => $value) {
-                            if ($value === true) {
-                                $addon = Addon::where('id', $key)->first();
-                                \App\Models\OrderAddonDetail::create([
-                                    'order_id'  => $order->id,
-                                    'addon_id'    => $addon->id,
-                                    'addon_name'    => $addon->addon_name,
-                                    'addon_price'   => $addon->addon_price,
-                                ]);
-                            }
-                        }
-                    }
-                    if (count($this->payments) > 0) {
-                        foreach ($this->payments as $payment) {
-                            \App\Models\Payment::create([
-                                'payment_date'  => $this->date,
-                                'customer_id'   => $this->selected_customer->id ?? null,
-                                'customer_name' => $this->selected_customer->name ?? null,
-                                'order_id'  => $order->id,
-                                'payment_type'  => $payment['payment_type'],
-                                'received_amount'    => $payment['amount'],
-                                'notes'  =>  $payment['notes'] ?? "Notes",
-                                'financial_year_id' => getFinancialYearId(),
-                                'created_by'    => Auth::user()->id,
-                            ]);
-                        }
-                    }
-                });
+        
+        $payload = [
+            'customer_id' => $this->selected_customer->id ?? null,
+            'customer_name' => $this->selected_customer->name ?? null,
+            'phone_number' => $this->selected_customer->phone ?? null,
+            'order_date' => Carbon::parse($this->date)->toDateTimeString(),
+            'delivery_date' => Carbon::parse($this->delivery_date)->toDateTimeString(),
+            'sub_total' => $this->sub_total,
+            'addon_total' => $this->addon_total,
+            'discount' => $this->discount ?? 0,
+            'tax_percentage' => $this->tax_percent,
+            'tax_amount' => $this->tax,
+            'tax_type' => getTaxType(),
+            'taxable_amount' => $this->taxable,
+            'total' => $this->total,
+            'note' => $this->payment_notes,
+            'details' => [],
+            'addons' => [],
+            'payments' => []
+        ];
+        
+        foreach ($this->selservices as $key => $value) {
+            $service = Service::where('id', $value['service'])->first();
+            $service_type = ServiceType::where('id', $value['service_type'])->first();
+            $payload['details'][] = [
+                'service_id' => $service->id,
+                'service_name' => $service_type->service_type_name,
+                'service_quantity' => $this->quantity[$key],
+                'service_detail_total' => $this->selling_price[$key] * $this->quantity[$key],
+                'service_price' => $this->selling_price[$key],
+                'color_code' => $this->colors[$key] ?? null,
+            ];
+        }
+        
+        if ($this->selected_addons) {
+            foreach ($this->selected_addons as $key => $value) {
+                if ($value === true) {
+                    $addon = Addon::where('id', $key)->first();
+                    $payload['addons'][] = [
+                        'addon_id' => $addon->id,
+                        'addon_name' => $addon->addon_name,
+                        'addon_price' => $addon->addon_price,
+                    ];
+                }
+            }
+        }
+        
+        if (count($this->payments) > 0) {
+            foreach ($this->payments as $payment) {
+                $payload['payments'][] = [
+                    'payment_id' => $payment['payment_id'] ?? null,
+                    'payment_type' => $payment['payment_type'],
+                    'amount' => $payment['amount'],
+                    'notes' => $payment['notes'] ?? "Notes"
+                ];
+            }
+        }
+
+        // 1. Build the strictly typed DTO
+        $orderDto = \App\DTOs\OrderData::from([
+            'customer_id' => $payload['customer_id'],
+            'customer_name' => $payload['customer_name'],
+            'phone_number' => $payload['phone_number'],
+            'order_date' => $payload['order_date'],
+            'delivery_date' => $payload['delivery_date'],
+            'sub_total' => $payload['sub_total'],
+            'addon_total' => $payload['addon_total'],
+            'discount' => $payload['discount'],
+            'tax_percentage' => $payload['tax_percentage'],
+            'tax_amount' => $payload['tax_amount'],
+            'tax_type' => $payload['tax_type'],
+            'taxable_amount' => $payload['taxable_amount'],
+            'total' => $payload['total'],
+            'note' => $payload['note'],
+            'status' => 0,
+            'details' => $payload['details'],
+            'addons' => $payload['addons'],
+            'payments' => $payload['payments']
+        ]);
+        
+        // Securely recalculate the cart totals based on user permissions
+        try {
+            $orderDto = \App\Actions\Orders\CalculateSecureOrderMathAction::execute($orderDto, Auth::user());
+        } catch (\Exception $e) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => $e->getMessage()]);
+            return 0;
+        }
+        
+        // Update the raw array payload so OrderRequest receives the secured math
+        $payload = $orderDto->toArray();
+
+        $canBypass = Auth::user()->hasPermission('bypass_order_approval') || Auth::user()->hasPermission('accept_reject_order');
+        if (!$canBypass && Auth::user()->hasPermission('bypass_approval_under_limit') && $orderDto->total <= getBypassLimit()) {
+            $canBypass = true;
+        }
+
+        if ($this->flag == 0 && $this->order) {
+            try {
+                $order = \App\Actions\Orders\UpdateOrderAction::execute($orderDto, $this->order, Auth::id());
                 $this->flag = 1;
                 $this->dispatch('alert', ['type' => 'success',  'message' => $order->order_number . ' Was Successfully Updated!']);
                 if(\Illuminate\Support\Facades\Gate::allows('order_print')){
                     $this->dispatch('printPageOrder', $order->id);
                 }
+            } catch (\Exception $e) {
+                $this->dispatch('alert', ['type' => 'error',  'message' => 'Failed to update order: ' . $e->getMessage()]);
             }
-            else{
-                // New Order or Request
-                $payload = [
-                    'customer_id' => $this->selected_customer->id ?? null,
-                    'customer_name' => $this->selected_customer->name ?? null,
-                    'phone_number' => $this->selected_customer->phone ?? null,
-                    'order_date' => Carbon::parse($this->date)->toDateTimeString(),
-                    'delivery_date' => Carbon::parse($this->delivery_date)->toDateTimeString(),
-                    'sub_total' => $this->sub_total,
-                    'addon_total' => $this->addon_total,
-                    'discount' => $this->discount ?? 0,
-                    'tax_percentage' => $this->tax_percent,
-                    'tax_amount' => $this->tax,
-                    'tax_type' => getTaxType(),
-                    'taxable_amount' => $this->taxable,
-                    'total' => $this->total,
-                    'note' => $this->payment_notes,
-                    'details' => [],
-                    'addons' => [],
-                    'payments' => []
-                ];
-                
-                foreach ($this->selservices as $key => $value) {
-                    $service = Service::where('id', $value['service'])->first();
-                    $service_type = ServiceType::where('id', $value['service_type'])->first();
-                    $payload['details'][] = [
-                        'service_id' => $service->id,
-                        'service_name' => $service_type->service_type_name,
-                        'service_quantity' => $this->quantity[$key],
-                        'service_detail_total' => $this->selling_price[$key] * $this->quantity[$key],
-                        'service_price' => $this->selling_price[$key],
-                        'color_code' => $this->colors[$key] ?? null,
-                    ];
-                }
-                
-                if ($this->selected_addons) {
-                    foreach ($this->selected_addons as $key => $value) {
-                        if ($value === true) {
-                            $addon = Addon::where('id', $key)->first();
-                            $payload['addons'][] = [
-                                'addon_id' => $addon->id,
-                                'addon_name' => $addon->addon_name,
-                                'addon_price' => $addon->addon_price,
-                            ];
-                        }
-                    }
-                }
-                
-                if (count($this->payments) > 0) {
-                    foreach ($this->payments as $payment) {
-                        $payload['payments'][] = [
-                            'payment_type' => $payment['payment_type'],
-                            'amount' => $payment['amount'],
-                            'notes' => $payment['notes'] ?? "Notes"
-                        ];
-                    }
-                }
-
-                // 1. Build the strictly typed DTO
-                $orderDto = \App\DTOs\OrderData::from([
-                    'customer_id' => $payload['customer_id'],
-                    'customer_name' => $payload['customer_name'],
-                    'phone_number' => $payload['phone_number'],
-                    'order_date' => $payload['order_date'],
-                    'delivery_date' => $payload['delivery_date'],
-                    'sub_total' => $payload['sub_total'],
-                    'addon_total' => $payload['addon_total'],
-                    'discount' => $payload['discount'],
-                    'tax_percentage' => $payload['tax_percentage'],
-                    'tax_amount' => $payload['tax_amount'],
-                    'tax_type' => $payload['tax_type'],
-                    'taxable_amount' => $payload['taxable_amount'],
-                    'total' => $payload['total'],
-                    'note' => $payload['note'],
-                    'status' => 0,
-                    'details' => $payload['details'],
-                    'addons' => $payload['addons'],
-                    'payments' => $payload['payments']
-                ]);
-                
-                // Securely recalculate the cart totals based on user permissions
+        } else {
+            // New Order or Request
+            if ($canBypass) {
                 try {
-                    $orderDto = \App\Actions\Orders\CalculateSecureOrderMathAction::execute($orderDto, Auth::user());
+                    // 2. Dispatch to the secure Action
+                    $order = \App\Actions\Orders\CreateOrderAction::execute($orderDto, Auth::id());
+                    
+                    $this->order_id = $order->order_number;
+                    
+                    if ($this->request_id) {
+                        \App\Models\OrderRequest::whereId($this->request_id)->delete();
+                    }
+                    
+                    // SMS is now handled completely asynchronously by SendOrderNotifications Event Listener.
+                    // We no longer block the main thread or risk rolling back the DB here!
+                    
+                    $this->dispatch('alert', ['type' => 'success',  'message' => $order->order_number . ' Was Successfully Created!']);
+                    
+                    if(\Illuminate\Support\Facades\Gate::allows('order_print')){
+                        $this->dispatch('printPage', $order->id);
+                        $this->clearAll();
+                    } else {
+                        $this->clearAll();
+                    }
                 } catch (\Exception $e) {
-                    $this->dispatch('alert', ['type' => 'error', 'message' => $e->getMessage()]);
-                    return 0;
+                    $this->dispatch('alert', ['type' => 'error',  'message' => 'Failed to create order: ' . $e->getMessage()]);
+                }
+            } else {
+                if ($this->request_id) {
+                    \App\Models\OrderRequest::whereId($this->request_id)->update([
+                        'payload' => $payload,
+                        'status' => 0,
+                        'rejection_note' => null,
+                        'total_amount' => $orderDto->total,
+                        'customer_id' => $this->selected_customer->id ?? null,
+                        'customer_name' => $this->selected_customer->name ?? null,
+                    ]);
+                    $this->dispatch('alert', ['type' => 'success',  'message' => 'Order Request Updated!']);
+                } else {
+                    \App\Models\OrderRequest::create([
+                        'created_by' => Auth::id(),
+                        'customer_id' => $this->selected_customer->id ?? null,
+                        'customer_name' => $this->selected_customer->name ?? null,
+                        'total_amount' => $orderDto->total,
+                        'payload' => $payload,
+                        'status' => 0,
+                    ]);
+                    $this->dispatch('alert', ['type' => 'success',  'message' => 'Order Request Submitted for Approval!']);
                 }
                 
-                // Update the raw array payload so OrderRequest receives the secured math
-                $payload = $orderDto->toArray();
-
-                $canBypass = Auth::user()->hasPermission('bypass_order_approval');
-                if (!$canBypass && Auth::user()->hasPermission('bypass_approval_under_limit') && $orderDto->total <= getBypassLimit()) {
-                    $canBypass = true;
+                // Notify Managers
+                $managers = \App\Models\User::where('user_type', 1)->orWhereHas('role', function($q) {
+                    $q->whereHas('permissions', function($p) {
+                        $p->where('permission_name', 'accept_reject_order');
+                    });
+                })->get();
+                
+                foreach($managers as $manager) {
+                    $manager->notify(new \App\Notifications\SystemNotification(
+                        'New Online Order Request',
+                        "A new online order request requires your approval.",
+                        route('orders.requests')
+                    ));
                 }
-
-                if ($canBypass) {
-                    try {
-                        // 2. Dispatch to the secure Action
-                        $order = \App\Actions\Orders\CreateOrderAction::execute($orderDto, Auth::id());
-                        
-                        $this->order_id = $order->order_number;
-                        
-                        if ($this->request_id) {
-                            \App\Models\OrderRequest::whereId($this->request_id)->delete();
-                        }
-                        
-                        // SMS is now handled completely asynchronously by SendOrderNotifications Event Listener.
-                        // We no longer block the main thread or risk rolling back the DB here!
-                        
-                        $this->dispatch('alert', ['type' => 'success',  'message' => $order->order_number . ' Was Successfully Created!']);
-                        
-                        if(\Illuminate\Support\Facades\Gate::allows('order_print')){
-                            $this->dispatch('printPage', $order->id);
-                            $this->clearAll();
-                        } else {
-                            $this->clearAll();
-                        }
-                    } catch (\Exception $e) {
-                        $this->dispatch('alert', ['type' => 'error',  'message' => 'Failed to create order: ' . $e->getMessage()]);
-                    }
-                } else {
-                    if ($this->request_id) {
-                        \App\Models\OrderRequest::whereId($this->request_id)->update([
-                            'payload' => $payload,
-                            'status' => 0,
-                            'rejection_note' => null,
-                            'total_amount' => $orderDto->total,
-                            'customer_id' => $this->selected_customer->id ?? null,
-                            'customer_name' => $this->selected_customer->name ?? null,
-                        ]);
-                        $this->dispatch('alert', ['type' => 'success',  'message' => 'Order Request Updated!']);
-                    } else {
-                        \App\Models\OrderRequest::create([
-                            'created_by' => Auth::id(),
-                            'customer_id' => $this->selected_customer->id ?? null,
-                            'customer_name' => $this->selected_customer->name ?? null,
-                            'total_amount' => $orderDto->total,
-                            'payload' => $payload,
-                            'status' => 0,
-                        ]);
-                        $this->dispatch('alert', ['type' => 'success',  'message' => 'Order Request Submitted for Approval!']);
-                    }
-                    $this->clearAll();
-                }
+                
+                $this->clearAll();
             }
-        }
-        if($this->order){
-        }
-        else{
-            // Handled inside
         }
     }
 
@@ -805,6 +746,10 @@ class PosScreen extends Component
 
     //remove payment
     public function removePayment($paymentIndex){
+        if (isset($this->payments[$paymentIndex]['payment_id'])) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Historical payments cannot be deleted. Please issue a refund/void instead.']);
+            return;
+        }
         array_splice($this->payments,$paymentIndex,1);
     }
 }

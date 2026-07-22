@@ -46,7 +46,7 @@ class CustomerReport extends Component
         $sevenDaysAgo = Carbon::today()->subDays(7)->toDateString();
         $atRiskThreshold = Carbon::today()->subDays(21); // 21 Days as requested by user
 
-        // Aggregate Orders per customer
+        // Aggregate Orders per customer (excluding Returned orders status = 4)
         $customersAggregates = DB::table('customers')
             ->select(
                 'customers.id',
@@ -59,7 +59,10 @@ class CustomerReport extends Component
                 DB::raw("COALESCE(SUM(CASE WHEN orders.order_date >= '{$sevenDaysAgo}' THEN orders.total ELSE 0 END), 0) as spend_7"),
                 DB::raw('MAX(orders.order_date) as last_visit')
             )
-            ->leftJoin('orders', 'customers.id', '=', 'orders.customer_id')
+            ->leftJoin('orders', function($join) {
+                $join->on('customers.id', '=', 'orders.customer_id')
+                     ->where('orders.status', '!=', 4); // Exclude returned orders
+            })
             ->groupBy('customers.id', 'customers.name', 'customers.phone', 'customers.created_at')
             ->having('total_orders', '>', 0) // Only show customers who actually have orders
             ->get();

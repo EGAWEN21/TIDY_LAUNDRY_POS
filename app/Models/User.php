@@ -56,6 +56,9 @@ class User extends Authenticatable
         if($this->user_type == 1){
             return true;
         }
+        if(!$this->role){
+            return false;
+        }
         return $this->permissions()->where('permission_name',$permission)->first() ? true : false;
     }
 

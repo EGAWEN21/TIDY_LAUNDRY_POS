@@ -39,11 +39,11 @@ class SyncOfflineOrdersAction
 
         // 1. Pre-fetch Managers to avoid N+1 queries during notification dispatch
         $managers = collect();
-        $canBypass = $user->hasPermission('bypass_order_approval');
+        $canBypass = $user->hasPermission('bypass_order_approval') || $user->hasPermission('accept_reject_order');
         if (!$canBypass) {
-            $managers = User::whereHas('role', function($q) {
+            $managers = User::where('user_type', 1)->orWhereHas('role', function($q) {
                 $q->whereHas('permissions', function($p) {
-                    $p->where('name', 'accept_reject_order');
+                    $p->where('permission_name', 'accept_reject_order');
                 });
             })->get();
         }

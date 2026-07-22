@@ -83,6 +83,25 @@ function getFinancialYearId()
     }
     return null;
 }
+
+/* get financial year by date dynamically */
+function resolveFinancialYearId($date)
+{
+    if (!$date) return getFinancialYearId();
+    
+    $dateObj = \Carbon\Carbon::parse($date)->toDateString();
+    
+    $financialYear = \App\Models\FinancialYear::where('starting_date', '<=', $dateObj)
+        ->where('ending_date', '>=', $dateObj)
+        ->first();
+        
+    if ($financialYear) {
+        return $financialYear->id;
+    }
+    
+    // Fallback if transaction date doesn't match any explicitly configured year
+    return getFinancialYearId();
+}
 /* get Currency */
 function getCurrency()
 {
@@ -211,10 +230,10 @@ function getApplicationName()
     $settings = new App\Models\MasterSettings();
     $site = $settings->siteData();
     if (isset($site['default_application_name'])) {
-        $favicon = (($site['default_application_name']) && ($site['default_application_name'] != "")) ? $site['default_application_name'] : 'Laundry Box';
+        $favicon = (($site['default_application_name']) && ($site['default_application_name'] != "")) ? $site['default_application_name'] : 'Tidy LMS';
         return $favicon;
     }
-    return 'Laundry Box';
+    return 'Tidy LMS';
 }
 
 

@@ -47,7 +47,7 @@ class CreateOrderAction
                 'status' => 0, // Hardcoded to 0 to prevent status spoofing from API payload
                 'order_type' => 1,
                 'created_by' => $userId,
-                'financial_year_id' => getFinancialYearId()
+                'financial_year_id' => resolveFinancialYearId($dto->order_date)
             ]);
 
             foreach ($dto->details as $detail) {
@@ -82,7 +82,7 @@ class CreateOrderAction
                     'payment_type' => $payment->payment_type,
                     'received_amount' => $payment->amount,
                     'notes' => $payment->notes ?? "Notes",
-                    'financial_year_id' => getFinancialYearId(),
+                    'financial_year_id' => resolveFinancialYearId($dto->order_date),
                     'created_by' => $userId,
                 ]);
             }
