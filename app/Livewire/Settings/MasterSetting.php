@@ -126,7 +126,7 @@ class MasterSetting extends Component
                     }
                 }
             
-                $imgFile = Image::read($this->default_logo->getRealPath());
+                $imgFile = Image::decodePath($this->default_logo->getRealPath());
                 $imgFile->scaleDown(width: 500)->save($tempPath);
                 
                 \Illuminate\Support\Facades\Storage::disk('public')->putFileAs('logo', new \Illuminate\Http\File($tempPath), $filename);
@@ -152,7 +152,7 @@ class MasterSetting extends Component
                     }
                 }
             
-                $imgFile = Image::read($this->default_favicon->getRealPath());
+                $imgFile = Image::decodePath($this->default_favicon->getRealPath());
                 $imgFile->scaleDown(width: 100)->save($tempPath);
                 
                 \Illuminate\Support\Facades\Storage::disk('public')->putFileAs('favicon', new \Illuminate\Http\File($tempPath), $filename);

@@ -1,13 +1,12 @@
 <?php
 
-namespace App\View\Components\layouts;
+namespace App\View\Components\Layouts;
 
-use App\Models\MasterSettings;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\View\Component;
 
-class base extends Component
+class Pos extends Component
 {
     /**
      * Create a new component instance.
@@ -22,7 +21,6 @@ class base extends Component
      */
     public function render(): View|Closure|string
     {
-       
-        return view('components.layouts.base');
+        return view('components.layouts.pos');
     }
 }

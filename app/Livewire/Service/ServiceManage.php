@@ -61,7 +61,7 @@ class ServiceManage extends Component
         $path = public_path('assets/img/service-icons/' . $fileName);
         
         $manager = new \Intervention\Image\ImageManager(new \Intervention\Image\Drivers\Gd\Driver());
-        $image = $manager->read($this->newIcon->getRealPath());
+        $image = $manager->decodePath($this->newIcon->getRealPath());
         $image->scaleDown(150, 150);
         $image->save($path);
         
