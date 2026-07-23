@@ -1,6 +1,6 @@
 {
-  "_index-DcNlVx-A.js": {
-    "file": "assets/index-DcNlVx-A.js",
+  "_index-DhXgJQ-f.js": {
+    "file": "assets/index-DhXgJQ-f.js",
     "name": "index"
   },
   "resources/css/app.css": {
@@ -9,21 +9,21 @@
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-CIzbZzsr.js",
+    "file": "assets/app-D_MsKvSf.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
     "imports": [
-      "_index-DcNlVx-A.js"
+      "_index-DhXgJQ-f.js"
     ]
   },
   "resources/js/pos-app.js": {
-    "file": "assets/pos-app-vgz-lxrC.js",
+    "file": "assets/pos-app-ChrSnG9e.js",
     "name": "pos-app",
     "src": "resources/js/pos-app.js",
     "isEntry": true,
     "imports": [
-      "_index-DcNlVx-A.js"
+      "_index-DhXgJQ-f.js"
     ],
     "css": [
       "assets/pos-app-B4IScEV9.css"
