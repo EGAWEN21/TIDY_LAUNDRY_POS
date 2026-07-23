@@ -16,4 +16,12 @@ class ExampleTest extends TestCase
 
         $response->assertStatus(200);
     }
+
+    public function test_the_service_worker_is_served_from_the_public_build_output(): void
+    {
+        $this->get('/sw.js')
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/javascript')
+            ->assertHeader('Service-Worker-Allowed', '/');
+    }
 }

@@ -11,22 +11,12 @@ use Livewire\Component;
 class UpdaterApp extends Component
 {
     public $running = false;
-    public $hasLicense = false;
-    public $license_code = "";
-    public $client_name = "";
     //Check if update file is found, if not redirect
     public function mount()
     {
         $installFile = File::exists(base_path('update'));
         if (!$installFile) {
             return redirect('');
-        }
-
-        $expenseHelper = new InstallController();
-        $validation = $expenseHelper->verify_license();
-        if(isset($validation['status']) && $validation['status'] == true)
-        {
-           $this->hasLicense = true;
         }
     }
 
@@ -36,28 +26,18 @@ class UpdaterApp extends Component
         return view('livewire.installer.updater-app');
     }
 
-    public function doChecks(){
-        $license = new InstallController();
-        $validation = $license->verify_license();
-        if(!isset($validation['status']) || $validation['status'] != true){
-            $verified = $license->activate_license($this->license_code,$this->client_name);
-            if($verified['status'] == false){
-                $this->addError('license_code',$verified['message']);
-                return false;
-            }
-        }
-        return true;
-    }
-    
-    public function updateApp(){
-        
+    public function updateApp()
+    {
+        abort_unless(File::exists(base_path('update')), 404);
+
         $this->running = true;
-        Artisan::call('migrate');
+        Artisan::call('migrate', ['--force' => true]);
         Artisan::call('optimize:clear');
         Artisan::call('config:cache');
-        Artisan::call('db:seed');
+        Artisan::call('db:seed', ['--force' => true]);
         File::delete(base_path('update'));
         $this->running = false;
-        return url('login');
+
+        return url('/');
     }
 }

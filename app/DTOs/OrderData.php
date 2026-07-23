@@ -19,16 +19,8 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 class OrderData extends Data
 {
     public function __construct(
-        public ?string $uuid = null,
-        public ?int $customer_id = null,
-        public ?string $customer_name = null,
-        public ?string $phone_number = null,
-        
-        public ?CustomerData $new_customer = null,
-        
         public string $order_date,
         public string $delivery_date,
-        
         public float $sub_total,
         public float $addon_total,
         public float $discount,
@@ -37,16 +29,19 @@ class OrderData extends Data
         public int $tax_type,
         public float $taxable_amount,
         public float $total,
-        public int $status = 0,
-        
         #[DataCollectionOf(CartItemData::class)]
         public DataCollection $details,
-        
-        #[DataCollectionOf(AddonData::class)]
-        public ?DataCollection $addons,
-        
         #[DataCollectionOf(PaymentData::class)]
         public DataCollection $payments,
+        #[DataCollectionOf(AddonData::class)]
+        public ?DataCollection $addons = null,
+        public ?string $uuid = null,
+        public ?int $customer_id = null,
+        public ?string $customer_name = null,
+        public ?string $phone_number = null,
+        public ?CustomerData $new_customer = null,
+        public ?string $note = null,
+        public int $status = 0,
     ) {
     }
 }

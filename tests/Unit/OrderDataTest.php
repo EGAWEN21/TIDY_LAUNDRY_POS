@@ -9,8 +9,7 @@ use Tests\TestCase;
 
 class OrderDataTest extends TestCase
 {
-    /** @test */
-    public function it_can_be_instantiated_from_an_array()
+    public function test_it_can_be_instantiated_from_an_array(): void
     {
         $payload = [
             'customer_id' => 1,

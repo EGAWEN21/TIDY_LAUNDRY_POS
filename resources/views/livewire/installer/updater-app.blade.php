@@ -11,37 +11,6 @@
                             <h6 class="mb-4 text-xl">Install LaundryBox</h6>
                             <p class="text-neutral-500">We found an update, Press continue to install it.</p>
                         </div>
-                     
-                        @if(!$hasLicense)
-                        <div class="tw-mt-6">
-                            <label for="username"
-                                class="form-label fw-semibold text-primary-light text-sm mb-8">
-                                Username <span class="text-danger">*</span>
-                            </label>
-                            <input type="text" required autofocus class="form-control radius-8" id="username"
-                                placeholder="Username"
-                                wire:model="client_name">
-                                @if(isset($errors))
-                                @error('client_name')
-                                    <span class="tw-text-xs tw-text-red-500">{{ $message }}</span>
-                                @enderror
-                                @endif
-                        </div>
-                        <div class="tw-mt-2">
-                            <label for="license_code"
-                                class="form-label fw-semibold text-primary-light text-sm mb-8">
-                                License Code <span class="text-danger">*</span>
-                            </label>
-                            <input type="text" required autofocus class="form-control radius-8" id="license_code"
-                                placeholder="Enter License Code"
-                                wire:model="license_code">
-                                @if(isset($errors))
-                                @error('license_code')
-                                    <span class="tw-text-xs tw-text-red-500">{{ $message }}</span>
-                                @enderror
-                                @endif
-                        </div>
-                        @endif
                     </div>
                 </template>
                 <template x-if="running">
@@ -82,16 +51,11 @@
                 {
 
                 },
-                async updateApp(){
-                    await this.$wire.doChecks().then(async (res) => {
-                        if(res == true){
-                            this.running = true;
-                            this.$wire.updateApp().then((ress) => {
-                                window.location.href = ("{{route('login')}}")
-                            })
-                        }
+                updateApp(){
+                    this.running = true
+                    this.$wire.updateApp().then(() => {
+                        window.location.href = ("{{route('login')}}")
                     })
-                   
                 }
             
             }

@@ -74,6 +74,10 @@ class CreateOrderAction
             }
 
             foreach ($dto->payments as $payment) {
+                if ($payment->amount < 0) {
+                    throw new \InvalidArgumentException('Negative payment amounts are not allowed when creating an order.');
+                }
+
                 Payment::create([
                     'payment_date' => $dto->order_date,
                     'customer_id' => $dto->customer_id,
@@ -81,7 +85,7 @@ class CreateOrderAction
                     'order_id' => $order->id,
                     'payment_type' => $payment->payment_type,
                     'received_amount' => $payment->amount,
-                    'notes' => $payment->notes ?? "Notes",
+                    'payment_note' => $payment->notes ?? null,
                     'financial_year_id' => resolveFinancialYearId($dto->order_date),
                     'created_by' => $userId,
                 ]);

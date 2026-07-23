@@ -21,8 +21,8 @@ class WhatsAppWebhookController extends Controller
         $token = $request->query('hub_verify_token');
         $challenge = $request->query('hub_challenge');
 
-        if ($mode && $token) {
-            if ($mode === 'subscribe' && $token === $verifyToken) {
+        if ($mode && $token && $verifyToken !== '') {
+            if ($mode === 'subscribe' && hash_equals($verifyToken, (string) $token)) {
                 return response($challenge, 200);
             }
         }
@@ -31,6 +31,18 @@ class WhatsAppWebhookController extends Controller
 
     public function handleMessage(Request $request, WhatsAppService $whatsAppService)
     {
+        $appSecret = (string) config('services.whatsapp.app_secret');
+        $signature = (string) $request->header('X-Hub-Signature-256');
+        $expectedSignature = 'sha256='.hash_hmac('sha256', $request->getContent(), $appSecret);
+
+        if ($appSecret === '' || $signature === '' || !hash_equals($expectedSignature, $signature)) {
+            Log::warning('Rejected WhatsApp webhook with an invalid signature.', [
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json(['status' => 'forbidden'], 403);
+        }
+
         try {
             $entry = $request->input('entry.0');
             $changes = $entry['changes'][0]['value'] ?? null;
@@ -38,7 +50,10 @@ class WhatsAppWebhookController extends Controller
             if ($changes && isset($changes['messages'][0])) {
                 $message = $changes['messages'][0];
                 $messageId = $message['id'] ?? null;
-                $senderPhone = $message['from']; // The phone number that sent the message
+                $senderPhone = $message['from'] ?? null;
+                if (!$senderPhone) {
+                    return response()->json(['status' => 'success'], 200);
+                }
 
                 // Cache-based Idempotency (prevent multiple processing of the same Webhook trigger)
                 if ($messageId) {
@@ -48,8 +63,11 @@ class WhatsAppWebhookController extends Controller
                     Cache::put("whatsapp_msg_{$messageId}", true, now()->addMinutes(10));
                 }
 
-                if ($message['type'] === 'text') {
-                    $textBody = trim($message['text']['body']);
+                if (($message['type'] ?? null) === 'text') {
+                    $textBody = trim((string) ($message['text']['body'] ?? ''));
+                    if ($textBody === '' || strlen($textBody) > 500) {
+                        return response()->json(['status' => 'success'], 200);
+                    }
                     
                     // Split text: e.g. "ORD-000012 08012345678"
                     $parts = explode(' ', $textBody);
@@ -74,13 +92,13 @@ class WhatsAppWebhookController extends Controller
 
                         // Match by last 10 digits to safely ignore country codes
                         $customerLast10 = substr($customerPhone, -10);
-                        if (substr($senderPhoneClean, -10) === $customerLast10) {
+                        if (strlen($customerLast10) === 10 && substr($senderPhoneClean, -10) === $customerLast10) {
                             $isAuthorized = true;
                         }
 
                         // Secondary Verification Challenge check
-                        if (!$isAuthorized && !empty($secondaryPhoneClean)) {
-                            if (substr($secondaryPhoneClean, -10) === $customerLast10) {
+                        if (!$isAuthorized && strlen($secondaryPhoneClean) >= 10 && strlen($customerLast10) === 10) {
+                            if (hash_equals($customerLast10, substr($secondaryPhoneClean, -10))) {
                                 $isAuthorized = true;
                             }
                         }
@@ -91,7 +109,7 @@ class WhatsAppWebhookController extends Controller
                             // Dispatch Secondary Verification Challenge
                             $whatsAppService->sendMessagePayload(
                                 $senderPhone, 
-                                "To protect your privacy, we require verification.\n\nPlease reply with your Order Number followed by your registered phone number.\n\nExample: *{$order->order_number} {$order->customer->phone}*"
+                                "To protect your privacy, please reply with your order number followed by your registered phone number."
                             );
                         }
                     } else {

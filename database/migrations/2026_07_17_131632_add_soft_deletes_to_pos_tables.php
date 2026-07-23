@@ -26,13 +26,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        $tables = ['orders', 'order_addon_details', 'order_details', 'payments', 'services'];
-        foreach ($tables as $table) {
-            if (\Illuminate\Support\Facades\Schema::hasTable($table) && \Illuminate\Support\Facades\Schema::hasColumn($table, 'deleted_at')) {
-                \Illuminate\Support\Facades\Schema::table($table, function (Blueprint $table) {
-                    $table->dropSoftDeletes();
-                });
-            }
-        }
+        // This compatibility migration only adds missing columns. It must not
+        // remove soft-delete columns owned by earlier table-specific migrations.
     }
 };

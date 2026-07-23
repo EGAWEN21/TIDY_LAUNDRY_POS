@@ -22,8 +22,7 @@ class SecurityMiddlewareTest extends TestCase
         });
     }
 
-    /** @test */
-    public function it_blocks_inactive_staff_users()
+    public function test_it_blocks_inactive_staff_users(): void
     {
         $user = clone User::first(); // Assuming first is Super Admin, we create a Staff user
         $staff = User::create([
@@ -40,8 +39,56 @@ class SecurityMiddlewareTest extends TestCase
         $this->assertGuest();
     }
 
-    /** @test */
-    public function it_allows_inactive_super_admins()
+    public function test_it_blocks_an_existing_api_token_after_staff_deactivation(): void
+    {
+        $staff = User::create([
+            'name' => 'API Staff',
+            'email' => 'api-staff@example.com',
+            'password' => bcrypt('password'),
+            'user_type' => 2,
+            'is_active' => 1,
+        ]);
+        $token = $staff->createToken('pos-token')->plainTextToken;
+        $staff->update(['is_active' => 0]);
+
+        $this->withToken($token)
+            ->getJson('/api/pos/init')
+            ->assertForbidden()
+            ->assertJson(['message' => 'Account is deactivated.']);
+    }
+
+    public function test_it_blocks_pos_api_access_without_order_create_permission(): void
+    {
+        $staff = User::create([
+            'name' => 'Non POS Staff',
+            'email' => 'non-pos@example.com',
+            'password' => bcrypt('password'),
+            'user_type' => 2,
+            'is_active' => 1,
+        ]);
+        $token = $staff->createToken('staff-token')->plainTextToken;
+
+        $this->withToken($token)
+            ->getJson('/api/pos/init')
+            ->assertForbidden();
+    }
+
+    public function test_it_throttles_repeated_api_login_failures(): void
+    {
+        for ($attempt = 1; $attempt <= 5; $attempt++) {
+            $this->postJson('/api/login', [
+                'email' => 'missing@example.com',
+                'password' => 'incorrect',
+            ])->assertUnauthorized();
+        }
+
+        $this->postJson('/api/login', [
+            'email' => 'missing@example.com',
+            'password' => 'incorrect',
+        ])->assertTooManyRequests();
+    }
+
+    public function test_it_allows_inactive_super_admins(): void
     {
         $admin = User::first(); // Super admin user_type = 1
         $admin->update(['is_active' => 0]);
@@ -59,8 +106,7 @@ class SecurityMiddlewareTest extends TestCase
         $this->assertEquals('Next', $response->getContent());
     }
 
-    /** @test */
-    public function it_blocks_sessions_that_do_not_match_current_session_id()
+    public function test_it_blocks_sessions_that_do_not_match_current_session_id(): void
     {
         $role = \App\Models\UserRole::forceCreate([
             'name' => 'Test Role'
@@ -74,9 +120,7 @@ class SecurityMiddlewareTest extends TestCase
             'role_id' => $role->id,
             'is_active' => 1,
         ]);
-        
-        // Let's test by directly calling the endpoint using actingAs and session driver
-        \Illuminate\Support\Facades\Cache::put('role_session_role_1', 'different-session-id');
+        $user->update(['current_session_id' => 'different-session-id']);
 
         $response = $this->withSession(['_token' => 'invalid-session-id'])
                          ->actingAs($user)

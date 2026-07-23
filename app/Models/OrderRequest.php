@@ -17,6 +17,7 @@ class OrderRequest extends Model
         'payload',
         'status',
         'rejection_note',
+        'rejection_reason',
         'uuid',
     ];
 

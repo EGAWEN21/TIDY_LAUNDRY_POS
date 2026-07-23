@@ -1,11 +1,10 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Middleware\Admin;
 use App\Http\Middleware\Store;
 
 Route::get('/sw.js', function () {
-    return response()->file(public_path('build/sw.js'), [
+    return response()->file(public_path('sw.js'), [
         'Content-Type' => 'application/javascript',
         'Service-Worker-Allowed' => '/',
     ]);
@@ -13,7 +12,6 @@ Route::get('/sw.js', function () {
 
 Route::get('/manifest.webmanifest', [\App\Http\Controllers\PwaManifestController::class, 'generate']);
 Route::get('/manifest.json', [\App\Http\Controllers\PwaManifestController::class, 'generate']);
-Route::get('/license', \App\Livewire\Installer\LicenseExpired::class)->name('license');
 Route::get('/install', \App\Livewire\Installer\InstallApp::class)->name('install');
 Route::get('/update', \App\Livewire\Installer\UpdaterApp::class)->name('update');
 Route::get('/reset-password/{token}',\App\Livewire\Auth\ForgotPassword::class);
@@ -30,7 +28,7 @@ Route::group(['middleware' => [\App\Http\Middleware\InstalledMiddleware::class]]
         Route::get('/online-pos', \App\Livewire\Orders\PosScreen::class)->name('orders.online-pos');
         Route::get('/pos', function () {
             return view('pos-app');
-        })->name('orders.pos')->middleware('auth');
+        })->name('orders.pos')->middleware(\App\Http\Middleware\AuthorizePosAccess::class);
         Route::get('/pos/edit/{id}', \App\Livewire\Orders\PosScreen::class)->name('orders.pos.edit');
         Route::get('/order-status-screen', \App\Livewire\Orders\OrderStatusScreen::class)->name('orders.status-screen');
         Route::group(['prefix' => 'orders/'], function () {

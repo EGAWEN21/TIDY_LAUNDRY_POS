@@ -1,4 +1,6 @@
 import { defineStore } from 'pinia';
+
+
 import { db } from '../db';
 import axios from 'axios';
 
@@ -107,9 +109,13 @@ export const usePosStore = defineStore('pos', {
             window.addEventListener('online', this.updateOnlineStatus);
             window.addEventListener('offline', this.updateOnlineStatus);
             
-            // Set Axios token
-            axios.defaults.headers.common['Authorization'] = `Bearer ${window.PosConfig.apiToken}`;
             axios.defaults.headers.common['Accept'] = 'application/json';
+            axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+            if (window.PosConfig.apiToken) {
+                axios.defaults.headers.common['Authorization'] = `Bearer ${window.PosConfig.apiToken}`;
+            } else {
+                delete axios.defaults.headers.common['Authorization'];
+            }
 
             if(this.isOnline) {
                 // FLUSH OFFLINE QUEUE FIRST before overwriting catalog to prevent App Boot data rot!

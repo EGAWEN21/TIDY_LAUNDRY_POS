@@ -2,13 +2,10 @@
 
 namespace App\Http\Middleware;
 
-use App\ExpenseHelper;
-use App\Livewire\Installer\InstallController;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Session;
 
 class Admin
 {

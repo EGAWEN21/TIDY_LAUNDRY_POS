@@ -48,15 +48,12 @@
     <x-theme-component/>
     
     @php
-        // Generate a long-lived API token for the offline PWA to bypass session expiration
         $user = auth()->user();
-        $token = $user->createToken('pos-pwa')->plainTextToken;
     @endphp
 
     <script>
-        // Pass the token and user details to the Vue application
         window.PosConfig = {
-            apiToken: "{{ $token }}",
+            apiToken: null,
             user: @json($user),
             permissions: @json($user->user_type == 1 ? ['all'] : ($user->role ? $user->role->permissions->pluck('permission_name')->toArray() : []))
         };

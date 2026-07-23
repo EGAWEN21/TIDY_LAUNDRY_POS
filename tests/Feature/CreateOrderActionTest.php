@@ -16,8 +16,7 @@ class CreateOrderActionTest extends TestCase
 {
     use DatabaseTransactions;
 
-    /** @test */
-    public function it_creates_a_new_order_and_its_relations()
+    public function test_it_creates_a_new_order_and_its_relations(): void
     {
         $user = User::first();
         $this->actingAs($user);
@@ -93,7 +92,10 @@ class CreateOrderActionTest extends TestCase
         $this->assertDatabaseHas('orders', [
             'id' => $order->id,
             'customer_id' => $customer->id,
+            'tax_type' => 1,
+            'taxable_amount' => 110.0,
             'total' => 121.0,
+            'note' => 'Test',
         ]);
 
         $this->assertDatabaseHas('order_details', [
@@ -110,6 +112,35 @@ class CreateOrderActionTest extends TestCase
         $this->assertDatabaseHas('payments', [
             'order_id' => $order->id,
             'received_amount' => 121.0,
+            'payment_note' => 'Paid',
         ]);
+    }
+
+    public function test_it_rejects_negative_payments_when_creating_an_order(): void
+    {
+        $user = User::firstOrFail();
+        $dto = OrderData::from([
+            'order_date' => now()->toDateString(),
+            'delivery_date' => now()->addDay()->toDateString(),
+            'sub_total' => 10.0,
+            'addon_total' => 0.0,
+            'discount' => 0.0,
+            'tax_percentage' => 0.0,
+            'tax_amount' => 0.0,
+            'tax_type' => 1,
+            'taxable_amount' => 10.0,
+            'total' => 10.0,
+            'details' => [],
+            'addons' => [],
+            'payments' => [[
+                'payment_type' => 1,
+                'amount' => -1.0,
+            ]],
+        ]);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Negative payment amounts are not allowed');
+
+        CreateOrderAction::execute($dto, $user->id);
     }
 }

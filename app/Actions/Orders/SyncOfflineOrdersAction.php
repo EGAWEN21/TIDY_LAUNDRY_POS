@@ -8,8 +8,10 @@ use App\Models\OrderRequest;
 use App\Models\Customer;
 use App\Models\User;
 use App\Notifications\SystemNotification;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Class SyncOfflineOrdersAction
@@ -18,7 +20,7 @@ use Illuminate\Support\Facades\Cache;
  * Features:
  * - DTO Enforcement (Strict typing for messy offline payloads)
  * - Idempotency (Prevents duplicate offline syncs using UUIDs)
- * - Event Suppression (Temporarily disables model cache-busting to prevent Redis/File I/O thrashing)
+ * - Batched cache invalidation after all records have been processed
  * - N+1 Query Elimination (Pre-fetches managers for batch notifications)
  */
 class SyncOfflineOrdersAction
@@ -48,14 +50,15 @@ class SyncOfflineOrdersAction
             })->get();
         }
 
-        // 2. Temporarily suppress the UpdatesPosSyncTimestamp trait to prevent Cache thrashing 
-        // during a 50+ order bulk sync. We will manually clear the cache once at the very end.
-        Order::withoutEvents(function () use ($payloads, $user, $canBypass, &$syncedIds, &$requiresApproval, &$failedIds, &$createdRequestIds) {
-            
-            foreach ($payloads as $offlinePayload) {
+        // Process each order in its own transaction so one invalid payload does not
+        // roll back the rest of the batch. Model events must remain enabled because
+        // OrderRequest uses its creating event to allocate a request number.
+        foreach ($payloads as $index => $offlinePayload) {
                 $uuid = $offlinePayload['uuid'] ?? null;
-                if (!$uuid) {
-                    continue; // Cannot process without a traceability UUID
+                if (! is_string($uuid) || trim($uuid) === '') {
+                    $failedIds["payload_{$index}"] = 'Validation/Sync Error: A UUID is required.';
+
+                    continue;
                 }
 
                 try {
@@ -64,14 +67,14 @@ class SyncOfflineOrdersAction
                         // Idempotency Check: Did we already sync this specific UUID?
                         // Universal Check: Always check BOTH tables to prevent replay attacks
                         // (e.g. an unprivileged cashier resyncs an order that a manager already approved)
-                        $existingOrder = Order::where('uuid', $uuid)->first();
+                        $existingOrder = Order::where('uuid', $uuid)->lockForUpdate()->first();
                         if ($existingOrder) {
                             $syncedIds[$uuid] = $existingOrder->id;
                             $requiresApproval[$uuid] = false;
                             return; // Already processed and approved, safely skip
                         }
 
-                        $existingRequest = OrderRequest::where('uuid', $uuid)->first();
+                        $existingRequest = OrderRequest::where('uuid', $uuid)->lockForUpdate()->first();
                         if ($existingRequest) {
                             if ($existingRequest->status == 2) {
                                 // Order was previously rejected! We will resurrect it by updating it below.
@@ -130,17 +133,21 @@ class SyncOfflineOrdersAction
                         $totalPaid = 0;
                         if ($dto->payments) {
                             foreach ($dto->payments as $payment) {
+                                if ($payment->amount < 0) {
+                                    throw new \InvalidArgumentException('Negative payment amounts are not allowed when creating an order.');
+                                }
+
                                 $totalPaid += $payment->amount;
                             }
                         }
                         
                         if ($totalPaid > $dto->total) {
-                            throw new \Exception("Overpayment detected: Paid Amount ({$totalPaid}) cannot be greater than total ({$dto->total}).");
+                            throw new \InvalidArgumentException("Overpayment detected: Paid Amount ({$totalPaid}) cannot be greater than total ({$dto->total}).");
                         }
                         
                         $balance = $dto->total - $totalPaid;
                         if ($balance > 0 && empty($dto->customer_id)) {
-                            throw new \Exception("Ledger violation: A registered customer is required for orders with an unpaid balance.");
+                            throw new \InvalidArgumentException('Ledger violation: A registered customer is required for orders with an unpaid balance.');
                         }
 
                         // Re-sync the secured DTO back into the raw array for clean storage in OrderRequests
@@ -170,7 +177,8 @@ class SyncOfflineOrdersAction
                                     'total_amount' => $dto->total,
                                     'payload' => $offlinePayload,
                                     'status' => 0, // Reset to Pending
-                                    'rejection_reason' => null
+                                    'rejection_reason' => null,
+                                    'rejection_note' => null,
                                 ]);
                                 
                                 $syncedIds[$uuid] = $existingRequest->id;
@@ -194,12 +202,17 @@ class SyncOfflineOrdersAction
                             }
                         }
                     });
-                } catch (\Exception $e) {
-                    // Granular Error Tracking prevents one bad order from corrupting the whole sync queue
-                    $failedIds[$uuid] = "Validation/Sync Error: " . $e->getMessage();
-                }
+            } catch (ValidationException|\InvalidArgumentException $exception) {
+                $failedIds[$uuid] = 'Validation/Sync Error: '.$exception->getMessage();
+            } catch (\Throwable $exception) {
+                Log::error('Offline order synchronization failed.', [
+                    'uuid' => $uuid,
+                    'user_id' => $user->id,
+                    'exception' => $exception,
+                ]);
+                $failedIds[$uuid] = 'Validation/Sync Error: The order could not be synchronized.';
             }
-        });
+        }
 
         // 3. Batch Notifications
         // If 50 requests were made, we send ONE notification to the managers, preventing spam & timeouts.

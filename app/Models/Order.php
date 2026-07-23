@@ -24,12 +24,15 @@ class Order extends Model
         'discount',
         'tax_percentage',
         'tax_amount',
+        'tax_type',
+        'taxable_amount',
         'total',
         'note',
         'status',
         'order_type',
         'created_by',
-        'financial_year_id'
+        'financial_year_id',
+        'uuid'
     ];
 
     /* user relation */

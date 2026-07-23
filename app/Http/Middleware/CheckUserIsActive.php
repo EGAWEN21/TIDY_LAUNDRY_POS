@@ -15,10 +15,17 @@ class CheckUserIsActive
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (\Illuminate\Support\Facades\Auth::check() && \Illuminate\Support\Facades\Auth::user()->user_type != 1 && \Illuminate\Support\Facades\Auth::user()->is_active == 0) {
-            \Illuminate\Support\Facades\Auth::logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
+        $user = $request->user();
+
+        if ($user && $user->user_type != 1 && $user->is_active == 0) {
+            if (auth('web')->check()) {
+                auth('web')->logout();
+            }
+
+            if ($request->hasSession()) {
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+            }
 
             if ($request->expectsJson()) {
                 return response()->json(['message' => 'Account is deactivated.'], 403);

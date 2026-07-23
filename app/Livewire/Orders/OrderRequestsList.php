@@ -76,7 +76,8 @@ class OrderRequestsList extends Component
         ]);
 
         $req = OrderRequest::findOrFail($this->reject_id);
-        $req->status = 1;
+        $req->status = 2;
+        $req->rejection_reason = $this->rejection_note;
         $req->rejection_note = $this->rejection_note;
         $req->save();
 

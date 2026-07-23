@@ -9,13 +9,8 @@ use App\Models\ServiceType;
 use App\Models\ServiceDetail;
 use App\Models\Addon;
 use App\Models\Customer;
-use App\Models\Order;
-use App\Models\OrderDetail;
-use App\Models\OrderAddonDetail;
-use App\Models\Payment;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use App\Models\User;
 
@@ -38,7 +33,16 @@ class PosApiController extends Controller
             return response()->json(['message' => 'Account is deactivated. Please contact administrator.'], 403);
         }
 
-        $token = $user->createToken('pos-pwa')->plainTextToken;
+        if (!$user->hasPermission('order_create')) {
+            return response()->json(['message' => 'You are not authorized to access the POS.'], 403);
+        }
+
+        $user->tokens()->where('name', 'pos-pwa')->delete();
+        $token = $user->createToken(
+            'pos-pwa',
+            ['pos:access'],
+            now()->addHours(12)
+        )->plainTextToken;
 
         return response()->json([
             'user' => $user,

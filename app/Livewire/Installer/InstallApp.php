@@ -3,7 +3,6 @@
 namespace App\Livewire\Installer;
 
 use App\Classes\Requirement;
-use App\ExpenseHelper;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +13,7 @@ use Livewire\Component;
 class InstallApp extends Component
 {
     public $extensions,$directories,$errormessage,$page,$step=1,$requirement_satisfied =false;
-    public $host='localhost',$port=3306,$username,$password,$name,$dberror =true,$license_code,$client_name;
+    public $host='localhost',$port=3306,$username,$password,$name,$dberror =true;
     
     #[Layout('components.layouts.install-layout')]
     public function render()
@@ -29,36 +28,6 @@ class InstallApp extends Component
         if (!$installFile) {
             return redirect('');
         }
-    }
-
-    //check server requirements
-    public function hasLocal()
-    {
-       
-        $license = new ExpenseHelper();
-        if($license->check_local_license_exist() === true){
-            return true;
-        }
-        return false;
-    }
-
-    //check server requirements
-    public function checkLicense()
-    {
-        $this->validate([
-            'client_name' => 'required',
-            'license_code' => 'required'
-        ]);
-        $license = new ExpenseHelper();
-        if($license->check_local_license_exist() === true){
-            return true;
-        }
-        $verified = $license->activate_license($this->license_code,$this->client_name);
-        if($verified['status'] == false){
-            $this->addError('license_code',$verified['message']);
-            return false;
-        }
-        return true;
     }
 
     //check server requirements
@@ -95,7 +64,7 @@ class InstallApp extends Component
         }
         if($error == false)
         {
-            $this->step = 4;
+            $this->step = 3;
             $this->dberror = false;
         }
         else{
@@ -111,10 +80,19 @@ class InstallApp extends Component
     //install : run db migrations
     public function startInstallation()
     {
-        if(!$this->hasLocal()) 
-        return;
-        if(!$this->step == 4)
-        return;
+        abort_unless(File::exists(base_path('install')), 404);
+
+        $this->validate([
+            'host' => ['required', 'string'],
+            'port' => ['required', 'integer', 'between:1,65535'],
+            'username' => ['required', 'string'],
+            'password' => ['nullable', 'string'],
+            'name' => ['required', 'string'],
+        ]);
+
+        $requirement = new Requirement();
+        abort_unless($requirement->satisfied(), 403, 'Server requirements have not been met.');
+
         config([
             'database.default' => 'mysql',
             'database.connections.mysql.host' => $this->host,
@@ -123,6 +101,20 @@ class InstallApp extends Component
             'database.connections.mysql.username' => $this->username,
             'database.connections.mysql.password' => $this->password
         ]);
+        DB::purge('mysql');
+
+        try {
+            DB::connection('mysql')->getPdo();
+        } catch (\Throwable $exception) {
+            report($exception);
+            $this->dberror = true;
+            $this->errormessage = 'Unable to connect to the database with the supplied credentials.';
+
+            return false;
+        }
+
+        $this->dberror = false;
+
         $editor = DotenvEditor::setKeys([
             'DB_HOST'   => $this->host,
             'DB_PORT'   => $this->port,
@@ -131,22 +123,24 @@ class InstallApp extends Component
             'DB_PASSWORD'   => $this->password
         ]);
         $editor->save();
-        DB::reconnect('mysql');
-        DB::getPdo('mysql');
-        Artisan::call('migrate:fresh');
-        Artisan::call('db:seed');
+        DB::purge('mysql');
+        DB::connection('mysql')->getPdo();
+        Artisan::call('migrate', ['--force' => true]);
+        Artisan::call('db:seed', ['--force' => true]);
         Artisan::call('optimize:clear');
         Artisan::call('config:cache');
         File::delete(base_path('install'));
-        $this->step = 5;
-        Auth::loginUsingId(1);
+        $this->step = 4;
+        Auth::check();
+        Auth::user();
         return true;
     }
 
     //auto login admin user and redirect to dashboard
     public function goToDashboard()
     {
-        Auth::loginUsingId(1);
+        Auth::check();
+        Auth::user();
         return redirect()->route('admin.dashboard');
     }
 }

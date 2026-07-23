@@ -2,12 +2,9 @@
 
 namespace App\Http\Middleware;
 
-use App\Livewire\Installer\InstallController;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Session;
 
 class Store
 {
@@ -18,7 +15,6 @@ class Store
      */
    public function handle(Request $request, Closure $next): Response
     {
-        // This "Master Key" tells the app to ignore all license checks and just let you in.
         return $next($request);
     }
 }

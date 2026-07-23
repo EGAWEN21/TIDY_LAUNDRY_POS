@@ -27,10 +27,10 @@
                                     <td>
                                         @if($item->status == 0)
                                             <span class="badge bg-warning-600 text-warning-600 bg-opacity-20">{{ $lang->data['pending_approval'] ?? 'Pending Approval' }}</span>
-                                        @elseif($item->status == 1)
+                                        @elseif($item->status == 2)
                                             <span class="badge bg-danger-600 text-danger-600 bg-opacity-20">{{ $lang->data['rejected'] ?? 'Rejected' }}</span>
-                                            @if($item->rejection_note)
-                                                <div class="text-xs text-danger mt-1">{{ $item->rejection_note }}</div>
+                                            @if($item->rejection_reason || $item->rejection_note)
+                                                <div class="text-xs text-danger mt-1">{{ $item->rejection_reason ?? $item->rejection_note }}</div>
                                             @endif
                                         @endif
                                     </td>

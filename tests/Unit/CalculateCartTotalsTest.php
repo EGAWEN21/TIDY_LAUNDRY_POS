@@ -14,8 +14,7 @@ class CalculateCartTotalsTest extends TestCase
         parent::setUp();
     }
 
-    /** @test */
-    public function it_calculates_totals_with_exclusive_tax()
+    public function test_it_calculates_totals_with_exclusive_tax(): void
     {
         // Mock the Cache for MasterSettings
         Cache::shouldReceive('rememberForever')
@@ -47,8 +46,7 @@ class CalculateCartTotalsTest extends TestCase
         $this->assertEquals(320.0, $result['total']);
     }
 
-    /** @test */
-    public function it_calculates_totals_with_inclusive_tax()
+    public function test_it_calculates_totals_with_inclusive_tax(): void
     {
         Cache::shouldReceive('rememberForever')
             ->with('master_settings', \Closure::class)
@@ -79,8 +77,7 @@ class CalculateCartTotalsTest extends TestCase
         $this->assertEquals(330.0, $result['total']);
     }
 
-    /** @test */
-    public function it_supports_legacy_array_data_fallback()
+    public function test_it_supports_legacy_array_data_fallback(): void
     {
         Cache::shouldReceive('rememberForever')
             ->with('master_settings', \Closure::class)

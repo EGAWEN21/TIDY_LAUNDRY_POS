@@ -7,7 +7,7 @@
                 </div>
                 <h6 class="mb-4 text-xl">Install LaundryBox</h6>
                 <p class="text-neutral-500">Fill up your details and proceed next steps.</p>
-                @if ($step != 5)
+                @if ($step != 4)
                 <!-- Form Wizard Start -->
                 <div class="form-wizard">
                     <div class="form-wizard-header overflow-x-auto scroll-sm pb-8 my-32">
@@ -18,21 +18,15 @@
                                 </div>
                                 <span class="text text-xs fw-semibold">Requirements </span>
                             </li>
-                            <li class="form-wizard-list__item tw-w-full "  :class="step == 2 ? 'active' : step > 2 ? 'activated' : ''">
+                            <li class="form-wizard-list__item tw-w-full" :class="step == 2 ? 'active' : step > 2 ? 'activated' : ''">
                                 <div class="form-wizard-list__line">
                                     <span class="count">2</span>
                                 </div>
-                                <span class="text text-xs fw-semibold">Verification</span>
-                            </li>
-                            <li class="form-wizard-list__item tw-w-full "  :class="step == 3 ? 'active' : step > 3 ? 'activated' : ''">
-                                <div class="form-wizard-list__line">
-                                    <span class="count">3</span>
-                                </div>
                                 <span class="text text-xs fw-semibold">Database</span>
                             </li>
-                            <li class="form-wizard-list__item  tw-w-full" :class="step == 5 ? 'activated' : step > 5 ? 'activated' : ''">
+                            <li class="form-wizard-list__item tw-w-full" :class="step >= 3 ? 'activated' : ''">
                                 <div class="form-wizard-list__line">
-                                    <span class="count">4</span>
+                                    <span class="count">3</span>
                                 </div>
                                 <span class="text text-xs fw-semibold">Completed</span>
                             </li>
@@ -103,53 +97,6 @@
                     </template>
                     
                     <template x-if="step == 2">
-                        <div class="wizard-fieldset show ">
-                            <div class="row gy-2 ">
-                                <h6 class="text-md text-neutral-500 tw-font-bold">Verify License</h6>
-                                <div class="">
-                                    <label for="database_host"
-                                        class="form-label fw-semibold text-primary-light text-sm mb-8">
-                                        Username <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="text" required autofocus class="form-control radius-8" id="database_host"
-                                        placeholder="Username"
-                                        wire:model="client_name">
-                                        @error('client_name')
-                                            <span class="tw-text-xs tw-text-red-500">{{ $message }}</span>
-                                            @enderror
-                                </div>
-                                        
-                                <div class="">
-                                    <label for="database_host"
-                                        class="form-label fw-semibold text-primary-light text-sm mb-8">
-                                        License Code <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="text" required autofocus class="form-control radius-8" id="database_host"
-                                        placeholder="Enter License Code"
-                                        wire:model="license_code">
-                                        @error('license_code')
-                                            <span class="tw-text-xs tw-text-red-500">{{ $message }}</span>
-                                        @enderror
-                                </div>
-                                <div class="w-full">
-                                    <span class="tw-text-xs tw-text-red-500 tw-text-center">{{ $errormessage }}</span>
-                                </div>
-                                <div class="d-flex w-100  justify-content-end pt-8  pb-4  ">
-                                    <button class="form-wizard-next-btn btn btn-primary-600 px-32 tw-flex tw-items-center tw-gap-2"
-                                        @click.prevent="checkLicense">
-                                        {{__('installer.next')}}
-                                        <div class="spinner-border tw-size-3" role="status" wire:loading="checkLicense">
-                                            <span class="visually-hidden">Loading...</span>
-                                            </div>
-                                    </button>
-                                </div>
-                                </template>
-                            </div>
-                        </div>	
-                    </template>
-
-
-                    <template x-if="step == 3">
                         <div class="wizard-fieldset show 3 tw-p-5 tw-pt-0">
                             <div class="row gy-2 ">
                                 <h6 class="text-md text-neutral-500 tw-font-bold">Database</h6>
@@ -225,7 +172,7 @@
                     </template>
 
 
-                    <template x-if="step == 4">
+                    <template x-if="step == 3">
                         <div class="wizard-fieldset show tw-p-5 tw-pt-0">
                             <div class="row gy-2 ">
                                 <h6 class="text-md text-neutral-500 tw-font-bold">Installing</h6>
@@ -249,21 +196,15 @@
                                     </div>
                                     <span class="text text-xs fw-semibold">Requirements </span>
                                 </li>
-                                <li class="form-wizard-list__item tw-w-full "  :class="step == 2 ? 'active' : step > 2 ? 'activated' : ''">
+                                <li class="form-wizard-list__item tw-w-full activated">
                                     <div class="form-wizard-list__line">
                                         <span class="count">2</span>
                                     </div>
-                                    <span class="text text-xs fw-semibold">Verification</span>
-                                </li>
-                                <li class="form-wizard-list__item tw-w-full "  :class="step == 3 ? 'active' : step > 3 ? 'activated' : ''">
-                                    <div class="form-wizard-list__line">
-                                        <span class="count">3</span>
-                                    </div>
                                     <span class="text text-xs fw-semibold">Database</span>
                                 </li>
-                                <li class="form-wizard-list__item  tw-w-full" :class="step == 4 ? 'activated' : step > 4 ? 'activated' : ''">
+                                <li class="form-wizard-list__item tw-w-full activated">
                                     <div class="form-wizard-list__line">
-                                        <span class="count">4</span>
+                                        <span class="count">3</span>
                                     </div>
                                     <span class="text text-xs fw-semibold">Completed</span>
                                 </li>
@@ -293,7 +234,6 @@
             'use strict'
             return{
                 step : 1,
-                loadingLicenseCheck : false,
                 loading : true,
                 requirementSatisfied : this.$wire.entangle('requirement_satisfied'),
                 init()
@@ -306,23 +246,9 @@
                         this.step = 1;
                     })
                 },
-                checkLicense(){
-                    this.$wire.checkLicense(1).then(result => {
-                        if(result === true){
-                            this.step = 3;
-                        }
-                    })
-                },
                 showDatabase()
                 {
-                    this.$wire.hasLocal().then((result) => {
-                        if(result === true){
-                            this.step = 3;
-                        }
-                        else{
-                            this.step = 2;
-                        }
-                    })
+                    this.step = 2
                 },
                 checkDatabase()
                 {
@@ -343,7 +269,7 @@
                 startInstallation()
                 {
                     this.$wire.startInstallation(1).then(result => {
-                        this.step = 5;
+                        this.step = 4;
                         this.loading = false;
                     })
                 }

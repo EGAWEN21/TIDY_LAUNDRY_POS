@@ -3,6 +3,7 @@
 namespace App\Livewire\Auth;
 
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use App\Models\User;
@@ -13,7 +14,10 @@ use Illuminate\Support\Facades\Hash;
 
 class ForgotPassword extends Component
 {
-    public $email,$password,$password_confirm;
+    public $password, $password_confirm;
+
+    #[Locked]
+    public string $resetTokenHash;
     #[Layout('components.layouts.base'),Title('Reset Password')]
     public function render()
     {
@@ -23,34 +27,40 @@ class ForgotPassword extends Component
     //Initialize Variables and Checks
     public function mount($token)
     {
-        $email = DB::table('password_resets')->where('token',$token)->where('created_at', '>=' ,Carbon::now()->subHour(1))->first();
-        if(!$email)
-        {
-            DB::table('password_resets')->where('token',$token)->delete();
+        $this->resetTokenHash = hash('sha256', (string) $token);
+
+        if (!$this->validReset()) {
             abort(404);
         }
-        $this->email = $email->email ?? 'he;;p';
+    }
+
+    protected function validReset(): ?object
+    {
+        return DB::table('password_resets')
+            ->where('token', $this->resetTokenHash)
+            ->where('created_at', '>=', Carbon::now()->subHour())
+            ->first();
     }
     //Reset and login user.
     public function login()
     {
         $this->validate([
-            'password'  => "required",
-            'password_confirm'  => "required|same:password"
+            'password' => ['required', 'string', 'min:8'],
+            'password_confirm' => ['required', 'same:password'],
         ]);
-        if(!$this->email)
-        {
+
+        $reset = $this->validReset();
+        if (!$reset) {
             abort(404);
         }
-        $user = User::where('email',$this->email)->first();
-        if(!$user)
-        {
-            abort(404);
-        }
+
+        $user = User::where('email', $reset->email)->firstOrFail();
         $user->password = Hash::make($this->password);
         $user->save();
-        DB::table('password_resets')->where('email',$this->email)->delete();
+        DB::table('password_resets')->where('email', $reset->email)->delete();
         Auth::login($user);
+        request()->session()->regenerate();
+        $user->update(['current_session_id' => session()->getId()]);
         return redirect()->route('admin.dashboard');
     }
 }

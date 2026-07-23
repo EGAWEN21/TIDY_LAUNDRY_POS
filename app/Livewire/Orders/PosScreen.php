@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Orders;
 
-use App\Livewire\Installer\InstallController;
 use Livewire\Component;
 
 use App\Models\Addon;
@@ -38,8 +37,14 @@ class PosScreen extends Component
 
     public function mount($id = null)
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('order_create')){
-            abort(404);
+        $isRequestEdit = request()->routeIs('orders.requests.edit');
+
+        if ($id && !$isRequestEdit && !Auth::user()->hasPermission('order_edit')) {
+            abort(403);
+        }
+
+        if (!$id && !Auth::user()->hasPermission('order_create')) {
+            abort(403);
         }
         $this->services = Service::where('is_active', 1)->latest()->get();
         $this->date = Carbon::today()->toDateString();
@@ -116,7 +121,7 @@ class PosScreen extends Component
                     'payment_id' => $payment->id,
                     'payment_type' => $payment->payment_type,
                     'amount' => $payment->received_amount,
-                    'notes' => $payment->notes
+                    'notes' => $payment->payment_note
                 ]);
             }
             if ($this->order->customer_id && $this->order->customer_id != NULL) {
@@ -128,7 +133,7 @@ class PosScreen extends Component
             $this->delivery_date = Carbon::parse($this->order->delivery_date)->toDateString();
             $this->date = Carbon::parse($this->order->order_date)->toDateString();
             $this->order_id = $this->order->order_number;
-            $this->payment_notes = $this->order->notes;
+            $this->payment_notes = $this->order->note;
             $this->discount = $this->order->discount;
             foreach ($this->order->addons as $row) {
                 $this->selected_addons[$row->addon_id] = true;
@@ -475,8 +480,8 @@ class PosScreen extends Component
     //add payment
     public function add_payment(){
         $this->validate([
-            'payment_type'  => 'required',
-            'payment_amount' => 'lte:'.$this->getPaymentBalance()
+            'payment_type' => 'required',
+            'payment_amount' => 'required|numeric|min:0|lte:'.$this->getPaymentBalance(),
         ]);
 
         $payment = [
@@ -503,6 +508,10 @@ class PosScreen extends Component
     /* save the order */
     public function save($type = null)
     {
+        if ($this->order && !Auth::user()->hasPermission('order_edit')) {
+            abort(403);
+        }
+
         $amount = 0;
         if($type === 'cash'){
             $this->payments = [];
