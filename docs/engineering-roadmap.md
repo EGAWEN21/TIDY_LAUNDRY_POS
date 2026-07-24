@@ -11,15 +11,17 @@ This register preserves phased decisions and deferred work across sessions. Item
 - Permission, POS API, offline-sync, PWA, migration, route, and build validation completed.
 - Public storage contract standardized and committed in `dc64335`.
 - Customer action/DTO workflow tests added in `91f89aa`.
+- Service workflow tests and the durable roadmap added in `2338bb8`.
+- POS authorization/state characterization tests added in the current checkpoint.
 
 ## Active phase: workflow-test expansion
 
 Proceed incrementally and keep production behavior unchanged unless a test identifies a concrete defect.
 
 1. Customer action tests — complete.
-2. Service creation/edit/icon tests — current.
-3. POS authorization and state characterization tests.
-4. Master settings logo/favicon storage tests.
+2. Service creation/edit/icon tests — complete.
+3. POS authorization and state characterization tests — complete.
+4. Master settings logo/favicon storage tests — next.
 5. Payment and report authorization tests.
 6. Full regression and browser/manual acceptance planning.
 

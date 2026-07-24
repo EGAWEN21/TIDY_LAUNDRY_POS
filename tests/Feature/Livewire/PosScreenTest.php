@@ -90,6 +90,56 @@ class PosScreenTest extends TestCase
         ]);
     }
 
+    public function test_it_rejects_payment_amounts_above_the_current_balance(): void
+    {
+        $user = User::firstOrFail();
+        [$service, $serviceType] = $this->createCartItem(100);
+
+        Livewire::actingAs($user)
+            ->test(PosScreen::class)
+            ->call('selectService', $service->id)
+            ->call('addItem')
+            ->set('payment_amount', 111)
+            ->call('add_payment')
+            ->assertHasErrors(['payment_amount']);
+    }
+
+    public function test_it_keeps_a_valid_partial_payment_in_component_state(): void
+    {
+        $user = User::firstOrFail();
+        [$service, $serviceType] = $this->createCartItem(100);
+
+        Livewire::actingAs($user)
+            ->test(PosScreen::class)
+            ->call('selectService', $service->id)
+            ->call('addItem')
+            ->set('payment_amount', 40)
+            ->set('payment_type', 1)
+            ->set('notes', 'Deposit')
+            ->call('add_payment')
+            ->assertHasNoErrors()
+            ->assertSet('payments.0.amount', 40)
+            ->assertSet('payments.0.payment_type', 1)
+            ->assertSet('payments.0.notes', 'Deposit');
+    }
+
+    public function test_it_blocks_new_orders_without_the_order_create_permission(): void
+    {
+        $role = UserRole::forceCreate(['name' => 'No Order Create']);
+        $user = User::create([
+            'name' => 'No Order Create User',
+            'email' => 'no-order-create-' . uniqid() . '@example.com',
+            'password' => bcrypt('password'),
+            'user_type' => 2,
+            'role_id' => $role->id,
+            'is_active' => 1,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(PosScreen::class)
+            ->assertForbidden();
+    }
+
     public function test_it_blocks_order_editing_without_the_order_edit_permission(): void
     {
         $role = UserRole::forceCreate(['name' => 'Order Creator']);
@@ -120,5 +170,25 @@ class PosScreenTest extends TestCase
         Livewire::actingAs($user)
             ->test(PosScreen::class, ['id' => $order->id])
             ->assertForbidden();
+    }
+
+    private function createCartItem(float $price): array
+    {
+        $service = Service::create([
+            'service_name' => 'Payment Service ' . uniqid(),
+            'is_active' => 1,
+            'icon' => 'default.png',
+        ]);
+        $serviceType = ServiceType::create([
+            'service_type_name' => 'Payment Type ' . uniqid(),
+            'is_active' => 1,
+        ]);
+        \App\Models\ServiceDetail::create([
+            'service_id' => $service->id,
+            'service_type_id' => $serviceType->id,
+            'service_price' => $price,
+        ]);
+
+        return [$service, $serviceType];
     }
 }
