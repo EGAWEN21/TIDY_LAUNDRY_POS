@@ -18,6 +18,7 @@ For the durable product and architecture context, consult `docs/system-context.m
 - Master-settings logo/favicon storage tests added in `9b06390`.
 - Payment/report authorization tests added in the current checkpoint.
 - Durable system context and clarification-question register added in `docs/system-context.md`.
+- Browser/manual acceptance checklist added in `docs/browser-acceptance-checklist.md`.
 
 ## Completed phase: workflow-test expansion
 
@@ -34,7 +35,7 @@ Do not include the unresolved customer Excel export in unrelated tests.
 
 ## Active phase: browser/manual acceptance planning
 
-Automated workflow coverage is now complete for the current scope. Plan authenticated browser verification for login, role navigation, POS, payments, branding uploads, printing, PWA/offline behavior, reports, and WhatsApp integration. Do not claim these behaviors are verified until manually exercised.
+Automated workflow coverage is now complete for the current scope. Execute `docs/browser-acceptance-checklist.md` for authenticated browser verification of login, role navigation, both POS systems, synchronization, payments, branding uploads, printing, PWA/offline behavior, reports, and WhatsApp integration. Do not claim these behaviors are verified until manually exercised.
 
 ## Approved future architecture phase: frontend/backend alignment
 
