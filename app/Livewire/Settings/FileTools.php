@@ -5,8 +5,8 @@ namespace App\Livewire\Settings;
 use Livewire\Component;
 use File;
 use Livewire\WithFileUploads;
-use Illuminate\Support\Facades\Storage;
 use App\Models\Translation;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Title;
 
 class FileTools extends Component
@@ -48,7 +48,12 @@ class FileTools extends Component
         $this->validate([
             'photo' => 'image|max:1024', 
         ]);
-        Storage::disk('public')->put('/assets/img/service-icons/',$this->photo);
+        $extension = strtolower($this->photo->getClientOriginalExtension());
+        $baseName = Str::slug(pathinfo($this->photo->getClientOriginalName(), PATHINFO_FILENAME));
+        $fileName = now()->format('YmdHisv') . '_' . Str::random(8) . '_' . ($baseName ?: 'service-icon') . '.' . $extension;
+        $path = public_path('assets/img/service-icons/' . $fileName);
+
+        File::put($path, file_get_contents($this->photo->getRealPath()));
         $this->getFiles();
         $this->i++;
         $this->allowupload = false;
