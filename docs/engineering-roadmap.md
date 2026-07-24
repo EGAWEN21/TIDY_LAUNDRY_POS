@@ -4,6 +4,8 @@ Last reviewed: 2026-07-24
 
 This register preserves phased decisions and deferred work across sessions. Items must not be started early without revisiting their entry criteria.
 
+For the durable product and architecture context, consult `docs/system-context.md`. Update both documents when confirmed understanding or constraints change.
+
 ## Completed
 
 - Dependency and frontend security remediation merged into `main`.
@@ -15,6 +17,7 @@ This register preserves phased decisions and deferred work across sessions. Item
 - POS authorization/state characterization tests added in `9cd2ba6`.
 - Master-settings logo/favicon storage tests added in `9b06390`.
 - Payment/report authorization tests added in the current checkpoint.
+- Durable system context and clarification-question register added in `docs/system-context.md`.
 
 ## Completed phase: workflow-test expansion
 
@@ -83,3 +86,4 @@ Evaluate only after the business confirms a real multi-terminal collaboration re
 - Do not claim browser behavior from route registration or backend tests.
 - Do not create deployment artifacts or alter infrastructure silently.
 - Update this register when a deferred item changes status or its entry criteria are met.
+- Update `docs/system-context.md` when a product rule, architecture constraint, or clarification question is confirmed or changed.
