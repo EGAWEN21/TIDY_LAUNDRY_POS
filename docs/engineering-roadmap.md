@@ -13,9 +13,10 @@ This register preserves phased decisions and deferred work across sessions. Item
 - Customer action/DTO workflow tests added in `91f89aa`.
 - Service workflow tests and the durable roadmap added in `2338bb8`.
 - POS authorization/state characterization tests added in `9cd2ba6`.
-- Master-settings logo/favicon storage tests added in the current checkpoint.
+- Master-settings logo/favicon storage tests added in `9b06390`.
+- Payment/report authorization tests added in the current checkpoint.
 
-## Active phase: workflow-test expansion
+## Completed phase: workflow-test expansion
 
 Proceed incrementally and keep production behavior unchanged unless a test identifies a concrete defect.
 
@@ -23,10 +24,14 @@ Proceed incrementally and keep production behavior unchanged unless a test ident
 2. Service creation/edit/icon tests — complete.
 3. POS authorization and state characterization tests — complete.
 4. Master settings logo/favicon storage tests — complete.
-5. Payment and report authorization tests — next.
-6. Full regression and browser/manual acceptance planning.
+5. Payment and report authorization tests — complete.
+6. Full regression and browser/manual acceptance planning — next phase.
 
 Do not include the unresolved customer Excel export in unrelated tests.
+
+## Active phase: browser/manual acceptance planning
+
+Automated workflow coverage is now complete for the current scope. Plan authenticated browser verification for login, role navigation, POS, payments, branding uploads, printing, PWA/offline behavior, reports, and WhatsApp integration. Do not claim these behaviors are verified until manually exercised.
 
 ## Approved future architecture phase: frontend/backend alignment
 
