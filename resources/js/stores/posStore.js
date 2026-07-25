@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia';
 
-
-import { db, getCurrentPosUserId, isOwnedByCurrentPosUser } from '../db';
+import { db, claimLegacyQueueRecords, getCurrentPosUserId, isOwnedByCurrentPosUser } from '../db';
 import axios from 'axios';
 
 export const usePosStore = defineStore('pos', {
@@ -116,6 +115,8 @@ export const usePosStore = defineStore('pos', {
             } else {
                 delete axios.defaults.headers.common['Authorization'];
             }
+
+            await claimLegacyQueueRecords();
 
             if(this.isOnline) {
                 // FLUSH OFFLINE QUEUE FIRST before overwriting catalog to prevent App Boot data rot!

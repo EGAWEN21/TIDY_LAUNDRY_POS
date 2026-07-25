@@ -12,6 +12,26 @@ export const isOwnedByCurrentPosUser = (item) => {
     return userId !== null && String(item?.user_id ?? '') === userId;
 };
 
+export const claimLegacyQueueRecords = async () => {
+    const userId = getCurrentPosUserId();
+    if (userId === null) return 0;
+
+    let claimedCount = 0;
+    await db.transaction('rw', db.syncQueue, async () => {
+        claimedCount = await db.syncQueue
+            .filter(item => item.user_id === null || item.user_id === undefined)
+            .modify(item => {
+                item.user_id = userId;
+                item.claimed_from_legacy = true;
+                item.claimed_at = new Date().toISOString();
+                item.claimed_by = userId;
+                item.legacy_unassigned = false;
+            });
+    });
+
+    return claimedCount;
+};
+
 db.version(1).stores({
     services: 'id, service_name, is_active',
     serviceTypes: 'id, service_type_name, position',
