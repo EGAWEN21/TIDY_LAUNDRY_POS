@@ -45,7 +45,7 @@ It is not a deprecated version of the offline POS and must not be replaced by th
 Route:
 
 ```text
-/pos
+/admin/pos
 ```
 
 This is the offline-capable POS for field staff, unstable networks, and no-network operation. It uses Vue 3, Pinia, Dexie/IndexedDB, Sanctum API tokens, service workers, local catalog/customer/cart/draft storage, an offline queue, retries, synchronization management, and rejected-order recovery.
@@ -54,7 +54,7 @@ It is not merely a frontend copy of Livewire. It is a separate operational syste
 
 ### Architectural rule
 
-`/pos` and `/admin/online-pos` are intentionally separate. Do not merge, rename, collapse, or make one replace the other without explicit product and architectural review.
+`/admin/pos` and `/admin/online-pos` are intentionally separate. Do not merge, rename, collapse, or make one replace the other without explicit product and architectural review.
 
 Admin staff, field staff, or other authorized staff may use either according to connectivity and operational needs:
 
@@ -192,7 +192,7 @@ POS API requests are intentionally handled by the synchronization engine, not tr
 
 ### Known item requiring approval before change
 
-Some current/historical configuration references `/admin/pos/` in service-worker scope/build settings while the intentional Vue route is `/pos`. This is not automatically a defect. It may be a historical artifact, deployment choice, or actual installability/control issue.
+The Vue/PWA route is `/admin/pos`, and current service-worker scope configuration also references `/admin/pos/`. Browser verification is still required to confirm installed PWA and service-worker control behavior. Do not alter scope without approval.
 
 Do not alter it without browser verification, generated service-worker/manifest inspection, confirmation of the desired deployment scope, and explicit approval. The route distinction itself must remain intact.
 
@@ -267,7 +267,7 @@ These questions are retained and should be raised only when a related consequent
 ### Operations and role usage
 
 1. What is the exact role hierarchy among super-admins, managers, cashiers, field staff, and other staff?
-2. Which staff normally use `/pos` versus `/admin/online-pos`?
+2. Which staff normally use `/admin/pos` versus `/admin/online-pos`?
 3. Should both POS modes be available to every authorized user, or should navigation differ by role/device/location?
 
 ### Offline data and conflicts
@@ -295,8 +295,7 @@ These questions are retained and should be raised only when a related consequent
 
 ### PWA deployment
 
-18. Is `/admin/pos/` in service-worker scope configuration historical, deployment-specific, or intended?
-19. What exact installed-app start destination should users see: `/pos` or a deployment-prefixed equivalent?
+18. What exact installed-app start destination and service-worker scope should users see for `/admin/pos` in each deployment environment?
 20. Which environments must support installation and offline operation?
 
 ### WhatsApp and operations

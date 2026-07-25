@@ -7,7 +7,7 @@ This is the executable manual-validation plan. Backend tests, route listings, an
 ## Intentional POS routes
 
 - `/admin/online-pos`: Livewire online POS. Immediate backend interaction under stable network.
-- `/pos`: Vue/PWA offline POS. Local IndexedDB operation with later synchronization.
+- `/admin/pos`: Vue/PWA offline POS. Local IndexedDB operation with later synchronization.
 
 These are intentionally separate systems. Test them separately; do not treat their route distinction as a defect or merge target.
 
@@ -38,7 +38,7 @@ For every item record: ID, date, browser/version, URL/environment, user/permissi
 
 - [ ] B01 Super-admin can access both POS systems, customers, services, payments, reports, and settings.
 - [ ] B02 Staff without `order_create` cannot access `/admin/online-pos`.
-- [ ] B03 Staff without `order_create` cannot use `/pos` or POS API endpoints.
+- [ ] B03 Staff without `order_create` cannot use `/admin/pos` or POS API endpoints.
 - [ ] B04 Staff without `order_edit` cannot edit an existing online order.
 - [ ] B05 Staff without `payment_list` cannot access payment receipts.
 - [ ] B06 Staff without the relevant report permission cannot access that report URL.
@@ -66,7 +66,7 @@ For every item record: ID, date, browser/version, URL/environment, user/permissi
 - [ ] C17 Authorized payment/print action works.
 - [ ] C18 Refresh preserves correct order/payment/customer state.
 
-## D. Offline Vue/PWA POS: `/pos`
+## D. Offline Vue/PWA POS: `/admin/pos`
 
 - [ ] D01 Vue POS loads online and displays online status.
 - [ ] D02 `/api/pos/init` loads catalog, types, details, addons, customers, and settings.
@@ -88,7 +88,7 @@ For every item record: ID, date, browser/version, URL/environment, user/permissi
 
 ## E. Synchronization boundary
 
-- [ ] E01 Disable network and create customer/order at `/pos`.
+- [ ] E01 Disable network and create customer/order at `/admin/pos`.
 - [ ] E02 Confirm records remain in IndexedDB/Sync Manager while offline.
 - [ ] E03 Restore network and confirm synchronization starts.
 - [ ] E04 Confirm customer queue uses `/api/pos/sync-customers`.
@@ -145,8 +145,8 @@ For every item record: ID, date, browser/version, URL/environment, user/permissi
 - [ ] I02 Manifest icon URLs return accessible images.
 - [ ] I03 `/sw.js` loads with JavaScript content type.
 - [ ] I04 Browser offers installation in an eligible secure/local context.
-- [ ] I05 Installed app opens the intended Vue/PWA POS entry point `/pos`.
-- [ ] I06 Confirm `/pos` and `/admin/online-pos` remain separate in navigation and behavior.
+- [ ] I05 Installed app opens the intended Vue/PWA POS entry point `/admin/pos`.
+- [ ] I06 Confirm `/admin/pos` and `/admin/online-pos` remain separate in navigation and behavior.
 - [ ] I07 Confirm service-worker scope controls the intended Vue/PWA route; do not change scope without approval.
 - [ ] I08 POS catalog loads online.
 - [ ] I09 Disconnect network and confirm supported POS operations remain usable.
