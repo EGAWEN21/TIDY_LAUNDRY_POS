@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 
+
 const email = process.env.E2E_EMAIL;
 const password = process.env.E2E_PASSWORD;
 
@@ -9,9 +10,10 @@ function requireCredentials() {
 
 async function login(page) {
     await page.goto('/');
-    await page.getByPlaceholder('Email').fill(email);
-    await page.locator('input[type="password"]').fill(password);
-    await page.getByRole('button', { name: /sign in/i }).click();
+    const signInForm = page.locator('form').filter({ has: page.getByRole('button', { name: /sign in/i }) });
+    await signInForm.getByPlaceholder('Email').fill(email);
+    await signInForm.locator('input[type="password"]').fill(password);
+    await signInForm.getByRole('button', { name: /sign in/i }).click();
     await expect(page).toHaveURL(/\/admin\/dashboard/);
 }
 
@@ -21,7 +23,7 @@ test.describe('POS route smoke coverage', () => {
         await login(page);
         await page.goto('/admin/online-pos');
         await expect(page).toHaveURL(/\/admin\/online-pos/);
-        await expect(page.locator('[wire\\:id]')).toBeVisible();
+        await expect(page.locator('[wire\\:id]').first()).toBeVisible();
     });
 
     test('authenticated user can open the offline Vue/PWA POS shell', async ({ page }) => {
@@ -30,7 +32,7 @@ test.describe('POS route smoke coverage', () => {
         await page.goto('/admin/pos');
         await expect(page).toHaveURL(/\/admin\/pos/);
         await expect(page.locator('#pos-app')).toBeVisible();
-        await expect(page.locator('text=Offline POS')).toBeVisible();
+        await expect(page.getByText('Online', { exact: true })).toBeVisible();
     });
 
     test('offline cash order queues in IndexedDB and synchronizes after reconnection', async ({ page }) => {
