@@ -242,6 +242,99 @@ test.describe('POS route smoke coverage', () => {
         }, uuid)).toBe(false);
     });
 
+    test('expired POS token preserves queue and resumes after re-authentication', async ({ page }) => {
+        requireCredentials();
+        await login(page);
+        await page.goto('/admin/pos');
+        await expect(page.locator('#pos-app')).toBeVisible();
+        await expect(page.getByPlaceholder('Search Here')).toBeVisible();
+
+        const firstService = page.locator('a[data-bs-target="#servicetype"]').first();
+        await firstService.click();
+        await page.locator('#servicetype button[type="submit"]').click();
+        await page.context().setOffline(true);
+        await expect(page.getByText('Offline Mode')).toBeVisible();
+        await page.getByRole('button', { name: 'Cash' }).click();
+
+        const queuedUuid = await page.waitForFunction(async () => {
+            const request = indexedDB.open('TidyPOSDatabase');
+            return await new Promise((resolve, reject) => {
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    const transaction = request.result.transaction('syncQueue', 'readonly');
+                    const cursorRequest = transaction.objectStore('syncQueue').openCursor();
+                    cursorRequest.onsuccess = () => {
+                        const cursor = cursorRequest.result;
+                        resolve(cursor && cursor.value.type === 'order' ? cursor.value.data.uuid : null);
+                    };
+                };
+            });
+        }, null, { timeout: 10_000 });
+        const uuid = await queuedUuid.jsonValue();
+        expect(uuid).toMatch(/^[0-9a-f-]{36}$/i);
+
+        let rejectedOnce = false;
+        await page.route('**/api/pos/sync-orders', async route => {
+            if (!rejectedOnce) {
+                rejectedOnce = true;
+                await route.fulfill({
+                    status: 401,
+                    contentType: 'application/json',
+                    body: JSON.stringify({ message: 'Unauthenticated' }),
+                });
+                return;
+            }
+            await route.continue();
+        });
+
+        const rejectedResponse = page.waitForResponse(response =>
+            response.url().includes('/api/pos/sync-orders') && response.status() === 401
+        );
+        await page.context().setOffline(false);
+        await rejectedResponse;
+        await expect(page.getByText('Session Expired')).toBeVisible();
+        await expect(page.getByText('Please verify your identity to securely resume synchronization.')).toBeVisible();
+
+        const retained = await page.evaluate(async orderUuid => {
+            const request = indexedDB.open('TidyPOSDatabase');
+            return await new Promise((resolve, reject) => {
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    const transaction = request.result.transaction('syncQueue', 'readonly');
+                    const cursorRequest = transaction.objectStore('syncQueue').openCursor();
+                    cursorRequest.onsuccess = () => {
+                        const cursor = cursorRequest.result;
+                        resolve(Boolean(cursor && cursor.value.data?.uuid === orderUuid));
+                    };
+                };
+            });
+        }, uuid);
+        expect(retained).toBe(true);
+
+        const resumedResponse = page.waitForResponse(response =>
+            response.url().includes('/api/pos/sync-orders') && response.ok()
+        );
+        await page.locator('.reauth-modal input[type="password"]').fill(password);
+        await page.getByRole('button', { name: 'Unlock & Resume' }).click();
+        await expect(page.getByText('Session Expired')).toBeHidden();
+        await resumedResponse;
+
+        await expect.poll(async () => page.evaluate(async orderUuid => {
+            const request = indexedDB.open('TidyPOSDatabase');
+            return await new Promise((resolve, reject) => {
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    const transaction = request.result.transaction('syncQueue', 'readonly');
+                    const cursorRequest = transaction.objectStore('syncQueue').openCursor();
+                    cursorRequest.onsuccess = () => {
+                        const cursor = cursorRequest.result;
+                        resolve(Boolean(cursor && cursor.value.data?.uuid === orderUuid));
+                    };
+                };
+            });
+        }, uuid)).toBe(false);
+    });
+
     test('offline POS registers its service worker without changing online POS route', async ({ page }) => {
         requireCredentials();
         await login(page);

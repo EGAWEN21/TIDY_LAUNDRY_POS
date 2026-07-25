@@ -302,7 +302,10 @@ export const usePosStore = defineStore('pos', {
                             syncResult.success = false;
                         }
                     } catch (error) {
-                        if (error.response && error.response.status === 401) break;
+                        if (error.response && error.response.status === 401) {
+                            this.needsReAuth = true;
+                            break;
+                        }
                         for (const item of chunk) {
                             const newCount = (item.retry_count || 0) + 1;
                             const newStatus = newCount > 3 ? 'error' : 'pending';
@@ -313,7 +316,10 @@ export const usePosStore = defineStore('pos', {
                     }
                 }
 
-                // Sync Standalone Customers (if any)
+                // Sync Standalone Customers (if any), unless authentication failed above.
+                if (this.needsReAuth) {
+                    return syncResult;
+                }
                 const allCustomers = await db.syncQueue.where('type').equals('customer').toArray();
                 const pendingCustomers = allCustomers.filter(c => c.status !== 'error');
                 const customerChunks = chunkArray(pendingCustomers, 20);
@@ -347,7 +353,10 @@ export const usePosStore = defineStore('pos', {
                             }
                         }
                     } catch (error) {
-                        if (error.response && error.response.status === 401) break;
+                        if (error.response && error.response.status === 401) {
+                            this.needsReAuth = true;
+                            break;
+                        }
                         for (const item of chunk) {
                             const newCount = (item.retry_count || 0) + 1;
                             const newStatus = newCount > 3 ? 'error' : 'pending';
