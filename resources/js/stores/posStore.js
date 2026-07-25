@@ -304,6 +304,8 @@ export const usePosStore = defineStore('pos', {
                     } catch (error) {
                         if (error.response && error.response.status === 401) {
                             this.needsReAuth = true;
+                            syncResult.success = false;
+                            syncResult.reason = 'reauth_required';
                             break;
                         }
                         for (const item of chunk) {
@@ -355,6 +357,8 @@ export const usePosStore = defineStore('pos', {
                     } catch (error) {
                         if (error.response && error.response.status === 401) {
                             this.needsReAuth = true;
+                            syncResult.success = false;
+                            syncResult.reason = 'reauth_required';
                             break;
                         }
                         for (const item of chunk) {

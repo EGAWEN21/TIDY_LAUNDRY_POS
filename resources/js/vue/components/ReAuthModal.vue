@@ -18,6 +18,8 @@
                     </div>
                 </div>
 
+                <div v-if="errorMessage" class="auth-error" role="alert">{{ errorMessage }}</div>
+
                 <div class="input-group">
                     <label>Enter Password</label>
                     <input 
@@ -47,6 +49,7 @@ import axios from 'axios';
 const pos = usePosStore();
 const password = ref('');
 const isLoading = ref(false);
+const errorMessage = ref('');
 
 const userName = computed(() => window.PosConfig?.user?.name || 'Cashier');
 const userEmail = computed(() => window.PosConfig?.user?.email || '');
@@ -58,6 +61,7 @@ const handleReAuth = async () => {
     if (!password.value) return;
     
     isLoading.value = true;
+    errorMessage.value = '';
     try {
         const response = await axios.post('/api/login', {
             email: userEmail.value,
@@ -65,23 +69,41 @@ const handleReAuth = async () => {
         });
 
         const token = response.data.token;
-        
-        // Update global Axios and config
+        if (!token) throw new Error('The server did not return an authentication token.');
+
         window.PosConfig.apiToken = token;
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        
-        // Hide modal
-        pos.needsReAuth = false;
         password.value = '';
-        
-        toast.success("Authentication successful! Resuming sync...");
-        
-        // Retry sync if online
-        if (pos.isOnline) {
-            pos.syncOfflineData();
+
+        if (!pos.isOnline) {
+            errorMessage.value = 'You are offline. Reconnect before resuming synchronization.';
+            return;
         }
+
+        const syncResult = await pos.syncOfflineData();
+        if (!syncResult.success) {
+            errorMessage.value = syncResult.reason === 'reauth_required'
+                ? 'The session is still expired. Please verify your password and try again.'
+                : 'Authentication succeeded, but synchronization did not complete. Your order remains safely queued.';
+            return;
+        }
+
+        pos.needsReAuth = false;
+        toast.success('Authentication successful. Synchronization resumed.');
     } catch (error) {
-        toast.error("Incorrect password. Please try again.");
+        const status = error.response?.status;
+        const serverMessage = error.response?.data?.message;
+        errorMessage.value = status === 401
+            ? 'Invalid email or password.'
+            : status === 403
+                ? (serverMessage || 'Your account is not authorized to use the POS.')
+                : status === 419
+                    ? 'Your browser session expired. Refresh the POS and try again.'
+                    : status === 429
+                        ? 'Too many login attempts. Please wait before trying again.'
+                        : !error.response
+                            ? 'Unable to contact the server. Check your connection and try again.'
+                            : (serverMessage || 'Authentication failed. Please try again.');
         password.value = '';
     } finally {
         isLoading.value = false;
@@ -191,6 +213,17 @@ const handleReAuth = async () => {
 .user-email {
     font-size: 12px;
     color: #64748b;
+}
+
+.auth-error {
+    margin-bottom: 16px;
+    padding: 10px 12px;
+    border: 1px solid #fecaca;
+    border-radius: 10px;
+    background: #fef2f2;
+    color: #b91c1c;
+    font-size: 13px;
+    line-height: 1.4;
 }
 
 .input-group {
