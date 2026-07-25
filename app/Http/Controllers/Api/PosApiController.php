@@ -1,5 +1,6 @@
 <?php
 
+
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
@@ -29,7 +30,7 @@ class PosApiController extends Controller
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
-        if (!$user->is_active) {
+        if ($user->user_type != 1 && !$user->is_active) {
             return response()->json(['message' => 'Account is deactivated. Please contact administrator.'], 403);
         }
 
