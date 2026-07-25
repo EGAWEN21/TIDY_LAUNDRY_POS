@@ -71,6 +71,25 @@ test.describe('POS route smoke coverage', () => {
 
         expect(await queuedUuid.jsonValue()).toMatch(/^[0-9a-f-]{36}$/i);
         const uuid = await queuedUuid.jsonValue();
+        const queuedPayload = await page.evaluate(async (orderUuid) => {
+            const request = indexedDB.open('TidyPOSDatabase');
+            return await new Promise((resolve, reject) => {
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    const database = request.result;
+                    const transaction = database.transaction('syncQueue', 'readonly');
+                    const store = transaction.objectStore('syncQueue');
+                    const cursorRequest = store.openCursor();
+                    cursorRequest.onsuccess = () => {
+                        const cursor = cursorRequest.result;
+                        if (!cursor) return resolve(null);
+                        const value = cursor.value;
+                        resolve(value.type === 'order' && value.data.uuid === orderUuid ? value.data : null);
+                    };
+                };
+            });
+        }, uuid);
+
         const syncResponse = page.waitForResponse(response =>
             response.url().includes('/api/pos/sync-orders') && response.request().method() === 'POST'
         );
@@ -80,6 +99,24 @@ test.describe('POS route smoke coverage', () => {
         expect(response.ok()).toBeTruthy();
         const body = await response.json();
         expect(body.synced_orders).toHaveProperty(uuid);
+        const firstServerId = body.synced_orders[uuid];
+
+        const replay = await page.evaluate(async (order) => {
+            const response = await fetch('/api/pos/sync-orders', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${window.PosConfig.apiToken}`,
+                },
+                body: JSON.stringify({ orders: [order] }),
+            });
+            return { status: response.status, body: await response.json() };
+        }, queuedPayload);
+
+        expect(replay.status).toBe(200);
+        expect(replay.body.synced_orders[uuid]).toBe(firstServerId);
+        expect(replay.body.failed).not.toHaveProperty(uuid);
 
         await expect.poll(async () => page.evaluate(async (orderUuid) => {
             const request = indexedDB.open('TidyPOSDatabase');
