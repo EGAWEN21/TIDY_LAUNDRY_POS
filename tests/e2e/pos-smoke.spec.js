@@ -33,6 +33,74 @@ test.describe('POS route smoke coverage', () => {
         await expect(page.locator('text=Offline POS')).toBeVisible();
     });
 
+    test('offline cash order queues in IndexedDB and synchronizes after reconnection', async ({ page }) => {
+        requireCredentials();
+        await login(page);
+        await page.goto('/admin/pos');
+        await expect(page.locator('#pos-app')).toBeVisible();
+        await expect(page.getByPlaceholder('Search Here')).toBeVisible();
+
+        const firstService = page.locator('a[data-bs-target="#servicetype"]').first();
+        await expect(firstService).toBeVisible();
+        await firstService.click();
+        await page.locator('#servicetype button[type="submit"]').click();
+        await expect(page.locator('#cartTable, table').first()).toBeVisible();
+
+        await page.context().setOffline(true);
+        await expect(page.getByText('Offline Mode')).toBeVisible();
+        await page.getByRole('button', { name: 'Cash' }).click();
+
+        const queuedUuid = await page.waitForFunction(async () => {
+            const request = indexedDB.open('TidyPOSDatabase');
+            return await new Promise((resolve, reject) => {
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    const database = request.result;
+                    const transaction = database.transaction('syncQueue', 'readonly');
+                    const store = transaction.objectStore('syncQueue');
+                    const cursorRequest = store.openCursor();
+                    cursorRequest.onsuccess = () => {
+                        const cursor = cursorRequest.result;
+                        if (!cursor) return resolve(null);
+                        const value = cursor.value;
+                        resolve(value.type === 'order' && value.status === 'pending' ? value.data.uuid : null);
+                    };
+                };
+            });
+        }, null, { timeout: 10_000 });
+
+        expect(await queuedUuid.jsonValue()).toMatch(/^[0-9a-f-]{36}$/i);
+        const uuid = await queuedUuid.jsonValue();
+        const syncResponse = page.waitForResponse(response =>
+            response.url().includes('/api/pos/sync-orders') && response.request().method() === 'POST'
+        );
+
+        await page.context().setOffline(false);
+        const response = await syncResponse;
+        expect(response.ok()).toBeTruthy();
+        const body = await response.json();
+        expect(body.synced_orders).toHaveProperty(uuid);
+
+        await expect.poll(async () => page.evaluate(async (orderUuid) => {
+            const request = indexedDB.open('TidyPOSDatabase');
+            return await new Promise((resolve, reject) => {
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    const database = request.result;
+                    const transaction = database.transaction('syncQueue', 'readonly');
+                    const store = transaction.objectStore('syncQueue');
+                    const cursorRequest = store.openCursor();
+                    cursorRequest.onsuccess = () => {
+                        const cursor = cursorRequest.result;
+                        if (!cursor) return resolve(false);
+                        const value = cursor.value;
+                        resolve(value.type === 'order' && value.data.uuid === orderUuid);
+                    };
+                };
+            });
+        }, uuid)).toBe(false);
+    });
+
     test('offline POS registers its service worker without changing online POS route', async ({ page }) => {
         requireCredentials();
         await login(page);
