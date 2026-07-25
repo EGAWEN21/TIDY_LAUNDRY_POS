@@ -138,6 +138,110 @@ test.describe('POS route smoke coverage', () => {
         }, uuid)).toBe(false);
     });
 
+    test('failed offline sync retains the queue and recovers on retry', async ({ page }) => {
+        requireCredentials();
+        await login(page);
+        await page.goto('/admin/pos');
+        await expect(page.locator('#pos-app')).toBeVisible();
+        await expect(page.getByPlaceholder('Search Here')).toBeVisible();
+
+        const firstService = page.locator('a[data-bs-target="#servicetype"]').first();
+        await expect(firstService).toBeVisible();
+        await firstService.click();
+        await page.locator('#servicetype button[type="submit"]').click();
+        await page.context().setOffline(true);
+        await expect(page.getByText('Offline Mode')).toBeVisible();
+        await page.getByRole('button', { name: 'Cash' }).click();
+
+        const queuedUuid = await page.waitForFunction(async () => {
+            const request = indexedDB.open('TidyPOSDatabase');
+            return await new Promise((resolve, reject) => {
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    const database = request.result;
+                    const transaction = database.transaction('syncQueue', 'readonly');
+                    const cursorRequest = transaction.objectStore('syncQueue').openCursor();
+                    cursorRequest.onsuccess = () => {
+                        const cursor = cursorRequest.result;
+                        if (!cursor) return resolve(null);
+                        const value = cursor.value;
+                        resolve(value.type === 'order' && value.status === 'pending' ? value.data.uuid : null);
+                    };
+                };
+            });
+        }, null, { timeout: 10_000 });
+        const uuid = await queuedUuid.jsonValue();
+        expect(uuid).toMatch(/^[0-9a-f-]{36}$/i);
+
+        let failedOnce = false;
+        await page.route('**/api/pos/sync-orders', async route => {
+            if (!failedOnce) {
+                failedOnce = true;
+                await route.fulfill({
+                    status: 503,
+                    contentType: 'application/json',
+                    body: JSON.stringify({ message: 'E2E forced temporary failure' }),
+                });
+                return;
+            }
+            await route.continue();
+        });
+
+        const failedResponse = page.waitForResponse(response =>
+            response.url().includes('/api/pos/sync-orders') && response.status() === 503
+        );
+        await page.context().setOffline(false);
+        await failedResponse;
+
+        await expect.poll(async () => page.evaluate(async orderUuid => {
+            const request = indexedDB.open('TidyPOSDatabase');
+            return await new Promise((resolve, reject) => {
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    const database = request.result;
+                    const transaction = database.transaction('syncQueue', 'readonly');
+                    const cursorRequest = transaction.objectStore('syncQueue').openCursor();
+                    cursorRequest.onsuccess = () => {
+                        const cursor = cursorRequest.result;
+                        if (!cursor) return resolve(null);
+                        const value = cursor.value;
+                        resolve(value.data?.uuid === orderUuid
+                            ? { status: value.status, retryCount: value.retry_count, error: value.error_message }
+                            : null);
+                    };
+                };
+            });
+        }, uuid)).toEqual({
+            status: 'pending',
+            retryCount: 1,
+            error: 'Server Error: 503',
+        });
+
+        const recoveredResponse = page.waitForResponse(response =>
+            response.url().includes('/api/pos/sync-orders') && response.ok()
+        );
+        await page.reload();
+        const response = await recoveredResponse;
+        expect(response.ok()).toBeTruthy();
+
+        await expect.poll(async () => page.evaluate(async orderUuid => {
+            const request = indexedDB.open('TidyPOSDatabase');
+            return await new Promise((resolve, reject) => {
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    const database = request.result;
+                    const transaction = database.transaction('syncQueue', 'readonly');
+                    const cursorRequest = transaction.objectStore('syncQueue').openCursor();
+                    cursorRequest.onsuccess = () => {
+                        const cursor = cursorRequest.result;
+                        if (!cursor) return resolve(false);
+                        resolve(cursor.value.data?.uuid === orderUuid);
+                    };
+                };
+            });
+        }, uuid)).toBe(false);
+    });
+
     test('offline POS registers its service worker without changing online POS route', async ({ page }) => {
         requireCredentials();
         await login(page);
