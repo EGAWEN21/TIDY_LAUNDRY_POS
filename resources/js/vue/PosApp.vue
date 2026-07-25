@@ -101,7 +101,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, onErrorCaptured } from 'vue';
 import { usePosStore } from '../stores/posStore';
-import { db } from '../db';
+import { db, getCurrentPosUserId } from '../db';
 import PaymentModal from './components/PaymentModal.vue';
 import CustomerModal from './components/CustomerModal.vue';
 import ProductGrid from './components/ProductGrid.vue';
@@ -349,12 +349,18 @@ const buildOrderData = (type = 'save') => {
 };
 
 const saveOffline = async (type = 'save') => {
+  if (getCurrentPosUserId() === null) {
+    toast.error('Your POS user identity is unavailable. Please reload before saving offline work.');
+    return;
+  }
   const orderData = buildOrderData(type);
   if (!orderData) return;
 
   // Save to offline queue
   const plainOrderData = JSON.parse(JSON.stringify(orderData));
   await db.syncQueue.add({
+    user_id: getCurrentPosUserId(),
+    uuid: plainOrderData.uuid,
     type: 'order',
     data: plainOrderData,
     timestamp: Date.now(),
@@ -367,6 +373,10 @@ const saveOffline = async (type = 'save') => {
 };
 
 const syncAndPrint = async () => {
+  if (getCurrentPosUserId() === null) {
+    toast.error('Your POS user identity is unavailable. Please reload before saving offline work.');
+    return;
+  }
   const orderData = buildOrderData('save');
   if (!orderData) return;
 
@@ -376,6 +386,8 @@ const syncAndPrint = async () => {
     // 1. Temporarily save to queue
     const plainOrderData = JSON.parse(JSON.stringify(orderData));
     await db.syncQueue.add({
+      user_id: getCurrentPosUserId(),
+      uuid: plainOrderData.uuid,
       type: 'order',
       data: plainOrderData,
       timestamp: Date.now(),

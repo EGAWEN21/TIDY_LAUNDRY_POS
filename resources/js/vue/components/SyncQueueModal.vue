@@ -92,7 +92,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { usePosStore } from '../../stores/posStore';
-import { db } from '../../db';
+import { db, getCurrentPosUserId, isOwnedByCurrentPosUser } from '../../db';
 import { toast } from 'vue3-toastify';
 import axios from 'axios';
 
@@ -109,14 +109,14 @@ const fetchQueue = async () => {
                 const response = await axios.get('/api/pos/rejected-orders');
                 const rejected = response.data.rejected_orders || [];
                 
-                for (const req of rejected) {
-                    const existing = await db.syncQueue.where('uuid').equals(req.uuid).first().catch(() => null);
-                    // If index fails, fallback check
-                    if (!existing) {
-                        const queueArr = await db.syncQueue.toArray();
-                        const existsInArray = queueArr.find(q => q.uuid === req.uuid || (q.data && q.data.uuid === req.uuid));
-                        if (!existsInArray) {
-                            await db.syncQueue.add({
+                const userId = getCurrentPosUserId();
+                if (userId !== null) {
+                    const ownedQueue = (await db.syncQueue.toArray()).filter(isOwnedByCurrentPosUser);
+                    for (const req of rejected) {
+                        const existing = ownedQueue.find(q => q.uuid === req.uuid || (q.data && q.data.uuid === req.uuid));
+                        if (!existing) {
+                            const queueId = await db.syncQueue.add({
+                                user_id: userId,
                                 uuid: req.uuid,
                                 type: 'order',
                                 status: 'error',
@@ -125,6 +125,7 @@ const fetchQueue = async () => {
                                 timestamp: new Date(req.updated_at).getTime(),
                                 data: req.payload
                             });
+                            ownedQueue.push({ id: queueId, user_id: userId, uuid: req.uuid, data: req.payload });
                         }
                     }
                 }
@@ -133,7 +134,8 @@ const fetchQueue = async () => {
             }
         }
         
-        queueItems.value = await db.syncQueue.orderBy('timestamp').reverse().toArray();
+        queueItems.value = (await db.syncQueue.orderBy('timestamp').reverse().toArray())
+            .filter(isOwnedByCurrentPosUser);
         attentionCount.value = queueItems.value.filter(item => item.status === 'error').length;
     } catch (e) {
         console.error(e);
@@ -167,6 +169,11 @@ const forceSync = async () => {
 
 const deleteItem = async (id) => {
     if (confirm("Are you sure you want to delete this offline item? This cannot be undone.")) {
+        const item = await db.syncQueue.get(id);
+        if (!item || !isOwnedByCurrentPosUser(item)) {
+            toast.error('This queue item is not available to the current user.');
+            return;
+        }
         await db.syncQueue.delete(id);
         toast.success("Item deleted from queue.");
         await fetchQueue();
@@ -204,6 +211,10 @@ const editAndFix = async (item) => {
     pos.discount = item.data.discount;
     
     // Delete the failed order from queue since we're fixing it
+    if (!isOwnedByCurrentPosUser(item)) {
+        toast.error('This queue item is not available to the current user.');
+        return;
+    }
     await db.syncQueue.delete(item.id);
     
     toast.info("Order loaded for fixing.");

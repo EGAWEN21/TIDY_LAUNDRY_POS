@@ -60,7 +60,7 @@
 <script setup>
 import { ref } from 'vue';
 import { usePosStore } from '../../stores/posStore';
-import { db } from '../../db';
+import { db, getCurrentPosUserId } from '../../db';
 import { toast } from 'vue3-toastify';
 
 const pos = usePosStore();
@@ -108,6 +108,8 @@ const createCustomer = async () => {
   
   // Add to sync queue
   await db.syncQueue.add({
+    user_id: getCurrentPosUserId(),
+    uuid: cust.uuid,
     type: 'customer',
     data: cust,
     timestamp: Date.now(),

@@ -2,6 +2,16 @@ import Dexie from 'dexie';
 
 export const db = new Dexie('TidyPOSDatabase');
 
+export const getCurrentPosUserId = () => {
+    const userId = globalThis?.PosConfig?.user?.id;
+    return userId === undefined || userId === null ? null : String(userId);
+};
+
+export const isOwnedByCurrentPosUser = (item) => {
+    const userId = getCurrentPosUserId();
+    return userId !== null && String(item?.user_id ?? '') === userId;
+};
+
 db.version(1).stores({
     services: 'id, service_name, is_active',
     serviceTypes: 'id, service_type_name, position',
@@ -52,5 +62,25 @@ db.version(4).stores({
     customers: 'id, uuid, phone, name, email, tax_number, address, sync_status',
     settings: 'id, tax_percentage, tax_type, financial_year_id, currency',
     cart: 'id, uuid, user_id, items, addons, customer_id, total, tax, discount, payments, status, notes',
-    syncQueue: '++id, type, data, timestamp, status, retry_count, error_message'
+
+    syncQueue: '++id, type, uuid, user_id, data, timestamp, status, retry_count, error_message'
+});
+
+db.version(5).stores({
+    services: 'id, service_name, is_active',
+    serviceTypes: 'id, service_type_name, position',
+    serviceDetails: 'id, service_id, service_type_id, service_price',
+    addons: 'id, addon_name, addon_price',
+    customers: 'id, uuid, phone, name, email, tax_number, address, sync_status',
+    settings: 'id, tax_percentage, tax_type, financial_year_id, currency',
+    cart: 'id, uuid, user_id, items, addons, customer_id, total, tax, discount, payments, status, notes',
+    syncQueue: '++id, type, uuid, user_id, data, timestamp, status, retry_count, error_message'
+}).upgrade(tx => {
+    return tx.syncQueue.toCollection().modify(queueItem => {
+        // Legacy records are intentionally quarantined. Assigning them to the
+        // current browser user could expose another user's offline data.
+        queueItem.uuid = queueItem.uuid || queueItem.data?.uuid || null;
+        queueItem.user_id = null;
+        queueItem.legacy_unassigned = true;
+    });
 });

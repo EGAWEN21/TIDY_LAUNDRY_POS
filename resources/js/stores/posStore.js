@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 
 
-import { db } from '../db';
+import { db, getCurrentPosUserId, isOwnedByCurrentPosUser } from '../db';
 import axios from 'axios';
 
 export const usePosStore = defineStore('pos', {
@@ -130,7 +130,7 @@ export const usePosStore = defineStore('pos', {
                 if(this.isOnline && !this.isSyncing) {
                     // Pause background polling if cart is active or if there are items in the queue
                     const actionableQueueCount = await db.syncQueue
-                        .filter(item => item.status !== 'error')
+                        .filter(item => isOwnedByCurrentPosUser(item) && item.status !== 'error')
                         .count();
                     if (this.cart.length > 0 || actionableQueueCount > 0) {
                         return; // Prevent shifting the master catalog while active offline work is present
@@ -186,8 +186,8 @@ export const usePosStore = defineStore('pos', {
                 axios.get('/api/pos/check-update').then(async res => {
                     if(res.data.timestamp > this.lastSyncTimestamp) {
                         const actionableQueueCount = await db.syncQueue
-                            .filter(item => item.status !== 'error')
-                            .count();
+                            .filter(item => isOwnedByCurrentPosUser(item) && item.status !== 'error')
+                                                    .count();
                         if (this.cart.length === 0 && actionableQueueCount === 0) {
                             this.fetchFromServer();
                         }
@@ -279,10 +279,25 @@ export const usePosStore = defineStore('pos', {
                 };
 
                 // Sync Orders First (Unified Graph Sync will handle nested customers)
-                const allOrders = await db.syncQueue.where('type').equals('order').toArray();
+                const userId = getCurrentPosUserId();
+                if (userId === null) {
+                    return {
+                        success: false,
+                        outcome: 'authentication_required',
+                        reason: 'missing_user_identity',
+                        attempted: 0,
+                        syncedOrders: {},
+                        requiresApproval: {},
+                        failed: {}
+                    };
+                }
+
+                const allOrders = (await db.syncQueue.where('type').equals('order').toArray())
+                    .filter(item => isOwnedByCurrentPosUser(item));
                 const pendingOrders = allOrders.filter(o => o.status !== 'error');
                 const orderChunks = chunkArray(pendingOrders, 20);
-                const allCustomers = await db.syncQueue.where('type').equals('customer').toArray();
+                const allCustomers = (await db.syncQueue.where('type').equals('customer').toArray())
+                    .filter(item => isOwnedByCurrentPosUser(item));
                 const pendingCustomers = allCustomers.filter(c => c.status !== 'error');
                 const customerChunks = chunkArray(pendingCustomers, 20);
 
