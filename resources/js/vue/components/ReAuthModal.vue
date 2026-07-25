@@ -1,5 +1,5 @@
 <template>
-    <div v-if="pos.needsReAuth" class="reauth-overlay">
+<div v-if="pos.needsReAuth" class="reauth-overlay">
         <div class="reauth-modal">
             <div class="reauth-header">
                 <div class="icon-circle">
@@ -75,6 +75,10 @@ const handleReAuth = async () => {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         password.value = '';
 
+        // Release the sync gate now that a fresh token is available.
+        // If the retry receives another 401, the store will set it again.
+        pos.needsReAuth = false;
+
         if (!pos.isOnline) {
             errorMessage.value = 'You are offline. Reconnect before resuming synchronization.';
             return;
@@ -87,8 +91,6 @@ const handleReAuth = async () => {
                 : 'Authentication succeeded, but synchronization did not complete. Your order remains safely queued.';
             return;
         }
-
-        pos.needsReAuth = false;
         toast.success('Authentication successful. Synchronization resumed.');
     } catch (error) {
         const status = error.response?.status;

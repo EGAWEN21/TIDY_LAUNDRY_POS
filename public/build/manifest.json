@@ -18,7 +18,7 @@
     ]
   },
   "resources/js/pos-app.js": {
-    "file": "assets/pos-app-CFfmm0m7.js",
+    "file": "assets/pos-app-D6-jyFJ4.js",
     "name": "pos-app",
     "src": "resources/js/pos-app.js",
     "isEntry": true,
@@ -26,7 +26,7 @@
       "_index-DhXgJQ-f.js"
     ],
     "css": [
-      "assets/pos-app-CAeZT_CT.css"
+      "assets/pos-app-DckbaxyE.css"
     ]
   }
 }
