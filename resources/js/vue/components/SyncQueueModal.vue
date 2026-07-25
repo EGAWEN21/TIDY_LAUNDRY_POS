@@ -34,6 +34,9 @@
                     </div>
 
                     <div v-else class="table-responsive">
+                        <div v-if="attentionCount > 0" class="alert alert-warning mb-3" role="status">
+                            {{ attentionCount }} item(s) need attention and were not retried automatically.
+                        </div>
                         <table class="table basic-border-table mb-0 tw-text-sm">
                             <thead>
                                 <tr>
@@ -57,7 +60,8 @@
                                     </td>
                                     <td>
                                         <span v-if="item.status === 'pending'" class="badge bg-warning-50 text-warning-600 radius-8 px-12 py-4">Pending</span>
-                                        <span v-else-if="item.status === 'error'" class="badge bg-danger-50 text-danger-600 radius-8 px-12 py-4">Error</span>
+                                        <span v-else-if="item.status === 'error'" class="badge bg-danger-50 text-danger-600 radius-8 px-12 py-4">Needs attention</span>
+                                        <span v-else class="badge bg-secondary-100 text-secondary-600 radius-8 px-12 py-4">{{ item.status || 'Unknown' }}</span>
                                         <div v-if="item.error_message" class="tw-text-xs tw-text-red-500 tw-mt-1 tw-max-w-[200px]">
                                             {{ item.error_message }}
                                         </div>
@@ -95,6 +99,7 @@ import axios from 'axios';
 const pos = usePosStore();
 const queueItems = ref([]);
 const isLoading = ref(true);
+const attentionCount = ref(0);
 
 const fetchQueue = async () => {
     isLoading.value = true;
@@ -129,6 +134,7 @@ const fetchQueue = async () => {
         }
         
         queueItems.value = await db.syncQueue.orderBy('timestamp').reverse().toArray();
+        attentionCount.value = queueItems.value.filter(item => item.status === 'error').length;
     } catch (e) {
         console.error(e);
         toast.error("Failed to load sync queue.");
@@ -144,9 +150,17 @@ const forceSync = async () => {
     }
     const result = await pos.syncOfflineData();
     if (result.success) {
-        toast.success("Sync completed successfully.");
+        toast.success(result.requiresApproval && Object.keys(result.requiresApproval).length
+            ? 'Orders submitted for manager approval.'
+            : 'Sync completed successfully.');
+    } else if (result.outcome === 'nothing_to_sync') {
+        toast.info('There are no pending items to synchronize.');
+    } else if (result.outcome === 'attention_required') {
+        toast.warning('No pending items were synchronized. Review the items needing attention.');
+    } else if (result.reason === 'reauth_required') {
+        toast.warning('Authentication is required before synchronization can continue.');
     } else {
-        toast.error("Sync failed for some items.");
+        toast.error('Synchronization failed for some items. Review the details below.');
     }
     await fetchQueue();
 };
@@ -204,13 +218,8 @@ const editAndFix = async (item) => {
     }
 };
 
-// Expose fetchQueue to global scope so bootstrap modal events can trigger it if needed
 onMounted(() => {
-    // Listen for bootstrap modal show event
-    const modal = document.getElementById('syncQueueModal');
-    if (modal) {
-        modal.addEventListener('show.bs.modal', fetchQueue);
-    }
+    fetchQueue();
 });
 </script>
 

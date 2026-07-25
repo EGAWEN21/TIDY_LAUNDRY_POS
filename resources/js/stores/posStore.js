@@ -129,8 +129,10 @@ export const usePosStore = defineStore('pos', {
             setInterval(async () => {
                 if(this.isOnline && !this.isSyncing) {
                     // Pause background polling if cart is active or if there are items in the queue
-                    const queueCount = await db.syncQueue.count();
-                    if (this.cart.length > 0 || queueCount > 0) {
+                    const actionableQueueCount = await db.syncQueue
+                        .filter(item => item.status !== 'error')
+                        .count();
+                    if (this.cart.length > 0 || actionableQueueCount > 0) {
                         return; // Prevent shifting the master catalog while active offline work is present
                     }
 
@@ -183,8 +185,10 @@ export const usePosStore = defineStore('pos', {
                 // Also trigger an immediate check for updates when coming online
                 axios.get('/api/pos/check-update').then(async res => {
                     if(res.data.timestamp > this.lastSyncTimestamp) {
-                        const queueCount = await db.syncQueue.count();
-                        if (this.cart.length === 0 && queueCount === 0) {
+                        const actionableQueueCount = await db.syncQueue
+                            .filter(item => item.status !== 'error')
+                            .count();
+                        if (this.cart.length === 0 && actionableQueueCount === 0) {
                             this.fetchFromServer();
                         }
                     }
@@ -218,6 +222,9 @@ export const usePosStore = defineStore('pos', {
                 await this.loadFromLocal();
             } catch (error) {
                 console.error("Failed to fetch from server", error);
+                if (error.response?.status === 401) {
+                    this.needsReAuth = true;
+                }
                 await this.loadFromLocal();
             }
         },
@@ -256,8 +263,12 @@ export const usePosStore = defineStore('pos', {
             
             let syncResult = {
                 success: true,
+                outcome: 'completed',
+                reason: null,
+                attempted: 0,
                 syncedOrders: {},
-                requiresApproval: {}
+                requiresApproval: {},
+                failed: {}
             };
             
             try {
@@ -271,6 +282,21 @@ export const usePosStore = defineStore('pos', {
                 const allOrders = await db.syncQueue.where('type').equals('order').toArray();
                 const pendingOrders = allOrders.filter(o => o.status !== 'error');
                 const orderChunks = chunkArray(pendingOrders, 20);
+                const allCustomers = await db.syncQueue.where('type').equals('customer').toArray();
+                const pendingCustomers = allCustomers.filter(c => c.status !== 'error');
+                const customerChunks = chunkArray(pendingCustomers, 20);
+
+                syncResult.attempted = pendingOrders.length + pendingCustomers.length;
+                if (syncResult.attempted === 0) {
+                    syncResult.success = false;
+                    syncResult.outcome = allOrders.length || allCustomers.length
+                        ? 'attention_required'
+                        : 'nothing_to_sync';
+                    syncResult.reason = allOrders.length || allCustomers.length
+                        ? 'no_pending_items'
+                        : 'queue_empty';
+                    return syncResult;
+                }
 
                 for (const chunk of orderChunks) {
                     try {
@@ -300,6 +326,8 @@ export const usePosStore = defineStore('pos', {
                                 }
                             }
                             syncResult.success = false;
+                            syncResult.outcome = 'partial_failure';
+                            Object.assign(syncResult.failed, response.data.failed);
                         }
                     } catch (error) {
                         if (error.response && error.response.status === 401) {
@@ -318,13 +346,10 @@ export const usePosStore = defineStore('pos', {
                     }
                 }
 
-                // Sync Standalone Customers (if any), unless authentication failed above.
+                // Sync standalone customers after orders, unless authentication failed above.
                 if (this.needsReAuth) {
                     return syncResult;
                 }
-                const allCustomers = await db.syncQueue.where('type').equals('customer').toArray();
-                const pendingCustomers = allCustomers.filter(c => c.status !== 'error');
-                const customerChunks = chunkArray(pendingCustomers, 20);
 
                 for (const chunk of customerChunks) {
                     try {
@@ -344,6 +369,9 @@ export const usePosStore = defineStore('pos', {
                         }
 
                         if (response.data.failed) {
+                            syncResult.success = false;
+                            syncResult.outcome = 'partial_failure';
+                            Object.assign(syncResult.failed, response.data.failed);
                             for(let uuid in response.data.failed) {
                                 const item = chunk.find(p => p.data.uuid === uuid);
                                 if (item) {
@@ -368,6 +396,7 @@ export const usePosStore = defineStore('pos', {
                             await db.syncQueue.update(item.id, { retry_count: newCount, status: newStatus, error_message: errMsg });
                         }
                         syncResult.success = false;
+                        syncResult.outcome = 'partial_failure';
                     }
                 }
 
