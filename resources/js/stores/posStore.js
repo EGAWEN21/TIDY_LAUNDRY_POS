@@ -275,6 +275,9 @@ export const usePosStore = defineStore('pos', {
             if(this.isSyncing || !this.isOnline || this.needsReAuth) return { success: false, reason: 'offline_or_syncing' };
             const releaseSyncLock = await acquireSyncLock();
             if (!releaseSyncLock) return { success: false, reason: 'sync_in_progress' };
+            const lockRenewalTimer = setInterval(() => {
+                releaseSyncLock.renew().catch(error => console.warn('Failed to renew sync lock:', error));
+            }, 30 * 1000);
             this.isSyncing = true;
             
             let syncResult = {
@@ -378,7 +381,20 @@ export const usePosStore = defineStore('pos', {
                                     syncResult.requiresApproval[uuid] = response.data.requires_approval[uuid];
                                 }
                                 const item = chunk.find(p => p.data.uuid === uuid);
-                                if(item) await db.syncQueue.delete(item.id);
+                                if (item) {
+                                    const requiresApproval = response.data.requires_approval?.[uuid];
+                                    if (requiresApproval) {
+                                        await db.syncQueue.update(item.id, {
+                                            status: 'pending_approval',
+                                            failure_category: 'approval_required',
+                                            error_message: '',
+                                            last_attempt_at: new Date().toISOString(),
+                                            next_retry_at: 0
+                                        });
+                                    } else {
+                                        await db.syncQueue.delete(item.id);
+                                    }
+                                }
                             }
                         }
 
@@ -463,6 +479,7 @@ export const usePosStore = defineStore('pos', {
                 console.error("Global Sync Error:", error);
                 syncResult.success = false;
             } finally {
+                clearInterval(lockRenewalTimer);
                 this.isSyncing = false;
                 await releaseSyncLock();
                 await this.loadFromLocal();

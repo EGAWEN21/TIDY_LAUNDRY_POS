@@ -56,13 +56,19 @@
                                     </td>
                                     <td>
                                         <div class="fw-medium text-dark">{{ getDetails(item) }}</div>
-                                        <div class="text-xs text-secondary-light">Retries: {{ item.retry_count }}</div>
+                                        <div class="text-xs text-secondary-light">Retries: {{ item.retry_count || 0 }}</div>
+                                        <div v-if="item.failure_category" class="text-xs text-secondary-light">Category: {{ formatCategory(item.failure_category) }}</div>
+                                        <div v-if="item.claimed_from_legacy" class="text-xs text-info-600">Claimed from legacy queue</div>
                                     </td>
                                     <td>
                                         <span v-if="item.status === 'pending'" class="badge bg-warning-50 text-warning-600 radius-8 px-12 py-4">Pending</span>
                                         <span v-else-if="item.status === 'permanent_failure'" class="badge bg-danger-50 text-danger-600 radius-8 px-12 py-4">Needs attention</span>
                                         <span v-else-if="item.status === 'retryable_failure'" class="badge bg-warning-50 text-warning-600 radius-8 px-12 py-4">Retry scheduled</span>
+                                        <span v-else-if="item.status === 'pending_approval'" class="badge bg-info-50 text-info-600 radius-8 px-12 py-4">Awaiting approval</span>
                                         <span v-else class="badge bg-secondary-100 text-secondary-600 radius-8 px-12 py-4">{{ item.status || 'Unknown' }}</span>
+                                        <div v-if="item.status === 'pending_approval'" class="tw-text-xs tw-text-blue-600 tw-mt-1">Awaiting manager approval</div>
+                                        <div v-if="item.next_retry_at && item.status === 'retryable_failure'" class="tw-text-xs tw-text-orange-600 tw-mt-1">Next retry: {{ formatDateTime(item.next_retry_at) }}</div>
+                                        <div v-if="item.last_attempt_at" class="tw-text-xs tw-text-secondary-light tw-mt-1">Last attempt: {{ formatDateTime(item.last_attempt_at) }}</div>
                                         <div v-if="item.error_message" class="tw-text-xs tw-text-red-500 tw-mt-1 tw-max-w-[200px]">
                                             {{ item.error_message }}
                                         </div>
@@ -209,6 +215,22 @@ const getDetails = (item) => {
 
 const formatTime = (ts) => {
     return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' });
+};
+
+const formatDateTime = (ts) => {
+    if (!ts) return '—';
+    return new Date(ts).toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+};
+
+const formatCategory = (category) => {
+    return String(category)
+        .replaceAll('_', ' ')
+        .replace(/\b\w/g, character => character.toUpperCase());
 };
 
 const editAndFix = async (item) => {

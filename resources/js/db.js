@@ -53,7 +53,19 @@ export const acquireSyncLock = async () => {
 
     if (!acquired) return null;
 
-    return async () => {
+    const renew = async () => {
+        let renewed = false;
+        await db.transaction('rw', db.syncLocks, async () => {
+            const existing = await db.syncLocks.get(syncLockId);
+            if (existing?.owner === syncLockOwner) {
+                await db.syncLocks.update(syncLockId, { expires_at: Date.now() + syncLockLeaseMs });
+                renewed = true;
+            }
+        });
+        return renewed;
+    };
+
+    const release = async () => {
         await db.transaction('rw', db.syncLocks, async () => {
             const existing = await db.syncLocks.get(syncLockId);
             if (existing?.owner === syncLockOwner) {
@@ -61,6 +73,9 @@ export const acquireSyncLock = async () => {
             }
         });
     };
+
+    release.renew = renew;
+    return release;
 };
 
 export const claimLegacyQueueRecords = async () => {
