@@ -34,6 +34,35 @@ export const getRetryDelay = (retryCount) => {
     return Math.min(baseDelay * (2 ** Math.max(0, retryCount - 1)), maxDelay);
 };
 
+const syncLockId = 'pos-sync';
+const syncLockOwner = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+const syncLockLeaseMs = 2 * 60 * 1000;
+
+export const acquireSyncLock = async () => {
+    const now = Date.now();
+    const expiresAt = now + syncLockLeaseMs;
+    let acquired = false;
+
+    await db.transaction('rw', db.syncLocks, async () => {
+        const existing = await db.syncLocks.get(syncLockId);
+        if (!existing || existing.expires_at <= now || existing.owner === syncLockOwner) {
+            await db.syncLocks.put({ id: syncLockId, owner: syncLockOwner, expires_at: expiresAt });
+            acquired = true;
+        }
+    });
+
+    if (!acquired) return null;
+
+    return async () => {
+        await db.transaction('rw', db.syncLocks, async () => {
+            const existing = await db.syncLocks.get(syncLockId);
+            if (existing?.owner === syncLockOwner) {
+                await db.syncLocks.delete(syncLockId);
+            }
+        });
+    };
+};
+
 export const claimLegacyQueueRecords = async () => {
     const userId = getCurrentPosUserId();
     if (userId === null) return 0;
@@ -142,4 +171,16 @@ db.version(6).stores({
         queueItem.next_retry_at = queueItem.next_retry_at || 0;
         queueItem.last_attempt_at = queueItem.last_attempt_at || null;
     });
+});
+
+db.version(7).stores({
+    services: 'id, service_name, is_active',
+    serviceTypes: 'id, service_type_name, position',
+    serviceDetails: 'id, service_id, service_type_id, service_price',
+    addons: 'id, addon_name, addon_price',
+    customers: 'id, uuid, phone, name, email, tax_number, address, sync_status',
+    settings: 'id, tax_percentage, tax_type, financial_year_id, currency',
+    cart: 'id, uuid, user_id, items, addons, customer_id, total, tax, discount, payments, status, notes',
+    syncQueue: '++id, type, uuid, user_id, data, timestamp, status, retry_count, error_message, failure_category, next_retry_at, last_attempt_at',
+    syncLocks: 'id, owner, expires_at'
 });

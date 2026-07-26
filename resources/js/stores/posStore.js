@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 
 import {
     db,
+    acquireSyncLock,
     claimLegacyQueueRecords,
     classifySyncError,
     getCurrentPosUserId,
@@ -272,6 +273,8 @@ export const usePosStore = defineStore('pos', {
         
         async syncOfflineData() {
             if(this.isSyncing || !this.isOnline || this.needsReAuth) return { success: false, reason: 'offline_or_syncing' };
+            const releaseSyncLock = await acquireSyncLock();
+            if (!releaseSyncLock) return { success: false, reason: 'sync_in_progress' };
             this.isSyncing = true;
             
             let syncResult = {
@@ -461,6 +464,7 @@ export const usePosStore = defineStore('pos', {
                 syncResult.success = false;
             } finally {
                 this.isSyncing = false;
+                await releaseSyncLock();
                 await this.loadFromLocal();
             }
             return syncResult;
