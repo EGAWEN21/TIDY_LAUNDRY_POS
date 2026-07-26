@@ -12,6 +12,28 @@ export const isOwnedByCurrentPosUser = (item) => {
     return userId !== null && String(item?.user_id ?? '') === userId;
 };
 
+export const isSyncEligible = (item, now = Date.now()) => {
+    if (!['pending', 'retryable_failure'].includes(item?.status)) return false;
+    return !item.next_retry_at || item.next_retry_at <= now;
+};
+
+export const classifySyncError = (error) => {
+    const status = error?.response?.status;
+    if (status === 401) return { category: 'authentication', status: 'auth_required' };
+    if ([403, 409, 422].includes(status)) return { category: 'permanent', status: 'permanent_failure' };
+    if (status === 429 || (status >= 500 && status <= 599)) {
+        return { category: 'transient', status: 'retryable_failure' };
+    }
+    if (!status) return { category: 'transient', status: 'retryable_failure' };
+    return { category: 'permanent', status: 'permanent_failure' };
+};
+
+export const getRetryDelay = (retryCount) => {
+    const baseDelay = 30 * 1000;
+    const maxDelay = 15 * 60 * 1000;
+    return Math.min(baseDelay * (2 ** Math.max(0, retryCount - 1)), maxDelay);
+};
+
 export const claimLegacyQueueRecords = async () => {
     const userId = getCurrentPosUserId();
     if (userId === null) return 0;
@@ -97,10 +119,27 @@ db.version(5).stores({
     syncQueue: '++id, type, uuid, user_id, data, timestamp, status, retry_count, error_message'
 }).upgrade(tx => {
     return tx.syncQueue.toCollection().modify(queueItem => {
-        // Legacy records are intentionally quarantined. Assigning them to the
-        // current browser user could expose another user's offline data.
+        // Legacy records are intentionally quarantined until POS initializes.
         queueItem.uuid = queueItem.uuid || queueItem.data?.uuid || null;
         queueItem.user_id = null;
         queueItem.legacy_unassigned = true;
+    });
+});
+
+db.version(6).stores({
+    services: 'id, service_name, is_active',
+    serviceTypes: 'id, service_type_name, position',
+    serviceDetails: 'id, service_id, service_type_id, service_price',
+    addons: 'id, addon_name, addon_price',
+    customers: 'id, uuid, phone, name, email, tax_number, address, sync_status',
+    settings: 'id, tax_percentage, tax_type, financial_year_id, currency',
+    cart: 'id, uuid, user_id, items, addons, customer_id, total, tax, discount, payments, status, notes',
+    syncQueue: '++id, type, uuid, user_id, data, timestamp, status, retry_count, error_message, failure_category, next_retry_at, last_attempt_at'
+}).upgrade(tx => {
+    return tx.syncQueue.toCollection().modify(queueItem => {
+        queueItem.failure_category = queueItem.failure_category || (queueItem.status === 'error' ? 'legacy_attention' : null);
+        queueItem.status = queueItem.status === 'error' ? 'permanent_failure' : (queueItem.status || 'pending');
+        queueItem.next_retry_at = queueItem.next_retry_at || 0;
+        queueItem.last_attempt_at = queueItem.last_attempt_at || null;
     });
 });

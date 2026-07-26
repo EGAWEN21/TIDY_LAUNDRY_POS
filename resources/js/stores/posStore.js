@@ -1,6 +1,14 @@
 import { defineStore } from 'pinia';
 
-import { db, claimLegacyQueueRecords, getCurrentPosUserId, isOwnedByCurrentPosUser } from '../db';
+import {
+    db,
+    claimLegacyQueueRecords,
+    classifySyncError,
+    getCurrentPosUserId,
+    getRetryDelay,
+    isOwnedByCurrentPosUser,
+    isSyncEligible
+} from '../db';
 import axios from 'axios';
 
 export const usePosStore = defineStore('pos', {
@@ -131,7 +139,7 @@ export const usePosStore = defineStore('pos', {
                 if(this.isOnline && !this.isSyncing) {
                     // Pause background polling if cart is active or if there are items in the queue
                     const actionableQueueCount = await db.syncQueue
-                        .filter(item => isOwnedByCurrentPosUser(item) && item.status !== 'error')
+                        .filter(item => isOwnedByCurrentPosUser(item) && isSyncEligible(item))
                         .count();
                     if (this.cart.length > 0 || actionableQueueCount > 0) {
                         return; // Prevent shifting the master catalog while active offline work is present
@@ -187,8 +195,8 @@ export const usePosStore = defineStore('pos', {
                 axios.get('/api/pos/check-update').then(async res => {
                     if(res.data.timestamp > this.lastSyncTimestamp) {
                         const actionableQueueCount = await db.syncQueue
-                            .filter(item => isOwnedByCurrentPosUser(item) && item.status !== 'error')
-                                                    .count();
+                                                .filter(item => isOwnedByCurrentPosUser(item) && isSyncEligible(item))
+                                                .count();
                         if (this.cart.length === 0 && actionableQueueCount === 0) {
                             this.fetchFromServer();
                         }
@@ -278,6 +286,43 @@ export const usePosStore = defineStore('pos', {
                     for (let i = 0; i < array.length; i += size) result.push(array.slice(i, i + size));
                     return result;
                 };
+                const markPermanentItemFailure = async (item, message) => {
+                    await db.syncQueue.update(item.id, {
+                        status: 'permanent_failure',
+                        failure_category: 'server_validation',
+                        error_message: message,
+                        last_attempt_at: new Date().toISOString(),
+                        next_retry_at: 0
+                    });
+                };
+
+                const updateChunkFailure = async (chunk, error, fallbackMessage) => {
+                    const classification = classifySyncError(error);
+                    const now = Date.now();
+                    const serverMessage = error.response?.data?.message;
+                    const errorMessage = serverMessage || fallbackMessage;
+
+                    for (const item of chunk) {
+                        const retryCount = (item.retry_count || 0) + 1;
+                        const exhausted = classification.status === 'retryable_failure' && retryCount > 5;
+                        const authPaused = classification.status === 'auth_required';
+                        const status = exhausted
+                            ? 'permanent_failure'
+                            : authPaused
+                                ? 'pending'
+                                : classification.status;
+                        await db.syncQueue.update(item.id, {
+                            status,
+                            retry_count: retryCount,
+                            failure_category: exhausted ? 'retry_limit' : classification.category,
+                            error_message: exhausted ? 'Automatic retry limit reached. Manual review is required.' : errorMessage,
+                            last_attempt_at: new Date(now).toISOString(),
+                            next_retry_at: status === 'retryable_failure' ? now + getRetryDelay(retryCount) : 0
+                        });
+                    }
+
+                    return classification.status === 'auth_required' ? 'reauth_required' : classification.status;
+                };
 
                 // Sync Orders First (Unified Graph Sync will handle nested customers)
                 const userId = getCurrentPosUserId();
@@ -295,12 +340,12 @@ export const usePosStore = defineStore('pos', {
 
                 const allOrders = (await db.syncQueue.where('type').equals('order').toArray())
                     .filter(item => isOwnedByCurrentPosUser(item));
-                const pendingOrders = allOrders.filter(o => o.status !== 'error');
-                const orderChunks = chunkArray(pendingOrders, 20);
+                const pendingOrders = allOrders.filter(o => isSyncEligible(o));
+                const orderChunks = chunkArray(pendingOrders, 5);
                 const allCustomers = (await db.syncQueue.where('type').equals('customer').toArray())
                     .filter(item => isOwnedByCurrentPosUser(item));
-                const pendingCustomers = allCustomers.filter(c => c.status !== 'error');
-                const customerChunks = chunkArray(pendingCustomers, 20);
+                const pendingCustomers = allCustomers.filter(c => isSyncEligible(c));
+                const customerChunks = chunkArray(pendingCustomers, 5);
 
                 syncResult.attempted = pendingOrders.length + pendingCustomers.length;
                 if (syncResult.attempted === 0) {
@@ -335,10 +380,7 @@ export const usePosStore = defineStore('pos', {
                             for(let uuid in response.data.failed) {
                                 const item = chunk.find(p => p.data.uuid === uuid);
                                 if (item) {
-                                    await db.syncQueue.update(item.id, { 
-                                        status: 'error', 
-                                        error_message: response.data.failed[uuid] 
-                                    });
+                                    await markPermanentItemFailure(item, response.data.failed[uuid]);
                                 }
                             }
                             syncResult.success = false;
@@ -346,19 +388,18 @@ export const usePosStore = defineStore('pos', {
                             Object.assign(syncResult.failed, response.data.failed);
                         }
                     } catch (error) {
-                        if (error.response && error.response.status === 401) {
+                        const failureStatus = await updateChunkFailure(
+                            chunk,
+                            error,
+                            'The order batch could not be synchronized.'
+                        );
+                        syncResult.success = false;
+                        syncResult.outcome = 'partial_failure';
+                        if (failureStatus === 'reauth_required') {
                             this.needsReAuth = true;
-                            syncResult.success = false;
                             syncResult.reason = 'reauth_required';
                             break;
                         }
-                        for (const item of chunk) {
-                            const newCount = (item.retry_count || 0) + 1;
-                            const newStatus = newCount > 3 ? 'error' : 'pending';
-                            const errMsg = error.response ? `Server Error: ${error.response.status}` : 'Poor or unstable network connection.';
-                            await db.syncQueue.update(item.id, { retry_count: newCount, status: newStatus, error_message: errMsg });
-                        }
-                        syncResult.success = false;
                     }
                 }
 
@@ -391,28 +432,23 @@ export const usePosStore = defineStore('pos', {
                             for(let uuid in response.data.failed) {
                                 const item = chunk.find(p => p.data.uuid === uuid);
                                 if (item) {
-                                    await db.syncQueue.update(item.id, { 
-                                        status: 'error', 
-                                        error_message: response.data.failed[uuid] 
-                                    });
+                                    await markPermanentItemFailure(item, response.data.failed[uuid]);
                                 }
                             }
                         }
                     } catch (error) {
-                        if (error.response && error.response.status === 401) {
+                        const failureStatus = await updateChunkFailure(
+                            chunk,
+                            error,
+                            'The customer batch could not be synchronized.'
+                        );
+                        syncResult.success = false;
+                        syncResult.outcome = 'partial_failure';
+                        if (failureStatus === 'reauth_required') {
                             this.needsReAuth = true;
-                            syncResult.success = false;
                             syncResult.reason = 'reauth_required';
                             break;
                         }
-                        for (const item of chunk) {
-                            const newCount = (item.retry_count || 0) + 1;
-                            const newStatus = newCount > 3 ? 'error' : 'pending';
-                            const errMsg = error.response ? `Server Error: ${error.response.status}` : 'Poor or unstable network connection.';
-                            await db.syncQueue.update(item.id, { retry_count: newCount, status: newStatus, error_message: errMsg });
-                        }
-                        syncResult.success = false;
-                        syncResult.outcome = 'partial_failure';
                     }
                 }
 

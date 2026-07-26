@@ -60,7 +60,8 @@
                                     </td>
                                     <td>
                                         <span v-if="item.status === 'pending'" class="badge bg-warning-50 text-warning-600 radius-8 px-12 py-4">Pending</span>
-                                        <span v-else-if="item.status === 'error'" class="badge bg-danger-50 text-danger-600 radius-8 px-12 py-4">Needs attention</span>
+                                        <span v-else-if="item.status === 'permanent_failure'" class="badge bg-danger-50 text-danger-600 radius-8 px-12 py-4">Needs attention</span>
+                                        <span v-else-if="item.status === 'retryable_failure'" class="badge bg-warning-50 text-warning-600 radius-8 px-12 py-4">Retry scheduled</span>
                                         <span v-else class="badge bg-secondary-100 text-secondary-600 radius-8 px-12 py-4">{{ item.status || 'Unknown' }}</span>
                                         <div v-if="item.error_message" class="tw-text-xs tw-text-red-500 tw-mt-1 tw-max-w-[200px]">
                                             {{ item.error_message }}
@@ -71,8 +72,11 @@
                                     </td>
                                     <td class="text-end">
                                         <div class="d-flex justify-content-end gap-2">
-                                            <button v-if="item.type === 'order' && item.status === 'error'" @click="editAndFix(item)" class="btn btn-sm btn-outline-primary radius-8 d-inline-flex align-items-center justify-content-center p-2 tw-gap-1" title="Edit & Fix Order">
+                                            <button v-if="item.type === 'order' && item.status === 'permanent_failure'" @click="editAndFix(item)" class="btn btn-sm btn-outline-primary radius-8 d-inline-flex align-items-center justify-content-center p-2 tw-gap-1" title="Edit & Fix Order">
                                                 <iconify-icon icon="mdi:pencil-outline"></iconify-icon> Fix
+                                            </button>
+                                            <button v-if="item.status === 'retryable_failure'" @click="retryItem(item)" class="btn btn-sm btn-outline-warning radius-8 d-inline-flex align-items-center justify-content-center p-2" title="Retry Sync">
+                                                <iconify-icon icon="mdi:refresh"></iconify-icon>
                                             </button>
                                             <button @click="deleteItem(item.id)" class="btn btn-sm btn-outline-danger radius-8 d-inline-flex align-items-center justify-content-center p-2" title="Delete Offline Data">
                                                 <iconify-icon icon="mdi:trash-can-outline"></iconify-icon>
@@ -119,7 +123,8 @@ const fetchQueue = async () => {
                                 user_id: userId,
                                 uuid: req.uuid,
                                 type: 'order',
-                                status: 'error',
+                                status: 'permanent_failure',
+                                failure_category: 'rejected',
                                 error_message: `Manager Rejected: ${req.rejection_reason || 'No reason provided'}`,
                                 retry_count: 0,
                                 timestamp: new Date(req.updated_at).getTime(),
@@ -136,7 +141,7 @@ const fetchQueue = async () => {
         
         queueItems.value = (await db.syncQueue.orderBy('timestamp').reverse().toArray())
             .filter(isOwnedByCurrentPosUser);
-        attentionCount.value = queueItems.value.filter(item => item.status === 'error').length;
+        attentionCount.value = queueItems.value.filter(item => item.status === 'permanent_failure').length;
     } catch (e) {
         console.error(e);
         toast.error("Failed to load sync queue.");
@@ -164,6 +169,18 @@ const forceSync = async () => {
     } else {
         toast.error('Synchronization failed for some items. Review the details below.');
     }
+    await fetchQueue();
+};
+
+const retryItem = async (item) => {
+    if (!isOwnedByCurrentPosUser(item) || item.status !== 'retryable_failure') return;
+    await db.syncQueue.update(item.id, {
+        status: 'pending',
+        next_retry_at: 0,
+        error_message: '',
+        failure_category: null
+    });
+    toast.info('Item scheduled for retry.');
     await fetchQueue();
 };
 
