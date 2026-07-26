@@ -285,6 +285,96 @@ test.describe('POS route smoke coverage', () => {
         }, uuid)).toBe(false);
     });
 
+    test('synchronizes six queued orders in batches of five and isolates item failures', async ({ page }) => {
+        requireCredentials();
+        await login(page);
+        await page.goto('/admin/pos');
+        await expect(page.locator('#pos-app')).toBeVisible();
+
+        const queuedUuids = await page.evaluate(async () => {
+            const userId = String(window.PosConfig.user.id);
+            const uuids = Array.from({ length: 6 }, (_, index) => `e2e-batch-${Date.now()}-${index}`);
+            const request = indexedDB.open('TidyPOSDatabase');
+            await new Promise((resolve, reject) => {
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    const database = request.result;
+                    const transaction = database.transaction('syncQueue', 'readwrite');
+                    const store = transaction.objectStore('syncQueue');
+                    for (const uuid of uuids) {
+                        store.add({
+                            user_id: userId,
+                            uuid,
+                            type: 'order',
+                            data: { uuid, customer_name: 'E2E Batch Customer', total: 10 },
+                            timestamp: Date.now(),
+                            status: 'pending',
+                            retry_count: 0
+                        });
+                    }
+                    transaction.oncomplete = resolve;
+                    transaction.onerror = () => reject(transaction.error);
+                };
+            });
+            return uuids;
+        });
+
+        const requests = [];
+        await page.route('**/api/pos/sync-orders', async route => {
+            const payload = route.request().postDataJSON();
+            requests.push(payload.orders);
+            const failedUuid = queuedUuids[1];
+            const syncedOrders = {};
+            const failed = {};
+            for (const order of payload.orders) {
+                if (order.uuid === failedUuid) {
+                    failed[order.uuid] = 'E2E validation failure';
+                } else {
+                    syncedOrders[order.uuid] = `server-${order.uuid}`;
+                }
+            }
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ synced_orders: syncedOrders, requires_approval: {}, failed })
+            });
+        });
+
+        await page.reload();
+        await expect.poll(() => requests.length).toBe(2);
+
+        expect(requests.map(batch => batch.length)).toEqual([5, 1]);
+        expect(requests.flat().map(order => order.uuid)).toEqual(queuedUuids);
+
+        const queueState = await page.evaluate(async uuids => {
+            const request = indexedDB.open('TidyPOSDatabase');
+            return await new Promise((resolve, reject) => {
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    const database = request.result;
+                    const transaction = database.transaction('syncQueue', 'readonly');
+                    const store = transaction.objectStore('syncQueue');
+                    const result = [];
+                    const cursorRequest = store.openCursor();
+                    cursorRequest.onsuccess = () => {
+                        const cursor = cursorRequest.result;
+                        if (!cursor) return resolve(result);
+                        if (uuids.includes(cursor.value.data?.uuid)) {
+                            result.push({ uuid: cursor.value.data.uuid, status: cursor.value.status, error: cursor.value.error_message });
+                        }
+                        cursor.continue();
+                    };
+                };
+            });
+        }, queuedUuids);
+
+        expect(queueState).toEqual([{
+            uuid: queuedUuids[1],
+            status: 'permanent_failure',
+            error: 'E2E validation failure'
+        }]);
+    });
+
     test('expired POS token preserves queue and resumes after re-authentication', async ({ page }) => {
         requireCredentials();
         await login(page);
