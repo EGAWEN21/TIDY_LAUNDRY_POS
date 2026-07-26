@@ -141,8 +141,12 @@ export const usePosStore = defineStore('pos', {
                     const actionableQueueCount = await db.syncQueue
                         .filter(item => isOwnedByCurrentPosUser(item) && isSyncEligible(item))
                         .count();
-                    if (this.cart.length > 0 || actionableQueueCount > 0) {
-                        return; // Prevent shifting the master catalog while active offline work is present
+                    if (this.cart.length > 0) {
+                        return; // Do not sync or refresh catalog while active cart work is present
+                    }
+                    if (actionableQueueCount > 0) {
+                        await this.syncOfflineData();
+                        return; // Process due queue work before refreshing the catalog
                     }
 
                     try {
