@@ -208,16 +208,57 @@ test.describe('POS route smoke coverage', () => {
                         if (!cursor) return resolve(null);
                         const value = cursor.value;
                         resolve(value.data?.uuid === orderUuid
-                            ? { status: value.status, retryCount: value.retry_count, error: value.error_message }
+                            ? { status: value.status, retryCount: value.retry_count, error: value.error_message, nextRetryAt: value.next_retry_at }
                             : null);
                     };
                 };
             });
         }, uuid)).toEqual({
-            status: 'pending',
+            status: 'retryable_failure',
             retryCount: 1,
-            error: 'Server Error: 503',
+            error: 'E2E forced temporary failure',
         });
+
+        const retryMetadata = await page.evaluate(async orderUuid => {
+            const request = indexedDB.open('TidyPOSDatabase');
+            return await new Promise((resolve, reject) => {
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    const database = request.result;
+                    const transaction = database.transaction('syncQueue', 'readonly');
+                    const cursorRequest = transaction.objectStore('syncQueue').openCursor();
+                    cursorRequest.onsuccess = () => {
+                        const cursor = cursorRequest.result;
+                        if (!cursor) return resolve(null);
+                        resolve(cursor.value.data?.uuid === orderUuid ? cursor.value.next_retry_at : null);
+                    };
+                };
+            });
+        }, uuid);
+        expect(retryMetadata).toBeGreaterThan(Date.now());
+
+        // Release the deliberate backoff so this test can verify recovery without waiting 30 seconds.
+        await page.evaluate(async orderUuid => {
+            const request = indexedDB.open('TidyPOSDatabase');
+            await new Promise((resolve, reject) => {
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    const database = request.result;
+                    const transaction = database.transaction('syncQueue', 'readwrite');
+                    const store = transaction.objectStore('syncQueue');
+                    const cursorRequest = store.openCursor();
+                    cursorRequest.onsuccess = () => {
+                        const cursor = cursorRequest.result;
+                        if (!cursor) return resolve();
+                        if (cursor.value.data?.uuid === orderUuid) {
+                            cursor.value.next_retry_at = 0;
+                            store.put(cursor.value);
+                        }
+                        resolve();
+                    };
+                };
+            });
+        }, uuid);
 
         const recoveredResponse = page.waitForResponse(response =>
             response.url().includes('/api/pos/sync-orders') && response.ok()
