@@ -5,7 +5,7 @@
     "keywords": ["laravel", "framework"],
     "license": "MIT",
     "require": {
-        "php": "^8.2.0",
+        "php": "^8.4.1",
         "barryvdh/laravel-dompdf": "^3.1.2",
         "intervention/image-laravel": "^4.1.1",
         "jackiedo/dotenv-editor": "^1.1",
