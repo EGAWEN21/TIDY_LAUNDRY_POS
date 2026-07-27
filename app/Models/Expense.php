@@ -17,6 +17,6 @@ class Expense extends Model
        /* user relation */
        public function user()
        {
-           return $this->belongsTo(\App\Models\User::class, 'created_by', 'id');
+           return $this->belongsTo(\App\Models\User::class, 'created_by', 'id')->withTrashed();
        }
 }

@@ -21,6 +21,10 @@ class AuthorizePosAccess
             abort(403, 'You are not authorized to access the POS.');
         }
 
+        if ($user->user_type != 1 && ! $user->is_active) {
+            abort(403, 'Your account is deactivated.');
+        }
+
         if ($user->currentAccessToken() && ! $user->tokenCan('pos:access')) {
             abort(403, 'This token is not authorized to access the POS.');
         }

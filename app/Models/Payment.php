@@ -27,7 +27,7 @@ class Payment extends Model
      /* customer relation */
      public function customer()
      {
-         return $this->belongsTo(\App\Models\Customer::class, 'customer_id', 'id');
+         return $this->belongsTo(\App\Models\Customer::class, 'customer_id', 'id')->withTrashed();
      }
       /* order relation */
       public function order()

@@ -3,119 +3,171 @@
         <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-3">
             <h5 class="card-title mb-0">
                 {{ $lang->data['recycle_bin'] ?? 'Recycle Bin' }} 
-                <span class="text-sm text-secondary-light fw-normal">({{ count($orders) }} orders)</span>
+                <span class="text-sm text-secondary-light fw-normal">
+                    @if($currentTab == 'orders') ({{ count($orders ?? []) }} orders)
+                    @elseif($currentTab == 'customers') ({{ count($customers ?? []) }} customers)
+                    @elseif($currentTab == 'staff') ({{ count($staff ?? []) }} staff)
+                    @endif
+                </span>
             </h5>
             <div class="d-flex align-items-center gap-2 flex-wrap">
-                @if(count($selectedOrders) > 0)
-                    @can('order_restore')
-                    <button type="button" class="btn btn-success-600 btn-sm radius-8 d-flex align-items-center gap-1" wire:click="bulkRestore" wire:confirm="Are you sure you want to restore the selected orders?">
+                @if(count($selectedItems) > 0)
+                    @if($currentTab == 'orders' && Gate::allows('order_restore') || $currentTab == 'customers' && Gate::allows('customer_restore') || $currentTab == 'staff' && Gate::allows('user_restore'))
+                    <button type="button" class="btn btn-success-600 btn-sm radius-8 d-flex align-items-center gap-1" wire:click="bulkRestore" wire:confirm="Are you sure you want to restore the selected items?">
                         <iconify-icon icon="mdi:restore"></iconify-icon>
                         {{ $lang->data['restore_selected'] ?? 'Restore Selected' }}
                     </button>
-                    @endcan
-                    @can('order_force_delete')
-                    <button type="button" class="btn btn-danger-600 btn-sm radius-8 d-flex align-items-center gap-1" wire:click="bulkForceDelete" wire:confirm="Are you sure you want to permanently delete the selected orders? This action cannot be undone.">
+                    @endif
+                    @if($currentTab == 'orders' && Gate::allows('order_force_delete') || $currentTab == 'customers' && Gate::allows('customer_force_delete') || $currentTab == 'staff' && Gate::allows('user_force_delete'))
+                    <button type="button" class="btn btn-danger-600 btn-sm radius-8 d-flex align-items-center gap-1" wire:click="bulkForceDelete" wire:confirm="Are you sure you want to permanently delete the selected items? This action cannot be undone.">
                         <iconify-icon icon="mdi:delete-forever"></iconify-icon>
                         {{ $lang->data['delete_selected'] ?? 'Delete Selected' }}
                     </button>
-                    @endcan
+                    @endif
                 @endif
-                @can('order_force_delete')
-                    <button type="button" class="btn btn-outline-danger btn-sm radius-8 d-flex align-items-center gap-1" wire:click="emptyRecycleBin" wire:confirm="Are you sure you want to permanently empty the entire recycle bin? This action cannot be undone.">
+                @if($currentTab == 'orders' && Gate::allows('order_force_delete') || $currentTab == 'customers' && Gate::allows('customer_force_delete') || $currentTab == 'staff' && Gate::allows('user_force_delete'))
+                    <button type="button" class="btn btn-outline-danger btn-sm radius-8 d-flex align-items-center gap-1" wire:click="emptyRecycleBin" wire:confirm="Are you sure you want to permanently empty the entire recycle bin for this section? This action cannot be undone.">
                         <iconify-icon icon="mdi:delete-sweep"></iconify-icon>
                         {{ $lang->data['empty_recycle_bin'] ?? 'Empty Recycle Bin' }}
                     </button>
-                @endcan
+                @endif
             </div>
         </div>
 
         <div class="card-body p-0">
-            <div class="tw-py-2 tw-px-3 bg-base d-flex align-items-center flex-wrap gap-3 justify-content-between border-bottom">
+            <!-- Tabs -->
+            <ul class="nav nav-tabs px-3 pt-3 border-bottom-0">
+                @if(Gate::allows('order_restore') || Gate::allows('order_force_delete'))
+                <li class="nav-item">
+                    <a class="nav-link @if($currentTab == 'orders') active fw-bold @endif" href="javascript:void(0)" wire:click="switchTab('orders')">Orders</a>
+                </li>
+                @endif
+                @if(Gate::allows('customer_restore') || Gate::allows('customer_force_delete'))
+                <li class="nav-item">
+                    <a class="nav-link @if($currentTab == 'customers') active fw-bold @endif" href="javascript:void(0)" wire:click="switchTab('customers')">Customers</a>
+                </li>
+                @endif
+                @if(Gate::allows('user_restore') || Gate::allows('user_force_delete'))
+                <li class="nav-item">
+                    <a class="nav-link @if($currentTab == 'staff') active fw-bold @endif" href="javascript:void(0)" wire:click="switchTab('staff')">Staff</a>
+                </li>
+                @endif
+            </ul>
+
+            <div class="tw-py-2 tw-px-3 bg-base d-flex align-items-center flex-wrap gap-3 justify-content-between border-bottom border-top">
                 <form class="navbar-search w-100 max-w-sm">
-                    <input type="text" class="bg-base tw-px-3 tw-py-1.5 w-full radius-8 border" placeholder="{{ $lang->data['search_deleted_orders'] ?? 'Search deleted orders...' }}" wire:model.live.debounce.300ms="search_query">
+                    <input type="text" class="bg-base tw-px-3 tw-py-1.5 w-full radius-8 border" placeholder="{{ $lang->data['search_deleted'] ?? 'Search deleted items...' }}" wire:model.live.debounce.300ms="search_query">
                     <iconify-icon icon="ion:search-outline" class="icon"></iconify-icon>
                 </form>
             </div>
 
             <div class="alert alert-warning mb-0 radius-0 border-0 border-bottom d-flex align-items-center gap-2 py-2 px-3">
                 <iconify-icon icon="lucide:info" class="text-warning-600"></iconify-icon>
-                <span class="text-sm text-warning-800">{{ $lang->data['recycle_bin_notice'] ?? 'Deleted orders are automatically purged after 90 days. Restoring an order also restores its details, addons, and payments.' }}</span>
+                <span class="text-sm text-warning-800">{{ $lang->data['recycle_bin_notice'] ?? 'Deleted items are automatically purged after 90 days. Restoring an item retrieves its original data and relationships.' }}</span>
             </div>
 
             <div class="table-responsive">
                 <table class="table bordered-table sm-table mb-0">
                     <thead class="bg-neutral-50">
                         <tr>
-                            <th scope="col" class="text-center w-40-px">
-                                <!-- Could add a select-all checkbox here if desired -->
-                            </th>
-                            <th scope="col">{{ $lang->data['order_info'] ?? 'Order Info' }}</th>
-                            <th scope="col">{{ $lang->data['customer'] ?? 'Customer' }}</th>
-                            <th scope="col">{{ $lang->data['order_amount'] ?? 'Order Amount' }}</th>
-                            <th scope="col">{{ $lang->data['status'] ?? 'Status' }}</th>
+                            <th scope="col" class="text-center w-40-px"></th>
+                            @if($currentTab == 'orders')
+                                <th scope="col">{{ $lang->data['order_info'] ?? 'Order Info' }}</th>
+                                <th scope="col">{{ $lang->data['customer'] ?? 'Customer' }}</th>
+                                <th scope="col">{{ $lang->data['order_amount'] ?? 'Order Amount' }}</th>
+                                <th scope="col">{{ $lang->data['status'] ?? 'Status' }}</th>
+                            @elseif($currentTab == 'customers')
+                                <th scope="col">Customer Info</th>
+                                <th scope="col">Contact</th>
+                                <th scope="col">Status</th>
+                            @elseif($currentTab == 'staff')
+                                <th scope="col">Staff Info</th>
+                                <th scope="col">Contact</th>
+                                <th scope="col">Role</th>
+                            @endif
                             <th scope="col">{{ $lang->data['deleted_info'] ?? 'Deleted Info' }}</th>
                             <th scope="col" class="text-center">{{ $lang->data['action'] ?? 'Action' }}</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($orders as $item)
+                        @php
+                            $items = $currentTab == 'orders' ? $orders : ($currentTab == 'customers' ? $customers : $staff);
+                        @endphp
+                        @forelse($items ?? [] as $item)
                         <tr>
                             <td class="text-center">
-                                <input class="form-check-input" type="checkbox" wire:model.live="selectedOrders" value="{{ $item->id }}">
+                                <input class="form-check-input" type="checkbox" wire:model.live="selectedItems" value="{{ $item->id }}">
                             </td>
-                            <td>
-                                <div class="tw-flex tw-flex-col">
-                                    <div class="text-neutral-600">
-                                        {{ $lang->data['order_id'] ?? 'Order ID' }} : <span class="tw-font-medium text-primary-light">{{ $item->order_number }}</span>
+                            
+                            @if($currentTab == 'orders')
+                                <td>
+                                    <div class="tw-flex tw-flex-col">
+                                        <div class="text-neutral-600">
+                                            {{ $lang->data['order_id'] ?? 'Order ID' }} : <span class="tw-font-medium text-primary-light">{{ $item->order_number }}</span>
+                                        </div>
+                                        <div class="text-neutral-600">
+                                            {{ $lang->data['order_date'] ?? 'Order Date' }} : <span class="tw-font-medium text-primary-light">{{ \Carbon\Carbon::parse($item->order_date)->format('d/m/y') }}</span>
+                                        </div>
                                     </div>
-                                    <div class="text-neutral-600">
-                                        {{ $lang->data['order_date'] ?? 'Order Date' }} : <span class="tw-font-medium text-primary-light">{{ \Carbon\Carbon::parse($item->order_date)->format('d/m/y') }}</span>
+                                </td>
+                                <td>
+                                    <p class="mb-0 text-primary-light fw-medium">{{ $item->customer_name ?? ($lang->data['walk_in_customer'] ?? 'Walk In Customer') }}</p>
+                                    <p class="mb-0 text-secondary-light text-xs">{{$item->phone_number ? getCountryCode() : ''}}{{$item->phone_number ? (int)$item->phone_number : ''}}</p>
+                                </td>
+                                <td>
+                                    <div class="tw-flex tw-flex-col">
+                                        <div class="text-neutral-600">
+                                            {{ $lang->data['total'] ?? 'Total' }} : <span class="tw-font-medium text-primary-light">{{ getFormattedCurrency($item->total) }}</span>
+                                        </div>
+                                        <div class="text-neutral-600">
+                                            {{ $lang->data['paid'] ?? 'Paid' }} : <span class="tw-font-medium text-primary-light">{{ getFormattedCurrency($item->paid_amount) }}</span>
+                                        </div>
                                     </div>
-                                </div>
-                            </td>
-                            <td>
-                                <p class="mb-0 text-primary-light fw-medium">{{ $item->customer_name ?? ($lang->data['walk_in_customer'] ?? 'Walk In Customer') }}</p>
-                                <p class="mb-0 text-secondary-light text-xs">{{$item->phone_number ? getCountryCode() : ''}}{{$item->phone_number ? (int)$item->phone_number : ''}}</p>
-                            </td>
-                            <td>
-                                <div class="tw-flex tw-flex-col">
-                                    <div class="text-neutral-600">
-                                        {{ $lang->data['total'] ?? 'Total' }} : <span class="tw-font-medium text-primary-light">{{ getFormattedCurrency($item->total) }}</span>
-                                    </div>
-                                    <div class="text-neutral-600">
-                                        {{ $lang->data['paid'] ?? 'Paid' }} : <span class="tw-font-medium text-primary-light">{{ getFormattedCurrency($item->paid_amount) }}</span>
-                                    </div>
-                                </div>
-                            </td>
-                            <td>
-                                @if ($item->status == 0)
-                                <span class="badge fw-semibold text-neutral-600 bg-neutral-200 px-20 py-9 radius-4 text-white">
-                                    {{ $lang->data['pending'] ?? 'Pending' }}
-                                </span>
-                                @elseif($item->status == 1)
-                                <span class="badge fw-semibold text-warning-600 bg-warning-100 px-20 py-9 radius-4 text-white">
-                                    {{ $lang->data['processing'] ?? 'Processing' }}
-                                </span>
-                                @elseif($item->status == 2)
-                                <span class="badge fw-semibold text-info-600 bg-info-100 px-20 py-9 radius-4 text-white">
-                                    {{ $lang->data['ready_to_deliver'] ?? 'Ready To Deliver' }}
-                                </span>
-                                @elseif($item->status == 3)
-                                <span class="badge fw-semibold text-success-600 bg-success-100 px-20 py-9 radius-4 text-white">
-                                    {{ $lang->data['delivered'] ?? 'Delivered' }}
-                                </span>
-                                @elseif($item->status == 4)
-                                <span class="badge fw-semibold text-danger-600 bg-danger-100 px-20 py-9 radius-4 text-white">
-                                    {{ $lang->data['returned'] ?? 'Returned' }}
-                                </span>
-                                @endif
-                            </td>
+                                </td>
+                                <td>
+                                    @if ($item->status == 0)
+                                    <span class="badge fw-semibold text-neutral-600 bg-neutral-200 px-20 py-9 radius-4 text-white">{{ $lang->data['pending'] ?? 'Pending' }}</span>
+                                    @elseif($item->status == 1)
+                                    <span class="badge fw-semibold text-warning-600 bg-warning-100 px-20 py-9 radius-4 text-white">{{ $lang->data['processing'] ?? 'Processing' }}</span>
+                                    @elseif($item->status == 2)
+                                    <span class="badge fw-semibold text-info-600 bg-info-100 px-20 py-9 radius-4 text-white">{{ $lang->data['ready_to_deliver'] ?? 'Ready To Deliver' }}</span>
+                                    @elseif($item->status == 3)
+                                    <span class="badge fw-semibold text-success-600 bg-success-100 px-20 py-9 radius-4 text-white">{{ $lang->data['delivered'] ?? 'Delivered' }}</span>
+                                    @elseif($item->status == 4)
+                                    <span class="badge fw-semibold text-danger-600 bg-danger-100 px-20 py-9 radius-4 text-white">{{ $lang->data['returned'] ?? 'Returned' }}</span>
+                                    @endif
+                                </td>
+                            @elseif($currentTab == 'customers')
+                                <td>
+                                    <p class="mb-0 text-primary-light fw-medium">{{ $item->name }}</p>
+                                </td>
+                                <td>
+                                    <p class="mb-0 text-secondary-light text-xs">{{ $item->phone }}</p>
+                                    <p class="mb-0 text-secondary-light text-xs">{{ $item->email }}</p>
+                                </td>
+                                <td>
+                                    @if ($item->is_active == 1)
+                                    <span class="badge bg-success-100 text-success-600 px-2 py-1 radius-4">Active</span>
+                                    @else
+                                    <span class="badge bg-danger-100 text-danger-600 px-2 py-1 radius-4">Inactive</span>
+                                    @endif
+                                </td>
+                            @elseif($currentTab == 'staff')
+                                <td>
+                                    <p class="mb-0 text-primary-light fw-medium">{{ $item->name }}</p>
+                                </td>
+                                <td>
+                                    <p class="mb-0 text-secondary-light text-xs">{{ $item->phone }}</p>
+                                    <p class="mb-0 text-secondary-light text-xs">{{ $item->email }}</p>
+                                </td>
+                                <td>
+                                    <span class="badge bg-neutral-200 text-neutral-600 px-2 py-1 radius-4">{{ $item->role ? $item->role->name : 'N/A' }}</span>
+                                </td>
+                            @endif
+
                             <td>
                                 <div class="tw-flex tw-flex-col">
                                     <div class="text-neutral-600 text-xs mb-1">
-                                        {{ $lang->data['deleted_by'] ?? 'Deleted By' }}: <span class="tw-font-medium text-primary-light">{{ $item->deletedBy ? $item->deletedBy->name : 'System' }}</span>
-                                    </div>
-                                    <div class="text-neutral-600 text-xs">
                                         {{ $lang->data['deleted_on'] ?? 'Deleted On' }}: <span class="tw-font-medium text-primary-light">{{ \Carbon\Carbon::parse($item->deleted_at)->format('d/m/Y') }}</span>
                                     </div>
                                     <div class="mt-1">
@@ -131,16 +183,16 @@
                             </td>
                             <td class="text-center">
                                 <div class="d-flex align-items-center gap-10 justify-content-center">
-                                    @can('order_restore')
-                                    <button type="button" wire:click.prevent="restoreOrder({{ $item->id }})" class="bg-success-focus bg-hover-success-200 text-success-600 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle" title="Restore Order"> 
+                                    @if($currentTab == 'orders' && Gate::allows('order_restore') || $currentTab == 'customers' && Gate::allows('customer_restore') || $currentTab == 'staff' && Gate::allows('user_restore'))
+                                    <button type="button" wire:click.prevent="restoreItem({{ $item->id }})" class="bg-success-focus bg-hover-success-200 text-success-600 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle" title="Restore"> 
                                         <iconify-icon icon="mdi:restore" class="menu-icon"></iconify-icon>
                                     </button>
-                                    @endcan
-                                    @can('order_force_delete')
-                                    <button type="button" wire:click.prevent="forceDeleteOrder({{ $item->id }})" wire:confirm="Are you sure you want to permanently delete this order? This action cannot be undone." class="remove-item-button bg-danger-focus bg-hover-danger-200 text-danger-600 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle" title="Permanently Delete"> 
+                                    @endif
+                                    @if($currentTab == 'orders' && Gate::allows('order_force_delete') || $currentTab == 'customers' && Gate::allows('customer_force_delete') || $currentTab == 'staff' && Gate::allows('user_force_delete'))
+                                    <button type="button" wire:click.prevent="forceDeleteItem({{ $item->id }})" wire:confirm="Are you sure you want to permanently delete this item? This action cannot be undone." class="remove-item-button bg-danger-focus bg-hover-danger-200 text-danger-600 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle" title="Permanently Delete"> 
                                         <iconify-icon icon="mdi:delete-forever" class="menu-icon"></iconify-icon>
                                     </button>
-                                    @endcan
+                                    @endif
                                 </div>
                             </td>
                         </tr>

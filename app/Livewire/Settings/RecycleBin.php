@@ -7,6 +7,8 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\OrderDetail;
 use App\Models\OrderAddonDetail;
+use App\Models\Customer;
+use App\Models\User;
 use App\Models\Translation;
 use Livewire\Attributes\Title;
 use Illuminate\Support\Facades\Gate;
@@ -14,10 +16,11 @@ use Illuminate\Support\Facades\DB;
 
 class RecycleBin extends Component
 {
-    public $orders;
+    public $orders, $customers, $staff;
     public $search_query;
-    public $selectedOrders = [];
+    public $selectedItems = [];
     public $lang;
+    public $currentTab = 'orders';
 
     #[Title('Recycle Bin')]
     public function render()
@@ -27,8 +30,20 @@ class RecycleBin extends Component
 
     public function mount()
     {
-        if(!Gate::allows('order_restore')){
+        $canOrders = Gate::allows('order_restore') || Gate::allows('order_force_delete');
+        $canCustomers = Gate::allows('customer_restore') || Gate::allows('customer_force_delete');
+        $canStaff = Gate::allows('user_restore') || Gate::allows('user_force_delete');
+
+        if (!$canOrders && !$canCustomers && !$canStaff) {
             abort(404);
+        }
+
+        if ($canOrders) {
+            $this->currentTab = 'orders';
+        } elseif ($canCustomers) {
+            $this->currentTab = 'customers';
+        } else {
+            $this->currentTab = 'staff';
         }
 
         if(session()->has('selected_language')) {
@@ -37,7 +52,26 @@ class RecycleBin extends Component
             $this->lang = Translation::where('default', 1)->first();
         }
 
-        $this->loadTrashedOrders();
+        $this->loadData();
+    }
+
+    public function switchTab($tab)
+    {
+        $this->currentTab = $tab;
+        $this->selectedItems = [];
+        $this->search_query = '';
+        $this->loadData();
+    }
+
+    public function loadData()
+    {
+        if ($this->currentTab == 'orders') {
+            $this->loadTrashedOrders();
+        } elseif ($this->currentTab == 'customers') {
+            $this->loadTrashedCustomers();
+        } elseif ($this->currentTab == 'staff') {
+            $this->loadTrashedStaff();
+        }
     }
 
     public function loadTrashedOrders()
@@ -60,123 +94,134 @@ class RecycleBin extends Component
         });
     }
 
+    public function loadTrashedCustomers()
+    {
+        $query = Customer::onlyTrashed()->orderBy('deleted_at', 'DESC');
+        if ($this->search_query) {
+            $query->where('name', 'like', '%' . $this->search_query . '%')
+                  ->orWhere('phone', 'like', '%' . $this->search_query . '%');
+        }
+        $this->customers = $query->get()->map(function($c) {
+            $c->days_remaining = 90 - now()->diffInDays($c->deleted_at);
+            return $c;
+        });
+    }
+
+    public function loadTrashedStaff()
+    {
+        $query = User::onlyTrashed()->with('role')->where('user_type', 2)->orderBy('deleted_at', 'DESC');
+        if ($this->search_query) {
+            $query->where('name', 'like', '%' . $this->search_query . '%')
+                  ->orWhere('email', 'like', '%' . $this->search_query . '%');
+        }
+        $this->staff = $query->get()->map(function($s) {
+            $s->days_remaining = 90 - now()->diffInDays($s->deleted_at);
+            return $s;
+        });
+    }
+
     public function updated($name, $value)
     {
         if ($name == 'search_query') {
-            $this->loadTrashedOrders();
+            $this->loadData();
         }
-    }
-
-    public function restoreOrder($orderId)
-    {
-        if(!Gate::allows('order_restore')){
-            abort(404);
-        }
-
-        DB::transaction(function () use ($orderId) {
-            $order = Order::onlyTrashed()->find($orderId);
-            if ($order) {
-                $order->restore();
-                OrderDetail::onlyTrashed()->where('order_id', $orderId)->restore();
-                OrderAddonDetail::onlyTrashed()->where('order_id', $orderId)->restore();
-                Payment::onlyTrashed()->where('order_id', $orderId)->restore();
-            }
-        });
-
-        $this->loadTrashedOrders();
-        $this->dispatch('alert', ['type' => 'success', 'message' => 'Order restored successfully!']);
     }
 
     public function bulkRestore()
     {
-        if(empty($this->selectedOrders)) return;
+        if(empty($this->selectedItems)) return;
 
-        if(!Gate::allows('order_restore')){
-            $this->dispatch('alert', ['type' => 'error', 'message' => 'You do not have permission to restore orders!']);
-            return;
-        }
-
-        DB::transaction(function () {
-            foreach ($this->selectedOrders as $orderId) {
-                $order = Order::onlyTrashed()->find($orderId);
-                if ($order) {
-                    $order->restore();
-                    OrderDetail::onlyTrashed()->where('order_id', $orderId)->restore();
-                    OrderAddonDetail::onlyTrashed()->where('order_id', $orderId)->restore();
-                    Payment::onlyTrashed()->where('order_id', $orderId)->restore();
+        if ($this->currentTab == 'orders') {
+            if(!Gate::allows('order_restore')){ $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']); return; }
+            DB::transaction(function () {
+                foreach ($this->selectedItems as $id) {
+                    $order = Order::onlyTrashed()->find($id);
+                    if ($order) {
+                        $order->restore();
+                        OrderDetail::onlyTrashed()->where('order_id', $id)->restore();
+                        OrderAddonDetail::onlyTrashed()->where('order_id', $id)->restore();
+                        Payment::onlyTrashed()->where('order_id', $id)->restore();
+                    }
                 }
-            }
-        });
-
-        $this->selectedOrders = [];
-        $this->loadTrashedOrders();
-        $this->dispatch('alert', ['type' => 'success', 'message' => 'Selected orders restored successfully!']);
-    }
-
-    public function forceDeleteOrder($orderId)
-    {
-        if(!Gate::allows('order_force_delete')){
-            abort(404);
+            });
+        } elseif ($this->currentTab == 'customers') {
+            if(!Gate::allows('customer_restore')){ $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']); return; }
+            Customer::onlyTrashed()->whereIn('id', $this->selectedItems)->restore();
+        } elseif ($this->currentTab == 'staff') {
+            if(!Gate::allows('user_restore')){ $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']); return; }
+            User::onlyTrashed()->whereIn('id', $this->selectedItems)->restore();
         }
 
-        DB::transaction(function () use ($orderId) {
-            $order = Order::onlyTrashed()->find($orderId);
-            if ($order) {
-                OrderDetail::onlyTrashed()->where('order_id', $orderId)->forceDelete();
-                OrderAddonDetail::onlyTrashed()->where('order_id', $orderId)->forceDelete();
-                Payment::onlyTrashed()->where('order_id', $orderId)->forceDelete();
-                $order->forceDelete();
-            }
-        });
-
-        $this->loadTrashedOrders();
-        $this->dispatch('alert', ['type' => 'success', 'message' => 'Order permanently deleted!']);
+        $this->selectedItems = [];
+        $this->loadData();
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Selected items restored successfully!']);
     }
 
     public function bulkForceDelete()
     {
-        if(empty($this->selectedOrders)) return;
+        if(empty($this->selectedItems)) return;
 
-        if(!Gate::allows('order_force_delete')){
-            $this->dispatch('alert', ['type' => 'error', 'message' => 'You do not have permission to permanently delete orders!']);
-            return;
+        if ($this->currentTab == 'orders') {
+            if(!Gate::allows('order_force_delete')){ $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']); return; }
+            DB::transaction(function () {
+                foreach ($this->selectedItems as $id) {
+                    $order = Order::onlyTrashed()->find($id);
+                    if ($order) {
+                        OrderDetail::onlyTrashed()->where('order_id', $id)->forceDelete();
+                        OrderAddonDetail::onlyTrashed()->where('order_id', $id)->forceDelete();
+                        Payment::onlyTrashed()->where('order_id', $id)->forceDelete();
+                        $order->forceDelete();
+                    }
+                }
+            });
+        } elseif ($this->currentTab == 'customers') {
+            if(!Gate::allows('customer_force_delete')){ $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']); return; }
+            Customer::onlyTrashed()->whereIn('id', $this->selectedItems)->forceDelete();
+        } elseif ($this->currentTab == 'staff') {
+            if(!Gate::allows('user_force_delete')){ $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']); return; }
+            User::onlyTrashed()->whereIn('id', $this->selectedItems)->forceDelete();
         }
 
-        DB::transaction(function () {
-            foreach ($this->selectedOrders as $orderId) {
-                $order = Order::onlyTrashed()->find($orderId);
-                if ($order) {
-                    OrderDetail::onlyTrashed()->where('order_id', $orderId)->forceDelete();
-                    OrderAddonDetail::onlyTrashed()->where('order_id', $orderId)->forceDelete();
-                    Payment::onlyTrashed()->where('order_id', $orderId)->forceDelete();
-                    $order->forceDelete();
-                }
-            }
-        });
-
-        $this->selectedOrders = [];
-        $this->loadTrashedOrders();
-        $this->dispatch('alert', ['type' => 'success', 'message' => 'Selected orders permanently deleted!']);
+        $this->selectedItems = [];
+        $this->loadData();
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Selected items permanently deleted!']);
     }
 
     public function emptyRecycleBin()
     {
-        if(!Gate::allows('order_force_delete')){
-            $this->dispatch('alert', ['type' => 'error', 'message' => 'You do not have permission to permanently delete orders!']);
-            return;
+        if ($this->currentTab == 'orders') {
+            if(!Gate::allows('order_force_delete')){ $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']); return; }
+            DB::transaction(function () {
+                $orders = Order::onlyTrashed()->get();
+                foreach ($orders as $order) {
+                    OrderDetail::onlyTrashed()->where('order_id', $order->id)->forceDelete();
+                    OrderAddonDetail::onlyTrashed()->where('order_id', $order->id)->forceDelete();
+                    Payment::onlyTrashed()->where('order_id', $order->id)->forceDelete();
+                    $order->forceDelete();
+                }
+            });
+        } elseif ($this->currentTab == 'customers') {
+            if(!Gate::allows('customer_force_delete')){ $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']); return; }
+            Customer::onlyTrashed()->forceDelete();
+        } elseif ($this->currentTab == 'staff') {
+            if(!Gate::allows('user_force_delete')){ $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']); return; }
+            User::onlyTrashed()->where('user_type', 2)->forceDelete();
         }
 
-        DB::transaction(function () {
-            $orders = Order::onlyTrashed()->get();
-            foreach ($orders as $order) {
-                OrderDetail::onlyTrashed()->where('order_id', $order->id)->forceDelete();
-                OrderAddonDetail::onlyTrashed()->where('order_id', $order->id)->forceDelete();
-                Payment::onlyTrashed()->where('order_id', $order->id)->forceDelete();
-                $order->forceDelete();
-            }
-        });
+        $this->selectedItems = [];
+        $this->loadData();
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Recycle bin emptied for this section!']);
+    }
 
-        $this->loadTrashedOrders();
-        $this->dispatch('alert', ['type' => 'success', 'message' => 'Recycle bin emptied!']);
+    public function restoreItem($id)
+    {
+        $this->selectedItems = [$id];
+        $this->bulkRestore();
+    }
+
+    public function forceDeleteItem($id)
+    {
+        $this->selectedItems = [$id];
+        $this->bulkForceDelete();
     }
 }

@@ -67,7 +67,7 @@ class CustomersList extends Component
         $this->validate([
             'name' => 'required',
             'email' => 'nullable|email',
-            'phone' => 'required',
+            'phone' => 'required|unique:customers,phone,NULL,id,deleted_at,NULL',
         ]);
 
         $dto = new CustomerData(
@@ -119,7 +119,7 @@ class CustomersList extends Component
 
         /* rule validation */
         $this->validate([
-            'phone' => 'required|unique:customers,phone,' . $this->customer->id,
+            'phone' => 'required|unique:customers,phone,' . $this->customer->id . ',id,deleted_at,NULL',
             'email' => 'nullable|email',
         ]);
 
@@ -164,17 +164,13 @@ class CustomersList extends Component
     }
     public function filterdata()
     {
-        if ($this->search || $this->search != '') {
-            $customers = \App\Models\Customer::where('name', 'like', '%' . $this->search . '%')
-                ->latest()
-                ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
-            return $customers;
-        } else {
+        $query = \App\Models\Customer::query();
 
-            $customers = \App\Models\Customer::latest()
-                ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
-            return $customers;
+        if ($this->search && $this->search != '') {
+            $query->where('name', 'like', '%' . $this->search . '%');
         }
+        
+        return $query->latest()->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
     }
     public function reloadCustomers()
     {
@@ -199,27 +195,15 @@ class CustomersList extends Component
     /* delete the service */
     public function delete($id)
     {
-        $order = Order::where('customer_id', $id)->first();
-        $payment = Payment::where('customer_id', $id)->first();
-        if ($order || $payment) {
-            $this->dispatch(
-                'alert',
-                ['type' => 'error',  'message' => 'Cannot Delete Customer!']
-            );
-        } else {
+        $customer = Customer::find($id);
+        if (!$customer) return;
+
         try {
-            Customer::where('id', $id)->delete();
+            $customer->delete();
             $this->reloadCustomers();
-            $this->dispatch(
-                'alert',
-                ['type' => 'success',  'message' => 'Customer has been deleted!']
-            );
+            $this->dispatch('alert', ['type' => 'success', 'message' => 'Customer moved to Recycle Bin!']);
         } catch (\Exception $e) {
-            $this->dispatchBrowserEvent(
-                'alert',
-                ['type' => 'error',  'message' => 'Cannot Delete Customer!']
-            );
+            $this->dispatchBrowserEvent('alert', ['type' => 'error', 'message' => 'Cannot remove customer.']);
         }
-    }
     }
 }

@@ -24,6 +24,15 @@ class ChangeOrderStatusAction
             return ['success' => false, 'message' => 'Order not found.'];
         }
 
+        if ($status == 3) {
+            $paidAmount = $order->payments()->sum('received_amount') ?? 0;
+            if ($paidAmount < $order->total) {
+                if (!Auth::check() || Auth::user()->user_type != 1) {
+                    return ['success' => false, 'message' => 'Cannot mark as Delivered: Order is not fully paid.'];
+                }
+            }
+        }
+
         $order->status = $status;
         $order->save();
         

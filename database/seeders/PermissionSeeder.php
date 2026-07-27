@@ -34,6 +34,8 @@ class PermissionSeeder extends Seeder
             ['name' => 'customer_create','display_name' => 'Customer Create','category' => 'Customer'],
             ['name' => 'customer_edit','display_name' => 'Customer Edit','category' => 'Customer'],
             ['name' => 'customer_delete','display_name' => 'Customer Delete','category' => 'Customer'],
+            ['name' => 'customer_force_delete','display_name' => 'Customer Force Delete','category' => 'Customer'],
+            ['name' => 'customer_restore','display_name' => 'Customer Restore','category' => 'Customer'],
 
             ['name' => 'service_type_list', 'display_name' => 'Service Type List', 'category' => 'Service Type'],
             ['name' => 'service_type_view', 'display_name' => 'Service Type View', 'category' => 'Service Type'],
@@ -71,6 +73,9 @@ class PermissionSeeder extends Seeder
             ['name' => 'payment_create', 'display_name' => 'Payment Create', 'category' => 'Payment'],
             ['name' => 'payment_edit', 'display_name' => 'Payment Edit', 'category' => 'Payment'],
             ['name' => 'payment_delete', 'display_name' => 'Payment Delete', 'category' => 'Payment'],
+            ['name' => 'payment_void', 'display_name' => 'Payment Void', 'category' => 'Payment'],
+            ['name' => 'payment_refund', 'display_name' => 'Payment Refund', 'category' => 'Payment'],
+            ['name' => 'order_void', 'display_name' => 'Order Void', 'category' => 'Order'],
 
             ['name' => 'report_download', 'display_name' => 'Report Download', 'category' => 'Report'],
             ['name' => 'report_print', 'display_name' => 'Report Print', 'category' => 'Report'],
@@ -97,6 +102,8 @@ class PermissionSeeder extends Seeder
             ['name' => 'user_create', 'display_name' => 'User Create', 'category' => 'User'],
             ['name' => 'user_edit', 'display_name' => 'User Edit', 'category' => 'User'],
             ['name' => 'user_delete', 'display_name' => 'User Delete', 'category' => 'User'],
+            ['name' => 'user_force_delete', 'display_name' => 'User Force Delete', 'category' => 'User'],
+            ['name' => 'user_restore', 'display_name' => 'User Restore', 'category' => 'User'],
 
             ['name' => 'role_list', 'display_name' => 'Role List', 'category' => 'Role'],
             ['name' => 'role_view', 'display_name' => 'Role View', 'category' => 'Role'],

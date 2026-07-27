@@ -18,6 +18,7 @@ class StaffList extends Component
     public function render()
     {
         $query = User::where('user_type', 2)->latest();
+
         if ($this->search != '') {
             $query->where('name', 'like', '%' . $this->search . '%');
         }
@@ -62,7 +63,7 @@ class StaffList extends Component
             'name' => 'required',
             'phone' => 'required',
             'user_role' => 'required',
-            'email' => 'required|unique:users|email',
+            'email' => 'required|email|unique:users,email,NULL,id,deleted_at,NULL',
             'password' => 'required'
         ]);
         $viewable_staff_orders = null;
@@ -93,6 +94,11 @@ class StaffList extends Component
     public function toggle($id)
     {
         $staff = User::find($id);
+        if (!$staff) return;
+        if ($staff->user_type == 1 && (!\Illuminate\Support\Facades\Auth::check() || \Illuminate\Support\Facades\Auth::user()->user_type != 1)) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized to modify Super Admin.']);
+            return;
+        }
         if ($staff->is_active == 1) {
             $staff->is_active = 0;
             $staff->tokens()->delete(); // Forcefully revoke API tokens
@@ -112,6 +118,16 @@ class StaffList extends Component
     {
         $this->resetErrorBag();
         $this->staff = User::find($id);
+        if (!$this->staff) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Staff not found.']);
+            $this->dispatch('closemodal');
+            return;
+        }
+        if ($this->staff->user_type == 1 && (!\Illuminate\Support\Facades\Auth::check() || \Illuminate\Support\Facades\Auth::user()->user_type != 1)) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized to edit Super Admin.']);
+            $this->dispatch('closemodal');
+            return;
+        }
         $this->name = $this->staff->name;
         $this->email = $this->staff->email;
         $this->phone = $this->staff->phone;
@@ -126,11 +142,15 @@ class StaffList extends Component
 
     public function update()
     {
+        if (!$this->staff || ($this->staff->user_type == 1 && (!\Illuminate\Support\Facades\Auth::check() || \Illuminate\Support\Facades\Auth::user()->user_type != 1))) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized to modify Super Admin.']);
+            return;
+        }
         $this->validate([
             'name' => 'required',
             'user_role' => 'required',
             'phone' => 'required',
-            'email' => 'required|email|unique:users,email,' . $this->staff->id,
+            'email' => 'required|email|unique:users,email,' . $this->staff->id . ',id,deleted_at,NULL',
         ]);
         $this->staff->name = $this->name;
         $this->staff->email = $this->email;
@@ -164,10 +184,14 @@ class StaffList extends Component
     public function delete($id)
     {
         $staff = User::find($id);
-        $staff->delete();
-        $this->dispatch(
-            'alert',
-            ['type' => 'success',  'message' => 'Staff was deleted!']
-        );
+        if (!$staff) return;
+        if ($staff->user_type == 1) {
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Cannot delete Super Admin.']);
+            return;
+        }
+
+        $staff->tokens()->delete(); // Forcefully revoke API tokens
+        $staff->delete(); // Soft Delete
+        $this->dispatch('alert', ['type' => 'success', 'message' => 'Staff moved to Recycle Bin!']);
     }
 }
