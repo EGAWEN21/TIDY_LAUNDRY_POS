@@ -25,6 +25,7 @@
                 <table class="table bordered-table sm-table mb-0">
                     <thead>
                         <tr>
+                            <th>{{$lang->data['sl'] ?? 'S/N'}}</th>
                             <th>{{$lang->data['customer'] ?? 'Customer'}}</th>
                             <th>{{$lang->data['registered'] ?? 'Registered'}}</th>
                             <th>{{$lang->data['orders'] ?? 'Orders'}}</th>
@@ -39,6 +40,7 @@
                     <tbody>
                         @forelse($this->customersData as $row)
                         <tr>
+                            <td>{{ $loop->iteration }}</td>
                             <td>
                                 <p class="text-sm font-weight-bold tw-text-black mb-0">{{$row['name']}}</p>
                                 <span class="text-xs text-muted">{{$row['phone']}}</span>
@@ -66,7 +68,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="9" class="text-center py-4 text-muted">No customers found for this filter.</td>
+                            <td colspan="10" class="text-center py-4 text-muted">No customers found for this filter.</td>
                         </tr>
                         @endforelse
                     </tbody>
