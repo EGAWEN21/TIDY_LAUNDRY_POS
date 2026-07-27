@@ -218,11 +218,19 @@
                                                                 $item['service'],
                                                             )->first();
                                                         }
-                                                        if (isset($item['service_type'])) {
-                                                            $servicetypeinline = \App\Models\ServiceType::where(
-                                                                'id',
-                                                                $item['service_type'],
-                                                            )->first();
+                                                        $serviceTypeNames = [];
+                                                        if (isset($item['service_types']) && is_array($item['service_types'])) {
+                                                            foreach ($item['service_types'] as $stId) {
+                                                                $st = \App\Models\ServiceType::where('id', $stId)->first();
+                                                                if ($st) {
+                                                                    $serviceTypeNames[] = $st->service_type_name;
+                                                                }
+                                                            }
+                                                        } elseif (isset($item['service_type'])) {
+                                                            $st = \App\Models\ServiceType::where('id', $item['service_type'])->first();
+                                                            if ($st) {
+                                                                $serviceTypeNames[] = $st->service_type_name;
+                                                            }
                                                         }
                                                         $currentcount++;
                                                         $itemtaxtotal = 0;
@@ -251,7 +259,7 @@
                                                     <div class="tw-text-xs tw-font-semibold">
                                                         {{ $serviceinline->service_name }}</div>
                                                     <div class="tw-text-xs tw-font-normal text-primary-600">
-                                                        [{{ $servicetypeinline->service_type_name }}]</div>
+                                                        [{{ implode(', ', $serviceTypeNames) }}]</div>
                                                 </div>
                                             </td>
                                               <td class="tw-py-2 tw-px-1 lg:tw-w-[15%] tw-w-[10rem]  tw-text-center " 

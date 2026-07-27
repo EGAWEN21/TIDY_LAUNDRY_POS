@@ -82,11 +82,20 @@ class PosScreen extends Component
                 foreach ($payload['details'] as $row) {
                     $this->add($this->inputi);
                     $service = Service::where('id', $row['service_id'])->first();
-                    $serviceType = ServiceType::where('service_type_name', $row['service_name'])->first();
                     
                     if ($service) {
-                        $this->selservices[$this->inputi]['service'] = $service->id;
-                        $this->selservices[$this->inputi]['service_type']  = $serviceType?->id;
+                        $typeIds = $row['service_type_ids'] ?? null;
+
+                        if (!empty($typeIds) && is_array($typeIds)) {
+                            // COMPOSITE: Use stored IDs
+                            $this->selservices[$this->inputi]['service'] = $service->id;
+                            $this->selservices[$this->inputi]['service_types'] = $typeIds;
+                        } else {
+                            // LEGACY: Reverse-lookup by name
+                            $serviceType = ServiceType::where('service_type_name', $row['service_name'])->first();
+                            $this->selservices[$this->inputi]['service'] = $service->id;
+                            $this->selservices[$this->inputi]['service_types'] = $serviceType ? [$serviceType->id] : [];
+                        }
                         
                         $this->selling_price[$this->inputi] = $row['service_price'];
                         $this->colors[$this->inputi] = $row['color_code'] ?? '#000000';
@@ -174,26 +183,35 @@ class PosScreen extends Component
     public function editItem($row){
         $this->add($this->inputi);
         $service = Service::whereId($row->service_id)->first();
-        $servicedetails = ServiceDetail::where('service_id', $service->id)->first();
-        $serviceType = ServiceType::where('service_type_name',$row->service_name)->first();
-        $servicedetail = $servicedetails->where('service_type_id', $serviceType?->id)->where('service_id', $service->id)->first();
-        if ($servicedetail) {
+
+        if (!$service) return;
+
+        // Support composite items (service_type_ids) and legacy items (service_name lookup)
+        $typeIds = $row->service_type_ids; // Already cast to array by model
+
+        if (!empty($typeIds) && is_array($typeIds)) {
+            // COMPOSITE: Use stored IDs directly
             $this->selservices[$this->inputi]['service'] = $service->id;
-            $this->selservices[$this->inputi]['service_type']  = $serviceType?->id;
-
-            if ($this->order->tax_type == 2) {
-                $this->selling_price[$this->inputi] =  $servicedetail->service_price;
-                $itemtotallocal =   $servicedetail->service_price  * (100 / (100 + $this->tax_percent ?? 0));
-                $this->prices[$this->inputi] = number_format($itemtotallocal, 2);
-            } else {
-                $this->prices[$this->inputi] =  $servicedetail->service_price;
-                $this->selling_price[$this->inputi] =  $servicedetail->service_price;
-            }
-
-            $this->colors[$this->inputi] = $row->color_code;
-            $this->prices[$this->inputi] = $row->service_price;
-            $this->quantity[$this->inputi] = $row->service_quantity;
+            $this->selservices[$this->inputi]['service_types'] = $typeIds;
+        } else {
+            // LEGACY: Reverse-lookup by service_type_name
+            $serviceType = ServiceType::where('service_type_name', $row->service_name)->first();
+            $this->selservices[$this->inputi]['service'] = $service->id;
+            $this->selservices[$this->inputi]['service_types'] = $serviceType ? [$serviceType->id] : [];
         }
+
+        if ($this->order->tax_type == 2) {
+            $this->selling_price[$this->inputi] = $row->service_price;
+            $itemtotallocal = $row->service_price * (100 / (100 + ($this->tax_percent ?? 0)));
+            $this->prices[$this->inputi] = number_format($itemtotallocal, 2);
+        } else {
+            $this->prices[$this->inputi] = $row->service_price;
+            $this->selling_price[$this->inputi] = $row->service_price;
+        }
+
+        $this->colors[$this->inputi] = $row->color_code;
+        $this->prices[$this->inputi] = $row->service_price;
+        $this->quantity[$this->inputi] = $row->service_quantity;
         $this->calculateTotal();
     }
 
@@ -269,42 +287,54 @@ class PosScreen extends Component
     /* select services*/
     public function addItem()
     {
-
         if ($this->service) {
-            $anyTicked = false;
-            foreach($this->selected_type as $item){
-                if($item == true){
-                    $anyTicked = true;
+            // Collect all checked service type IDs
+            $checkedTypeIds = [];
+            foreach ($this->selected_type as $typeId => $isChecked) {
+                if ($isChecked === true) {
+                    $checkedTypeIds[] = $typeId;
                 }
             }
-            if (count($this->selected_type) > 0 && $anyTicked) {
-                $tax_type = getTaxType();
-                foreach($this->selected_type as $item => $value){
-                    if($value === true){
-                        $this->add($this->inputi);
-                        $this->selservices[$this->inputi]['service'] = $this->service->id;
-                        $this->selservices[$this->inputi]['service_type']  = $item;
-                        $servicedetail = ServiceDetail::where('service_id', $this->service->id)->where('service_type_id', $item)->first();
-                        /* if service details is not empty */
-                        if ($servicedetail) {
-                            if ($tax_type == 2) {
-                                $this->selling_price[$this->inputi] =  $servicedetail->service_price;
-                                $itemtotallocal =   $servicedetail->service_price  * (100 / (100 + $this->tax_percent ?? 0));
-                                $this->prices[$this->inputi] = number_format($itemtotallocal, 2);
-                            } else {
-                                $this->prices[$this->inputi] =  $servicedetail->service_price;
-                                $this->selling_price[$this->inputi] =  $servicedetail->service_price;
-                            }
-                        }
-                    }
-                }
-                $this->service_types = collect();
-                $this->dispatch('closemodal');
-                $this->calculateTotal();
-            } else {
+
+            if (count($checkedTypeIds) === 0) {
                 $this->addError('service_error', 'Select a service type');
                 return 0;
             }
+
+            $tax_type = getTaxType();
+
+            // Calculate composite price by summing ALL selected service type prices
+            $compositePrice = 0;
+            $compositeTypeIds = [];
+
+            foreach ($checkedTypeIds as $typeId) {
+                $servicedetail = ServiceDetail::where('service_id', $this->service->id)
+                    ->where('service_type_id', $typeId)
+                    ->first();
+
+                if ($servicedetail) {
+                    $compositePrice += $servicedetail->service_price;
+                    $compositeTypeIds[] = $typeId;
+                }
+            }
+
+            // Add ONE composite row
+            $this->add($this->inputi);
+            $this->selservices[$this->inputi]['service'] = $this->service->id;
+            $this->selservices[$this->inputi]['service_types'] = $compositeTypeIds;
+
+            if ($tax_type == 2) {
+                $this->selling_price[$this->inputi] = $compositePrice;
+                $itemtotallocal = $compositePrice * (100 / (100 + ($this->tax_percent ?? 0)));
+                $this->prices[$this->inputi] = number_format($itemtotallocal, 2);
+            } else {
+                $this->prices[$this->inputi] = $compositePrice;
+                $this->selling_price[$this->inputi] = $compositePrice;
+            }
+
+            $this->service_types = collect();
+            $this->dispatch('closemodal');
+            $this->calculateTotal();
         }
     }
     /* add the item to array */
@@ -575,10 +605,23 @@ class PosScreen extends Component
         
         foreach ($this->selservices as $key => $value) {
             $service = Service::where('id', $value['service'])->first();
-            $service_type = ServiceType::where('id', $value['service_type'])->first();
+            
+            // Support both composite (service_types array) and legacy (service_type single int)
+            $typeIds = $value['service_types'] ?? (isset($value['service_type']) ? [$value['service_type']] : []);
+            $typeNames = [];
+            foreach ($typeIds as $typeId) {
+                if ($typeId) {
+                    $st = ServiceType::where('id', $typeId)->first();
+                    if ($st) {
+                        $typeNames[] = $st->service_type_name;
+                    }
+                }
+            }
+
             $payload['details'][] = [
                 'service_id' => $service->id,
-                'service_name' => $service_type->service_type_name,
+                'service_name' => implode(', ', $typeNames),
+                'service_type_ids' => $typeIds,
                 'service_quantity' => $this->quantity[$key],
                 'service_detail_total' => $this->selling_price[$key] * $this->quantity[$key],
                 'service_price' => $this->selling_price[$key],

@@ -30,6 +30,9 @@ class CartItemData extends Data
         public ?string $service_name = null,
         
         public ?string $color_code = null,
+        
+        // Array of ServiceType IDs for composite items (e.g., [1, 5] = "Wash & Iron" + "Dyeing")
+        public ?array $service_type_ids = null,
     ) {
     }
 }

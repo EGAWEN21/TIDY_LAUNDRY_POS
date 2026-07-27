@@ -55,6 +55,7 @@ class CreateOrderAction
                     'order_id' => $order->id,
                     'service_id' => $detail->service_id,
                     'service_name' => $detail->service_name,
+                    'service_type_ids' => $detail->service_type_ids,
                     'service_quantity' => $detail->service_quantity,
                     'service_detail_total' => $detail->service_detail_total,
                     'service_price' => $detail->service_price,

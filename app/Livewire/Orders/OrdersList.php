@@ -203,7 +203,7 @@ class OrdersList extends Component
     {
 
         // $this->reloadOrders();
-        $ordersQuery = $this->getBaseOrderQuery()->orderBy('order_number','DESC');
+        $ordersQuery = $this->getBaseOrderQuery()->orderBy('id','DESC');
 
         if ($this->date_from && $this->date_to) {
             $ordersQuery = $ordersQuery->whereDate('order_date', '>=', $this->date_from)
@@ -228,7 +228,7 @@ class OrdersList extends Component
             } elseif ($this->paid_filter != '') {
                 $paymentStatus = $this->paid_filter;
                 // Fetch orders and calculate payment status
-                $this->orders = $ordersQuery->orderBy('order_number','DESC')->get()->map(function ($order) {
+                $this->orders = $ordersQuery->orderBy('id','DESC')->get()->map(function ($order) {
                     $paidAmount = $order->payments_sum_received_amount ?? 0;
 
                     if ($paidAmount == 0) {
@@ -267,7 +267,7 @@ class OrdersList extends Component
             } elseif ($this->paid_filter != '') {
                 $paymentStatus = $this->paid_filter;
                 // Fetch orders and calculate payment status
-                $this->orders = $ordersQuery->orderBy('order_number','DESC')->get()->map(function ($order) {
+                $this->orders = $ordersQuery->orderBy('id','DESC')->get()->map(function ($order) {
                     $paidAmount = $order->payments_sum_received_amount ?? 0;
 
                     if ($paidAmount == 0) {
@@ -302,7 +302,7 @@ class OrdersList extends Component
 
                 $paymentStatus = $value;
                 // Fetch orders and calculate payment status
-                $this->orders = $ordersQuery->orderBy('order_number','DESC')->get()->map(function ($order) {
+                $this->orders = $ordersQuery->orderBy('id','DESC')->get()->map(function ($order) {
                     $paidAmount = $order->payments_sum_received_amount ?? 0;
 
                     if ($paidAmount == 0) {
@@ -329,7 +329,7 @@ class OrdersList extends Component
                 if ($this->order_filter != '') {
                     $ordersQuery = $ordersQuery->where('status', $this->order_filter);
                 }
-                $this->orders = $ordersQuery->orderBy('order_number','DESC')->get();
+                $this->orders = $ordersQuery->orderBy('id','DESC')->get();
             }
         }
     }
@@ -431,7 +431,7 @@ class OrdersList extends Component
             $baseQuery = $baseQuery->where('status', $this->order_filter);
         }
 
-        $orders = $baseQuery->orderBy('order_number', 'DESC')
+        $orders = $baseQuery->orderBy('id', 'DESC')
             ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
 
         return $orders;

@@ -92,7 +92,7 @@
         <div class="tw-p-0">
             <div class="table-responsive scroll-sm" style="max-height: 75vh; overflow-y: auto;">
                 <table class="table bordered-table sm-table mb-0">
-                  <thead style="position: sticky; top: 0; z-index: 10; background: #fff;">
+                  <thead style="position: sticky; top: 0; z-index: 20; background: #fff;">
                     <tr>
                       <th scope="col" class="tw-w-10"></th>
                       <th scope="col" class="">{{ $lang->data['order_info'] ?? 'Order Info' }}</th>

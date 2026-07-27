@@ -142,7 +142,7 @@ input[type=number] {
     background: linear-gradient(135deg, #f0f4ff 0%, #f8fafc 100%) !important;
     position: sticky;
     top: 0;
-    z-index: 5;
+    z-index: 10;
     border-bottom: 2px solid #e0e7ff !important;
     border-top: 1px solid #e0e7ff !important;
     cursor: pointer;
@@ -378,11 +378,4 @@ input[type=number] {
 }
 
 /* Ensure mobile sidebar appears on top of all screen elements */
-@media (max-width: 1199.98px) {
-    .sidebar {
-        z-index: 9999 !important;
-    }
-    body.overlay-active::after {
-        z-index: 9998 !important;
-    }
-}
+/* Mobile sidebar overlay handled by style.css */

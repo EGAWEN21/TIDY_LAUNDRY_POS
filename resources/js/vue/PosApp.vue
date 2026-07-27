@@ -263,16 +263,18 @@ const selectService = (service) => {
   }
 };
 
-const addToCart = (service, type) => {
-  // Tax logic conversion for price based on PosScreen.php
-  let finalPrice = parseFloat(type.price);
+const addToCart = (service, types) => {
+  // types is now an ARRAY of type objects for composite items
+  const compositePrice = types.reduce((sum, t) => sum + parseFloat(t.price), 0);
+  const compositeTypeNames = types.map(t => t.service_type_name).join(', ');
+  const compositeTypeIds = types.map(t => t.id);
   
   pos.cart.push({
     service_id: service.id,
     service_name: service.service_name,
-    service_type_id: type.id,
-    service_type_name: type.service_type_name,
-    price: finalPrice, // Keeping base price, tax computed in getters
+    service_type_ids: compositeTypeIds,
+    service_type_name: compositeTypeNames,
+    price: compositePrice,
     quantity: 1,
     color_code: ''
   });
@@ -316,6 +318,7 @@ const buildOrderData = (type = 'save') => {
     details: pos.cart.map(item => ({
       service_id: item.service_id,
       service_name: item.service_type_name,
+      service_type_ids: item.service_type_ids || [],
       service_quantity: item.quantity,
       service_detail_total: item.price * item.quantity,
       service_price: item.price,
@@ -449,12 +452,15 @@ const closeModalsAndReset = () => {
 const addItems = (typeIds) => {
   if (!selectedService.value || !typeIds || typeIds.length === 0) return;
   
-  typeIds.forEach(typeId => {
-    const type = availableServiceTypes.value.find(t => t.id == typeId);
-    if (type) {
-      addToCart(selectedService.value, type);
-    }
-  });
+  // Collect ALL selected types into one array
+  const selectedTypes = typeIds
+    .map(typeId => availableServiceTypes.value.find(t => t.id == typeId))
+    .filter(Boolean);
+  
+  if (selectedTypes.length > 0) {
+    // Add ONE composite row with all selected types
+    addToCart(selectedService.value, selectedTypes);
+  }
   
   selected_type.value = null;
   

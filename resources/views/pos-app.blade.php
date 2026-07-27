@@ -49,11 +49,17 @@
     
     @php
         $user = auth()->user();
+        if (!session()->has('pos_api_token')) {
+            $user->tokens()->where('name', 'pos-pwa')->delete();
+            $token = $user->createToken('pos-pwa', ['pos:access'], now()->addHours(12))->plainTextToken;
+            session()->put('pos_api_token', $token);
+        }
+        $posToken = session()->get('pos_api_token');
     @endphp
 
     <script>
         window.PosConfig = {
-            apiToken: null,
+            apiToken: @json($posToken),
             user: @json($user),
             permissions: @json($user->user_type == 1 ? ['all'] : ($user->role ? $user->role->permissions->pluck('permission_name')->toArray() : []))
         };

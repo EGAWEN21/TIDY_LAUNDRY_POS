@@ -13,10 +13,15 @@ class OrderDetail extends Model
         'order_id',
         'service_id',
         'service_name',
+        'service_type_ids',
         'service_price',
         'service_quantity',
         'service_detail_total',
         'color_code'
+    ];
+
+    protected $casts = [
+        'service_type_ids' => 'array',
     ];
 
     public function service()

@@ -27,17 +27,35 @@ class CalculateSecureOrderMathAction
             }
             
             if (!$canOverridePrice) {
-                // Fetch official price from database joining ServiceTypes to match the payload structure
-                $officialPrice = DB::table('service_details')
-                    ->join('service_types', 'service_details.service_type_id', '=', 'service_types.id')
-                    ->where('service_details.service_id', $item->service_id)
-                    ->where('service_types.service_type_name', $item->service_name)
-                    ->value('service_details.service_price');
-                
-                if ($officialPrice !== null) {
-                    $item->service_price = (float) $officialPrice;
+                if (!empty($item->service_type_ids) && is_array($item->service_type_ids)) {
+                    // COMPOSITE ITEM: Sum up official prices for each service type ID
+                    $officialPrice = 0;
+                    foreach ($item->service_type_ids as $typeId) {
+                        $typePrice = DB::table('service_details')
+                            ->where('service_id', $item->service_id)
+                            ->where('service_type_id', $typeId)
+                            ->value('service_price');
+                        
+                        if ($typePrice === null) {
+                            $typeName = DB::table('service_types')->where('id', $typeId)->value('service_type_name') ?? "ID:{$typeId}";
+                            throw new \Exception("Invalid service details provided for item: {$typeName}");
+                        }
+                        $officialPrice += (float) $typePrice;
+                    }
+                    $item->service_price = $officialPrice;
                 } else {
-                    throw new \Exception("Invalid service details provided for item: {$item->service_name}");
+                    // LEGACY SINGLE ITEM: Backward-compatible lookup by name
+                    $officialPrice = DB::table('service_details')
+                        ->join('service_types', 'service_details.service_type_id', '=', 'service_types.id')
+                        ->where('service_details.service_id', $item->service_id)
+                        ->where('service_types.service_type_name', $item->service_name)
+                        ->value('service_details.service_price');
+                    
+                    if ($officialPrice !== null) {
+                        $item->service_price = (float) $officialPrice;
+                    } else {
+                        throw new \Exception("Invalid service details provided for item: {$item->service_name}");
+                    }
                 }
             }
             

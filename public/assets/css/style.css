@@ -383,7 +383,7 @@ body::after {
   background-color: #000;
   opacity: 0.65;
   transition: all 0.3s;
-  z-index: 2;
+  z-index: 1035;
 }
 
 main {
@@ -13370,7 +13370,7 @@ td.fc-header-center {
   position: sticky;
   top: 0;
   padding: 1rem 1.5rem;
-  z-index: 2;
+  z-index: 1030;
 }
 
 .sidebar-toggle,
@@ -13482,7 +13482,7 @@ td.fc-header-center {
   height: 100vh;
   background-color: var(--white);
   transition: all 0.3s;
-  z-index: 3;
+  z-index: 1040;
 }
 
 @media (min-width: 1200px) {
