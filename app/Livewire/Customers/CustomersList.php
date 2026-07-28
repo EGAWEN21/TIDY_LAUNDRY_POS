@@ -167,7 +167,7 @@ class CustomersList extends Component
         $query = \App\Models\Customer::query();
 
         if ($this->search && $this->search != '') {
-            $query->where('name', 'like', '%' . $this->search . '%');
+            $query->where('name', 'like', '%' . sanitize_search($this->search) . '%');
         }
         
         return $query->latest()->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));

@@ -85,7 +85,7 @@ class ServiceAddonsList extends Component
         /* if the updated value is search_query */
         if($name == 'search_query' && $value != '')
         {
-            $this->addons = Addon::where('addon_name', 'like' , '%'.$value.'%')->get();
+            $this->addons = Addon::where('addon_name', 'like' , '%' . sanitize_search($value) . '%')->get();
         }
         elseif($name == 'search_query' && $value == ''){
             $this->addons = Addon::latest()->get();

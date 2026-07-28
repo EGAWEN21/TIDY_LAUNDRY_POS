@@ -250,9 +250,9 @@ class OrdersList extends Component
             if ($value != '') {
                 $ordersQuery = $ordersQuery
                     ->where(function ($q) use ($value) {
-                        $q->where('order_number', 'like', '%' . $value . '%')
-                            ->orwhere('customer_name', 'like', '%' . $value . '%')
-                            ->orwhere('phone_number', 'like', '%' . $value . '%');
+                        $q->where('order_number', 'like', '%' . sanitize_search($value) . '%')
+                            ->orwhere('customer_name', 'like', '%' . sanitize_search($value) . '%')
+                            ->orwhere('phone_number', 'like', '%' . sanitize_search($value) . '%');
                     });
             }
             if ($this->order_filter != '') {
@@ -291,9 +291,9 @@ class OrdersList extends Component
             if ($this->search_query != '') {
                 $ordersQuery = $ordersQuery
                     ->where(function ($q) use ($value) {
-                        $q->where('order_number', 'like', '%' . $this->search_query . '%')
-                            ->orwhere('customer_name', 'like', '%' . $this->search_query . '%')
-                            ->orwhere('phone_number', 'like', '%' . $this->search_query . '%');
+                        $q->where('order_number', 'like', '%' . sanitize_search($this->search_query) . '%')
+                            ->orwhere('customer_name', 'like', '%' . sanitize_search($this->search_query) . '%')
+                            ->orwhere('phone_number', 'like', '%' . sanitize_search($this->search_query) . '%');
                     });
             }
 
@@ -326,9 +326,9 @@ class OrdersList extends Component
                 if ($this->search_query != '') {
                     $ordersQuery = $ordersQuery
                         ->where(function ($q) use ($value) {
-                            $q->where('order_number', 'like', '%' . $this->search_query . '%')
-                                ->orwhere('customer_name', 'like', '%' . $this->search_query . '%')
-                                ->orwhere('phone_number', 'like', '%' . $this->search_query . '%');
+                            $q->where('order_number', 'like', '%' . sanitize_search($this->search_query) . '%')
+                                ->orwhere('customer_name', 'like', '%' . sanitize_search($this->search_query) . '%')
+                                ->orwhere('phone_number', 'like', '%' . sanitize_search($this->search_query) . '%');
                         });
                 }
                 if ($this->order_filter != '') {
@@ -356,9 +356,9 @@ class OrdersList extends Component
                 if ($this->search_query != '') {
                     $ordersQuery = $ordersQuery
                         ->where(function ($q) use ($value) {
-                            $q->where('order_number', 'like', '%' . $this->search_query . '%')
-                                ->orwhere('customer_name', 'like', '%' . $this->search_query . '%')
-                                ->orwhere('phone_number', 'like', '%' . $this->search_query . '%');
+                            $q->where('order_number', 'like', '%' . sanitize_search($this->search_query) . '%')
+                                ->orwhere('customer_name', 'like', '%' . sanitize_search($this->search_query) . '%')
+                                ->orwhere('phone_number', 'like', '%' . sanitize_search($this->search_query) . '%');
                         });
                 }
                 if ($this->order_filter != '') {
@@ -456,9 +456,9 @@ class OrdersList extends Component
         if ($this->search_query || $this->search_query != '') {
             $searchQuery = $this->search_query;
             $baseQuery = $baseQuery->where(function($q) use ($searchQuery) {
-                $q->where('order_number', 'like', '%' . $searchQuery . '%')
-                  ->orWhere('customer_name', 'like', '%' . $searchQuery . '%')
-                  ->orWhere('phone_number', 'like', '%' . $searchQuery . '%');
+                $q->where('order_number', 'like', '%' . sanitize_search($searchQuery) . '%')
+                  ->orWhere('customer_name', 'like', '%' . sanitize_search($searchQuery) . '%')
+                  ->orWhere('phone_number', 'like', '%' . sanitize_search($searchQuery) . '%');
             });
         }
 

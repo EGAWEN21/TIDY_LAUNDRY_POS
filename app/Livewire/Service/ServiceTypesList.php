@@ -113,7 +113,7 @@ class ServiceTypesList extends Component
     {   /* if updated element is search query */
         if($name == 'search_query' && $value != '')
         {
-            $this->service_types = ModelsServiceType::where('service_type_name', 'like' , '%'.$value.'%')->orderBy('position', 'asc')->orderBy('id', 'asc')->get();
+            $this->service_types = ModelsServiceType::where('service_type_name', 'like' , '%' . sanitize_search($value) . '%')->orderBy('position', 'asc')->orderBy('id', 'asc')->get();
         }
         elseif($name == 'search_query' && $value == ''){
             $this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
@@ -174,7 +174,7 @@ class ServiceTypesList extends Component
       {
           if($this->search_query || $this->search_query != '')
           {
-            $service_types = ModelsServiceType::where('service_type_name', 'like' , '%'.$this->search_query.'%')
+            $service_types = ModelsServiceType::where('service_type_name', 'like' , '%' . sanitize_search($this->search_query) . '%')
             ->orderBy('position', 'asc')
             ->orderBy('id', 'asc')
             ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));

@@ -20,7 +20,7 @@ class StaffList extends Component
         $query = User::where('user_type', 2)->latest();
 
         if ($this->search != '') {
-            $query->where('name', 'like', '%' . $this->search . '%');
+            $query->where('name', 'like', '%' . sanitize_search($this->search) . '%');
         }
         if (session()->has('selected_language')) {   /*if session has selected language */
             $this->lang = Translation::where('id', session()->get('selected_language'))->first();

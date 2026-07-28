@@ -27,15 +27,15 @@ class PosApiController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Invalid credentials'], 401);
+            return response()->json(['data' => [], 'message' => 'Invalid credentials'], 401);
         }
 
         if ($user->user_type != 1 && !$user->is_active) {
-            return response()->json(['message' => 'Account is deactivated. Please contact administrator.'], 403);
+            return response()->json(['data' => [], 'message' => 'Account is deactivated. Please contact administrator.'], 403);
         }
 
         if (!$user->hasPermission('order_create')) {
-            return response()->json(['message' => 'You are not authorized to access the POS.'], 403);
+            return response()->json(['data' => [], 'message' => 'You are not authorized to access the POS.'], 403);
         }
 
         $user->tokens()->where('name', 'pos-pwa')->delete();
@@ -46,8 +46,11 @@ class PosApiController extends Controller
         )->plainTextToken;
 
         return response()->json([
-            'user' => $user,
-            'token' => $token
+            'data' => [
+                'user' => $user,
+                'token' => $token
+            ],
+            'message' => 'Login successful'
         ]);
     }
 
@@ -61,25 +64,31 @@ class PosApiController extends Controller
         $customers = Customer::where('is_active', 1)->latest()->get();
         
         return response()->json([
-            'services' => $services,
-            'service_types' => $serviceTypes,
-            'service_details' => $serviceDetails,
-            'addons' => $addons,
-            'customers' => $customers,
-            'settings' => [
-                'tax_percentage' => getTaxPercentage(),
-                'tax_type' => getTaxType(),
-                'financial_year_id' => getFinancialYearId(),
-                'currency' => getCurrency()
+            'data' => [
+                'services' => $services,
+                'service_types' => $serviceTypes,
+                'service_details' => $serviceDetails,
+                'addons' => $addons,
+                'customers' => $customers,
+                'settings' => [
+                    'tax_percentage' => getTaxPercentage(),
+                    'tax_type' => getTaxType(),
+                    'financial_year_id' => getFinancialYearId(),
+                    'currency' => getCurrency()
+                ],
+                'timestamp' => time()
             ],
-            'timestamp' => time()
+            'message' => 'Data initialized'
         ]);
     }
 
     public function checkUpdates()
     {
         return response()->json([
-            'timestamp' => Cache::get('pos_last_update', 0)
+            'data' => [
+                'timestamp' => Cache::get('pos_last_update', 0)
+            ],
+            'message' => 'Updates checked'
         ]);
     }
 
@@ -137,7 +146,10 @@ class PosApiController extends Controller
             }
         }
 
-        return response()->json(['synced_customers' => $syncedIds, 'failed' => $failedIds]);
+        return response()->json([
+            'data' => ['synced_customers' => $syncedIds, 'failed' => $failedIds],
+            'message' => 'Customers synced'
+        ]);
     }
 
     public function syncOrders(Request $request)
@@ -146,8 +158,11 @@ class PosApiController extends Controller
 
         if (count($orders) > 50) {
             return response()->json([
-                'synced_orders' => [], 
-                'failed' => ['bulk' => 'Payload exceeds maximum limit of 50 orders per request']
+                'data' => [
+                    'synced_orders' => [], 
+                    'failed' => ['bulk' => 'Payload exceeds maximum limit of 50 orders per request']
+                ],
+                'message' => 'Payload limit exceeded'
             ], 413);
         }
 
@@ -165,7 +180,10 @@ class PosApiController extends Controller
             ->get();
             
         return response()->json([
-            'rejected_orders' => $rejectedRequests
+            'data' => [
+                'rejected_orders' => $rejectedRequests
+            ],
+            'message' => 'Rejected orders retrieved'
         ]);
     }
 }

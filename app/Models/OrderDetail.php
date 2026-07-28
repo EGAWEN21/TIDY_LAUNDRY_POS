@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class OrderDetail extends Model
 {
@@ -24,7 +25,7 @@ class OrderDetail extends Model
         'service_type_ids' => 'array',
     ];
 
-    public function service()
+    public function service(): BelongsTo
     {
         return $this->belongsTo(\App\Models\Service::class, 'service_id', 'id');
     }

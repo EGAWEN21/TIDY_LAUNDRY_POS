@@ -61,8 +61,8 @@ class HomePage extends Component
 
         if (!empty($this->search_query)) {
             $query->where(function($q) {
-                $q->where('order_number', 'like', '%' . $this->search_query . '%')
-                  ->orWhere('customer_name', 'like', '%' . $this->search_query . '%');
+                $q->where('order_number', 'like', '%' . sanitize_search($this->search_query) . '%')
+                  ->orWhere('customer_name', 'like', '%' . sanitize_search($this->search_query) . '%');
             });
         }
 

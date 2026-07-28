@@ -85,7 +85,7 @@ class LedgerReport extends Component
         if($name == 'customer_query' && $value != '')
         {
             $this->customers = Customer::where(function($query) use ($value) { 
-                $query->where('name', 'like', '%' . $value . '%')->orWhere('phone', 'like', '%' . $value . '%');
+                $query->where('name', 'like', '%' . sanitize_search($value) . '%')->orWhere('phone', 'like', '%' . sanitize_search($value) . '%');
             })->latest()->limit(5)->get();
         }
         elseif($name == 'customer_query' && $value == ''){

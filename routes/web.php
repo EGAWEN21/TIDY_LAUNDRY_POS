@@ -3,6 +3,8 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Middleware\Store;
 
+Route::pattern('id', '[0-9]+');
+
 Route::get('/sw.js', function () {
     return response()->file(public_path('sw.js'), [
         'Content-Type' => 'application/javascript',

@@ -81,9 +81,9 @@ class RecycleBin extends Component
         if ($this->search_query) {
             $searchQuery = $this->search_query;
             $query->where(function($q) use ($searchQuery) {
-                $q->where('order_number', 'like', '%' . $searchQuery . '%')
-                  ->orWhere('customer_name', 'like', '%' . $searchQuery . '%')
-                  ->orWhere('phone_number', 'like', '%' . $searchQuery . '%');
+                $q->where('order_number', 'like', '%' . sanitize_search($searchQuery) . '%')
+                  ->orWhere('customer_name', 'like', '%' . sanitize_search($searchQuery) . '%')
+                  ->orWhere('phone_number', 'like', '%' . sanitize_search($searchQuery) . '%');
             });
         }
 
@@ -98,8 +98,8 @@ class RecycleBin extends Component
     {
         $query = Customer::onlyTrashed()->orderBy('deleted_at', 'DESC');
         if ($this->search_query) {
-            $query->where('name', 'like', '%' . $this->search_query . '%')
-                  ->orWhere('phone', 'like', '%' . $this->search_query . '%');
+            $query->where('name', 'like', '%' . sanitize_search($this->search_query) . '%')
+                  ->orWhere('phone', 'like', '%' . sanitize_search($this->search_query) . '%');
         }
         $this->customers = $query->get()->map(function($c) {
             $c->days_remaining = 90 - now()->diffInDays($c->deleted_at);
@@ -111,8 +111,8 @@ class RecycleBin extends Component
     {
         $query = User::onlyTrashed()->with('role')->where('user_type', 2)->orderBy('deleted_at', 'DESC');
         if ($this->search_query) {
-            $query->where('name', 'like', '%' . $this->search_query . '%')
-                  ->orWhere('email', 'like', '%' . $this->search_query . '%');
+            $query->where('name', 'like', '%' . sanitize_search($this->search_query) . '%')
+                  ->orWhere('email', 'like', '%' . sanitize_search($this->search_query) . '%');
         }
         $this->staff = $query->get()->map(function($s) {
             $s->days_remaining = 90 - now()->diffInDays($s->deleted_at);

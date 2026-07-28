@@ -227,14 +227,14 @@ class PosScreen extends Component
         if ($value == '') data_set($this, $name, null);
         /* if updated elemtnt is search_query */
         if ($name == 'search_query' && $value != '') {
-            $this->services = Service::where('service_name', 'like', '%' . $value . '%')->latest()->get();
+            $this->services = Service::where('service_name', 'like', '%' . sanitize_search($value) . '%')->latest()->get();
         } elseif ($name == 'search_query' && $value == '') {
             $this->services = Service::latest()->get();
         }
         /* if the updated value is customer_query */
         if ($name == 'customer_query' && $value != '') {
             $this->customers = Customer::where(function ($query) use ($value) {
-                $query->where('name', 'like', '%' . $value . '%')->orWhere('phone', 'like', '%' . $value . '%');
+                $query->where('name', 'like', '%' . sanitize_search($value) . '%')->orWhere('phone', 'like', '%' . sanitize_search($value) . '%');
             })->latest()->limit(5)->get();
         } elseif ($name == 'customer_query' && $value == '') {
             $this->customers = collect();

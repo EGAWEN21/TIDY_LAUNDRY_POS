@@ -87,11 +87,11 @@ class ExpenseCategoryList extends Component
         {
             
             $this->categories = ExpenseCategory::where(function($query) use ($value) { 
-                $query->where('expense_category_name', 'like', '%' . $value . '%');
+                $query->where('expense_category_name', 'like', '%' . sanitize_search($value) . '%');
             })->get();   
         } else {
             $this->categories = ExpenseCategory::where('created_by',Auth::user()->id)->where(function($query) use ($value) { 
-                $query->where('expense_category_name', 'like', '%' . $value . '%');
+                $query->where('expense_category_name', 'like', '%' . sanitize_search($value) . '%');
             })->get();   
         }
             

@@ -91,7 +91,7 @@ class FinancialYearSettings extends Component
     {
         /* if the updated element is search_query */
         if ($name == 'search_query' && $value != '') {
-            $this->years = FinancialYear::where('year', 'like', '%' . $value . '%')->get();
+            $this->years = FinancialYear::where('year', 'like', '%' . sanitize_search($value) . '%')->get();
         } elseif ($name == 'search_query' && $value == '') {
             $this->years = FinancialYear::latest()->get();
         }

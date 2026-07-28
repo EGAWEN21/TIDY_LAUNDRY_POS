@@ -37,7 +37,7 @@ class Translations extends Component
     {   /* if the updated element is search_query */
         if($name == 'search_query' && $value != '')
         {
-            $this->translations = \App\Models\Translation::where('name','like','%'.$value.'%')->latest()->get();
+            $this->translations = \App\Models\Translation::where('name','like','%' . sanitize_search($value) . '%')->latest()->get();
 
         }
         elseif($name == 'search_query' && $value == '')

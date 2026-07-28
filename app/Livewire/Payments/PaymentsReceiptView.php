@@ -68,7 +68,7 @@ class PaymentsReceiptView extends Component
         if ($name == 'search' && $value != '') {
 
             $customer = \App\Models\Customer::where(function ($query) use ($value) {
-                $query->where('name', 'like', '%' . $value . '%')->orWhere('phone', 'like', '%' . $value . '%');
+                $query->where('name', 'like', '%' . sanitize_search($value) . '%')->orWhere('phone', 'like', '%' . sanitize_search($value) . '%');
             })->pluck('id')->toArray();
 
             $this->payments = Payment::whereIn('customer_id', $customer)->latest()->get();
@@ -85,7 +85,7 @@ class PaymentsReceiptView extends Component
         if ($this->search || $this->search != '') {
              $search = $this->search;
             $customer = \App\Models\Customer::where(function ($query) use ($search) {
-                $query->where('name', 'like', '%' . $search . '%')->orWhere('phone', 'like', '%' . $search . '%');
+                $query->where('name', 'like', '%' . sanitize_search($search) . '%')->orWhere('phone', 'like', '%' . sanitize_search($search) . '%');
             })->pluck('id')->toArray();
 
 

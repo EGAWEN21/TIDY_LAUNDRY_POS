@@ -8,6 +8,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class User extends Authenticatable
 {
@@ -73,7 +74,7 @@ class User extends Authenticatable
     }
 
     //roles relation
-    public function role()
+    public function role(): BelongsTo
     {
         return $this->belongsTo(\App\Models\UserRole::class, 'role_id', 'id');
     }

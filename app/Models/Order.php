@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Traits\UpdatesPosSyncTimestamp;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Order extends Model
 {
@@ -36,31 +38,31 @@ class Order extends Model
     ];
 
     /* user relation */
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(\App\Models\User::class, 'created_by', 'id')->withTrashed();
     }
 
     /* user relation */
-    public function details()
+    public function details(): HasMany
     {
         return $this->hasMany(\App\Models\OrderDetail::class, 'order_id', 'id');
     }
     
     /* addon relation */
-    public function addons()
+    public function addons(): HasMany
     {
         return $this->hasMany(\App\Models\OrderAddonDetail::class, 'order_id', 'id');
     }
 
     /* deleted by relation */
-    public function deletedBy()
+    public function deletedBy(): BelongsTo
     {
         return $this->belongsTo(\App\Models\User::class, 'deleted_by', 'id');
     }
 
     /* payments relation */
-    public function payments()
+    public function payments(): HasMany
     {
         return $this->hasMany(\App\Models\Payment::class, 'order_id', 'id');
     }

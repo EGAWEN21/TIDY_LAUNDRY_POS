@@ -13,6 +13,12 @@ if (!function_exists('siteSettings')) {
     }
 }
 
+if (!function_exists('sanitize_search')) {
+    function sanitize_search($term)
+    {
+        return str_replace(['%', '_'], ['\%', '\_'], $term ?? '');
+    }
+}
 
 function getExpenseCategoryType($type)
 {

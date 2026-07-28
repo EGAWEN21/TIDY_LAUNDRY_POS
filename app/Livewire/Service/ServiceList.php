@@ -53,7 +53,7 @@ class ServiceList extends Component
     {   /* if the updated element is search_query */
         if($name == 'search_query' && $value != '')
         {
-            $this->services = Service::where('service_name', 'like' , '%'.$value.'%')->get();
+            $this->services = Service::where('service_name', 'like' , '%' . sanitize_search($value) . '%')->get();
         }
         elseif($name == 'search_query' && $value == ''){
             $this->services = Service::latest()->get();

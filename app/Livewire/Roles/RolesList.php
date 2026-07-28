@@ -38,7 +38,7 @@ class RolesList extends Component
     {
         $roles = UserRole::latest();
         if($this->search_query != ''){
-            $roles->where('name', 'like', '%'.$this->search_query.'%');
+            $roles->where('name', 'like', '%' . sanitize_search($this->search_query) . '%');
         }
         $this->roles = $roles->get();
         return view('livewire.roles.roles-list');
