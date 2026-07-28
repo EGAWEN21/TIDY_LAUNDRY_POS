@@ -15,15 +15,15 @@
                           <path d="M16 8c0 3.15-1.866 2.585-3.567 2.07C11.42 9.763 10.465 9.473 10 10c-.603.683-.475 1.819-.351 2.92C9.826 14.495 9.996 16 8 16a8 8 0 1 1 8-8zm-8 7c.611 0 .654-.171.655-.176.078-.146.124-.464.07-1.119-.014-.168-.037-.37-.061-.591-.052-.464-.112-1.005-.118-1.462-.01-.707.083-1.61.704-2.314.369-.417.845-.578 1.272-.618.404-.038.812.026 1.16.104.343.077.702.186 1.025.284 1.064.326 1.756.54 1.886.541.01 0 .013 0 .013-.001C15.823 13.064 16 11.233 16 8A7 7 0 1 0 8 15z" />
                       </svg>
                   </button>
-                  <div v-show="showSwatches" class="tw-absolute tw-z-50 tw-bg-white tw-shadow-lg tw-border tw-border-gray-200" style="top: 32px; left: 0px; width: 170px; border-radius: 12px; padding: 12px;">
-                      <div class="tw-flex tw-justify-between tw-items-center" style="margin-bottom: 10px;">
-                          <span class="tw-text-xs tw-font-semibold tw-uppercase tw-tracking-wider" style="font-size: 10px; color: #4b5563;">Quick Colors</span>
+                  <div v-show="showSwatches" class="tw-absolute tw-z-50 tw-bg-white tw-shadow-lg tw-border tw-border-gray-200 tw-top-8 tw-left-0 tw-w-[170px] tw-rounded-xl tw-p-3">
+                      <div class="tw-flex tw-justify-between tw-items-center tw-mb-2.5">
+                          <span class="tw-font-semibold tw-uppercase tw-tracking-wider tw-text-[10px] tw-text-gray-600">Quick Colors</span>
                           <button @click="showSwatches = false" class="tw-text-gray-400 hover:tw-text-gray-600" aria-label="Close swatches">&times;</button>
                       </div>
-                      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                          <div v-for="(swatch, sIndex) in quickSwatches" :key="sIndex" class="tw-relative tw-group" style="display: flex; align-items: center; justify-content: center;">
-                              <button type="button" @click="applySwatch(swatch)" class="tw-rounded-full tw-shadow-sm hover:tw-scale-110 tw-transition-transform" style="cursor: pointer; padding: 0; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" :style="`background-color: ${swatch}; width: 22px; height: 22px;`" :title="swatch" :aria-label="'Apply color ' + swatch"></button>
-                              <button type="button" @click.stop="removeSwatch(sIndex)" class="tw-hidden group-hover:tw-flex tw-items-center tw-justify-center" style="position: absolute; top: -4px; right: -4px; z-index: 10; width: 14px; height: 14px; background-color: #ef4444; color: white; border-radius: 50%; font-size: 10px; line-height: 1; border: none; padding: 0; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.1);" title="Remove" aria-label="Remove swatch">&times;</button>
+                      <div class="tw-flex tw-flex-wrap tw-gap-2">
+                          <div v-for="(swatch, sIndex) in quickSwatches" :key="sIndex" class="tw-relative tw-group tw-flex tw-items-center tw-justify-center">
+                              <button type="button" @click="applySwatch(swatch)" class="tw-rounded-full hover:tw-scale-110 tw-transition-transform tw-cursor-pointer tw-p-0 tw-border tw-border-gray-200 tw-shadow-sm tw-w-[22px] tw-h-[22px]" :style="`background-color: ${swatch};`" :title="swatch" :aria-label="'Apply color ' + swatch"></button>
+                              <button type="button" @click.stop="removeSwatch(sIndex)" class="tw-hidden group-hover:tw-flex tw-items-center tw-justify-center tw-absolute -tw-top-1 -tw-right-1 tw-z-10 tw-w-[14px] tw-h-[14px] tw-bg-red-500 tw-text-white tw-rounded-full tw-text-[10px] tw-leading-none tw-border-none tw-p-0 tw-cursor-pointer tw-shadow-sm" title="Remove" aria-label="Remove swatch">&times;</button>
                           </div>
                       </div>
                   </div>
