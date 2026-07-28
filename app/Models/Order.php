@@ -64,4 +64,24 @@ class Order extends Model
     {
         return $this->hasMany(\App\Models\Payment::class, 'order_id', 'id');
     }
+
+    protected static function booted()
+    {
+        static::updating(function ($order) {
+            if ($order->isDirty('status')) {
+                $oldStatus = $order->getOriginal('status');
+                $newStatus = $order->status;
+                
+                // Prevent moving backwards from Delivered (3) to Pending/Processing/Ready (0, 1, 2)
+                if ($oldStatus == 3 && in_array($newStatus, [0, 1, 2])) {
+                    throw new \DomainException("Cannot transition order status backwards from Delivered.");
+                }
+                
+                // Prevent changes if already Returned (4)
+                if ($oldStatus == 4 && $newStatus != 4) {
+                    throw new \DomainException("Cannot change status of a returned or cancelled order.");
+                }
+            }
+        });
+    }
 }

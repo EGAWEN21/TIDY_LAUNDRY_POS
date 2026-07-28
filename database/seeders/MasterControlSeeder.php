@@ -33,7 +33,6 @@ class MasterControlSeeder extends Seeder
             MasterSettings::updateOrCreate(['master_title' => $key],['master_value' => $value]);
         }
 
-        //run permission seeder
-        $this->call(PermissionSeeder::class);
+
     }
 }

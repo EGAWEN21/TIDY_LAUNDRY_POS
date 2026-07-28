@@ -6,6 +6,14 @@ use App\Models\Order;
 use Illuminate\Support\Facades\Auth;
 use Twilio\Rest\Client;
 
+if (!function_exists('siteSettings')) {
+    function siteSettings()
+    {
+        return app('site.settings');
+    }
+}
+
+
 function getExpenseCategoryType($type)
 {
     if (session()->has('selected_language')) {
@@ -75,8 +83,7 @@ function getpaymentMode($type)
 /* get financial year */
 function getFinancialYearId()
 {
-    $settings = new App\Models\MasterSettings();
-    $site = $settings->siteData();
+    $site = siteSettings();
     if (isset($site['default_financial_year'])) {
         $year_id = (($site['default_financial_year']) && ($site['default_financial_year'] != "")) ? $site['default_financial_year'] : '';
         return $year_id;
@@ -105,8 +112,7 @@ function resolveFinancialYearId($date)
 /* get Currency */
 function getCurrency()
 {
-    $settings = new App\Models\MasterSettings();
-    $site = $settings->siteData();
+    $site = siteSettings();
     if (isset($site['default_currency'])) {
         $currency = (($site['default_currency']) && ($site['default_currency'] != "")) ? $site['default_currency'] : '$';
         return $currency;
@@ -118,8 +124,7 @@ if(!function_exists('getTaxPercentage'))
 {
     function getTaxPercentage()
     {
-        $settings = new App\Models\MasterSettings();
-        $site = $settings->siteData();
+    $site = siteSettings();
         if(isset($site['default_tax_percentage']))
         {
             $currency = (($site['default_tax_percentage']) && ($site['default_tax_percentage'] !=""))? $site['default_tax_percentage'] : 0;
@@ -202,8 +207,7 @@ function getOrderStatusWithColorKan($status)
 /* get priner type */
 function getPrinterType()
 {
-    $settings = new App\Models\MasterSettings();
-    $site = $settings->siteData();
+    $site = siteSettings();
     if (isset($site['default_printer'])) {
         $printerType = (($site['default_printer']) && ($site['default_printer'] != "")) ? $site['default_printer'] : 1;
         return $printerType;
@@ -214,8 +218,7 @@ function getPrinterType()
 /* get favicon */
 function getFavIcon()
 {
-    $settings = new App\Models\MasterSettings();
-    $site = $settings->siteData();
+    $site = siteSettings();
     if (isset($site['default_favicon']) && file_exists(public_path($site['default_favicon']))) {
         $favicon = (($site['default_favicon']) && ($site['default_favicon'] != "")) ? $site['default_favicon'] : 'assets/img/favicon.png';
         return $favicon;
@@ -227,8 +230,7 @@ function getFavIcon()
 /* get getAppliation Name */
 function getApplicationName()
 {
-    $settings = new App\Models\MasterSettings();
-    $site = $settings->siteData();
+    $site = siteSettings();
     if (isset($site['default_application_name'])) {
         $favicon = (($site['default_application_name']) && ($site['default_application_name'] != "")) ? $site['default_application_name'] : 'Tidy LMS';
         return $favicon;
@@ -240,8 +242,7 @@ function getApplicationName()
 /* get site logo */
 function getSiteLogo()
 {
-    $settings = new App\Models\MasterSettings();
-    $site = $settings->siteData();
+    $site = siteSettings();
     if (isset($site['default_logo']) && file_exists(public_path($site['default_logo']))) {
         $favicon = (($site['default_logo']) && ($site['default_logo'] != "")) ? $site['default_logo'] : 'assets/img/logo-ct.png';
         return $favicon;
@@ -265,8 +266,7 @@ function isRTL()
 
 function getCountryCode()
 {
-    $settings = new App\Models\MasterSettings();
-    $site = $settings->siteData();
+    $site = siteSettings();
     if (isset($site['country_code']) && $site['country_code'] != '') {
         return '+'.ltrim($site['country_code'], '+');
     }
@@ -275,8 +275,7 @@ function getCountryCode()
 
 function smsOrderDeliveredOnly()
 {
-    $settings = new App\Models\MasterSettings();
-    $site = $settings->siteData();
+    $site = siteSettings();
     if (isset($site['sms_delivered_only']) && $site['sms_delivered_only'] == 1) {
         return true;
     }
@@ -285,8 +284,7 @@ function smsOrderDeliveredOnly()
 
 function smsOrderReadyToDeliverOnly()
 {
-    $settings = new App\Models\MasterSettings();
-    $site = $settings->siteData();
+    $site = siteSettings();
     if (isset($site['sms_ready_to_deliver_only']) && $site['sms_ready_to_deliver_only'] == 1) {
         return true;
     }
@@ -296,8 +294,7 @@ function smsOrderReadyToDeliverOnly()
 
 function isSMSEnabled()
 {
-    $settings = new App\Models\MasterSettings();
-    $site = $settings->siteData();
+    $site = siteSettings();
     if (isset($site['sms_enabled']) && ($site['sms_enabled'] == 1)) {
         return true;
     }
@@ -308,8 +305,7 @@ function sendOrderCreateSMS($order, $to)
 {
 
     if (isSMSEnabled() == true) {
-        $settings = new App\Models\MasterSettings();
-        $site = $settings->siteData();
+    $site = siteSettings();
         $messageerror = null;
         try {
             $myorder = Order::find($order);
@@ -359,8 +355,7 @@ function sendOrderCreateSMS($order, $to)
 function sendOrderStatusChangeSMS($order, $to_status)
 {
     if (isSMSEnabled() == true) {
-        $settings = new App\Models\MasterSettings();
-        $site = $settings->siteData();
+    $site = siteSettings();
         $messageerror = null;
         try {
             $myorder = Order::find($order);
@@ -418,8 +413,7 @@ function sendOrderStatusChangeSMS($order, $to_status)
 //get formatted currency
 function getFormattedCurrency($value)
 {
-    $settings = new App\Models\MasterSettings();
-    $site = $settings->siteData();
+    $site = siteSettings();
     $symbol = $site['default_currency'] ?? '$';
     $alignment = $site['default_currency_alignment'] ?? 1;
     $value = number_format($value, 2);
@@ -433,8 +427,7 @@ function getFormattedCurrency($value)
 function getFormatedTextSMS($order, $type)
 {
     $myorder = Order::find($order);
-    $settings = new App\Models\MasterSettings();
-    $site = $settings->siteData();
+    $site = siteSettings();
     $string = null;
     if ($type == 1) {
         if (isset($site['sms_createorder']) && $site['sms_createorder'] != '') {
@@ -483,8 +476,7 @@ if(!function_exists('getTaxType'))
 {
     function getTaxType()
     {
-        $settings = new App\Models\MasterSettings();
-        $site = $settings->siteData();
+    $site = siteSettings();
         if(isset($site['default_tax_mode']))
         {
             $tax_type = (($site['default_tax_mode']) && ($site['default_tax_mode'] !=""))? $site['default_tax_mode'] : 1;
@@ -498,8 +490,7 @@ if(!function_exists('getBypassLimit'))
 {
     function getBypassLimit()
     {
-        $settings = new App\Models\MasterSettings();
-        $site = $settings->siteData();
+    $site = siteSettings();
         if(isset($site['bypass_approval_limit']))
         {
             $limit = (($site['bypass_approval_limit']) && ($site['bypass_approval_limit'] !=""))? $site['bypass_approval_limit'] : 0;
@@ -513,8 +504,7 @@ if(!function_exists('sendOrderStatusChangeEmail'))
 {
     function sendOrderStatusChangeEmail($order_id, $status)
     {
-        $settings = new App\Models\MasterSettings();
-        $site = $settings->siteData();
+    $site = siteSettings();
         
         if (!isset($site['enable_automated_emails']) || $site['enable_automated_emails'] != 1) {
             return;

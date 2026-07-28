@@ -17,7 +17,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton('site.settings', function ($app) {
+            return (new \App\Models\MasterSettings())->siteData();
+        });
     }
 
     /**
