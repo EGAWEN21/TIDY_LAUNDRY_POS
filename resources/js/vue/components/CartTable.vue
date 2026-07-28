@@ -64,7 +64,7 @@
                   <table class="tw-w-full tw-text-xs tw-whitespace-nowrap">
                       <thead class="tw-sticky tw-top-0 tw-z-20 tw-bg-slate-100/90 dark:tw-bg-slate-700/90 tw-backdrop-blur-sm tw-text-slate-600 dark:tw-text-slate-300 tw-uppercase tw-tracking-wider tw-font-semibold tw-border-b tw-border-white/40 dark:tw-border-white/10 tw-shadow-sm">
                           <tr>
-                              <th class="tw-py-3 tw-px-3 tw-text-xs tw-w-[10rem] lg:tw-w-[10%] tw-text-left tw-sticky tw-left-0 tw-bg-slate-100 dark:tw-bg-slate-700 tw-z-30 tw-shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Service</th>
+                              <th class="tw-py-3 tw-px-3 tw-text-xs tw-w-[10rem] lg:tw-w-[10%] tw-max-w-[10rem] lg:tw-max-w-[15rem] tw-whitespace-normal tw-text-left tw-sticky tw-left-0 tw-bg-slate-100 dark:tw-bg-slate-700 tw-z-30 tw-shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Service</th>
                               <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[15%] tw-text-center">Color</th>
                               <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[15%] tw-text-center">Price</th>
                               <th class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[15%] tw-text-center">Rate</th>

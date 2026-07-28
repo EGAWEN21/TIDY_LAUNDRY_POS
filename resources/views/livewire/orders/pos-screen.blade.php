@@ -175,7 +175,7 @@
                         <table class="tw-w-full tw-text-xs tw-whitespace-nowrap">
                                 <thead class="tw-sticky tw-top-0 tw-z-20 tw-bg-[#e9ecef] dark:tw-bg-[#1b2431] tw-shadow-sm">
                                     <tr>
-                                        <th class="tw-py-2 tw-px-2 tw-text-xs tw-w-[10rem] lg:tw-w-[10%] tw-text-left tw-sticky tw-left-0 tw-bg-[#e9ecef] dark:tw-bg-[#1b2431] tw-z-30 tw-shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                                        <th class="tw-py-2 tw-px-2 tw-text-xs tw-w-[10rem] lg:tw-w-[10%] tw-max-w-[10rem] lg:tw-max-w-[15rem] tw-whitespace-normal tw-text-left tw-sticky tw-left-0 tw-bg-[#e9ecef] dark:tw-bg-[#1b2431] tw-z-30 tw-shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                             {{ $lang->data['service'] ?? 'Service' }}</th>
                                         <th
                                             class="tw-py-2 tw-px-1 tw-text-xs tw-w-[10rem] lg:tw-w-[15%] tw-text-center">
@@ -208,7 +208,7 @@
                                     @foreach ($selservices as $key => $item)
                                         <tr
                                             class="tw-border-b tw-border-neutral-200 dark:tw-border-neutral-800/50 tw-border-solid">
-                                            <td class="tw-py-2 tw-px-2 lg:tw-w-[10%] tw-w-[10rem] tw-text-left tw-sticky tw-left-0 tw-bg-white dark:tw-bg-slate-800 tw-z-10 tw-shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                                            <td class="tw-py-2 tw-px-2 lg:tw-w-[10%] tw-w-[10rem] tw-max-w-[10rem] lg:tw-max-w-[15rem] tw-whitespace-normal tw-text-left tw-sticky tw-left-0 tw-bg-white dark:tw-bg-slate-800 tw-z-10 tw-shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                                 <div class="tw-flex tw-flex-col ">
                                                     @php
                                                         $serviceinline = null;
