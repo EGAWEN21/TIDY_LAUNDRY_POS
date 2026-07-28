@@ -211,7 +211,7 @@ export const usePosStore = defineStore('pos', {
         async fetchFromServer() {
             try {
                 const response = await axios.get('/api/pos/init');
-                const data = response.data;
+                const data = response.data.data ?? response.data;
                 this.lastSyncTimestamp = data.timestamp || 0;
                 
                 // Clear old data and save new
