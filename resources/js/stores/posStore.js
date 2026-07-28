@@ -19,6 +19,7 @@ export const usePosStore = defineStore('pos', {
         customers: [],
         settings: { tax_percentage: 0, tax_type: 1, currency: '$' },
         cart: [],
+        cartUuid: null,
         cartAddons: [],
         cartCustomer: null,
         payments: [],
@@ -169,6 +170,7 @@ export const usePosStore = defineStore('pos', {
                         await db.cart.put({
                             id: window.PosConfig.user.id, // Isolate draft per user
                             uuid: 'OFFLINE-CART',
+                            cart_uuid: state.cartUuid,
                             user_id: window.PosConfig.user.id,
                             items: JSON.parse(JSON.stringify(state.cart)),
                             addons: JSON.parse(JSON.stringify(state.cartAddons)),
@@ -284,6 +286,7 @@ export const usePosStore = defineStore('pos', {
                     this.payments = draft.payments || [];
                     this.discount = draft.discount || 0;
                     this.paymentNotes = draft.notes || '';
+                    this.cartUuid = draft.cart_uuid || null;
                     if (draft.customer_id) {
                         this.cartCustomer = this.customers.find(c => c.id === draft.customer_id) || null;
                     }

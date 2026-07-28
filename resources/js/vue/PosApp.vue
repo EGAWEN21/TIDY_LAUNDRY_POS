@@ -288,6 +288,7 @@ const clearAll = () => {
   pos.cartAddons = [];
   pos.discount = 0;
   pos.paymentNotes = '';
+  pos.cartUuid = null;
 };
 
 const isSyncingPrint = ref(false);
@@ -299,7 +300,7 @@ const buildOrderData = (type = 'save') => {
   }
   
   const orderData = {
-    uuid: generateUUID(),
+    uuid: pos.cartUuid || generateUUID(),
     customer_id: pos.cartCustomer ? pos.cartCustomer.id : null,
     customer_name: pos.cartCustomer ? pos.cartCustomer.name : null,
     phone_number: pos.cartCustomer ? pos.cartCustomer.phone : null,

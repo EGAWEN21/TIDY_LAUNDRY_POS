@@ -234,15 +234,16 @@ const formatCategory = (category) => {
 };
 
 const editAndFix = async (item) => {
-    // Load into cart
     pos.cart = item.data.details.map(d => ({
         service_id: d.service_id,
         service_type_name: d.service_name,
+        service_type_ids: d.service_type_ids || [],
         quantity: d.service_quantity,
         price: d.service_price,
         color_code: d.color_code || ''
     }));
     
+    pos.cartUuid = item.uuid || (item.data && item.data.uuid) || null;
     pos.cartCustomer = item.data.new_customer || pos.customers.find(c => c.id === item.data.customer_id) || null;
     pos.payments = item.data.payments || [];
     pos.orderDate = item.data.order_date;
