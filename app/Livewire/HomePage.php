@@ -40,15 +40,7 @@ class HomePage extends Component
     public function mount()
     {
         $this->loadOrderCounts();
-        if(session()->has('selected_language'))
-        {
-            /* if the session has selected language */
-            $this->lang = Translation::where('id',session()->get('selected_language'))->first();
-        }
-        else{
-            /* if the session has no selected language */
-            $this->lang = Translation::where('default',1)->first();
-        }
+        $this->lang = getSessionTranslation();
     }
 
     #[Computed]

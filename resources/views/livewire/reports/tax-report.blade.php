@@ -1,4 +1,5 @@
 <div class="dashboard-main-body">
+    {{-- TODO: Tax calculation does not account for inclusive tax (tax_type=1). Formula should be: amount - (amount / (1 + rate)) for inclusive. See audit ref H1. --}}
     <div class="card h-100 p-0 radius-12">
         <div class="tw-py-1.5 tw-px-3 bg-base d-flex align-items-center flex-wrap gap-3 justify-content-between">
             <div class="tw-flex  tw-items-center gap-4">
