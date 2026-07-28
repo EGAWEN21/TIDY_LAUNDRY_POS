@@ -32,7 +32,7 @@
     
     <!-- PWA Manifest & Theme Color -->
     <meta name="theme-color" content="#ffffff">
-    <link rel="manifest" href="{{ url('/manifest.json?v=' . time()) }}">
+    <link rel="manifest" href="{{ url('/manifest.json') }}">
     
     <!-- iOS / Apple Meta Tags -->
     @php
