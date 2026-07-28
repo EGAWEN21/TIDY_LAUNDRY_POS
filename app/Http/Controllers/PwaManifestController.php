@@ -21,6 +21,9 @@ class PwaManifestController extends Controller
         $favicon = (isset($site['default_favicon']) && !empty($site['default_favicon'])) ? $site['default_favicon'] : '/assets/images/favicon.png';
         $logo = (isset($site['default_logo']) && !empty($site['default_logo'])) ? $site['default_logo'] : '/assets/images/logo.png';
 
+        $logo192Version = file_exists(public_path('assets/images/logo-192.png')) ? filemtime(public_path('assets/images/logo-192.png')) : time();
+        $logo512Version = file_exists(public_path('assets/images/logo-512.png')) ? filemtime(public_path('assets/images/logo-512.png')) : time();
+        
         $manifest = [
             'name' => $appName,
             'short_name' => $shortName,
@@ -30,12 +33,12 @@ class PwaManifestController extends Controller
             'theme_color' => '#1b2a47',
             'icons' => [
                 [
-                    'src' => url('/assets/images/logo-192.png'),
+                    'src' => asset('assets/images/logo-192.png') . '?v=' . $logo192Version,
                     'sizes' => '192x192',
                     'type' => 'image/png'
                 ],
                 [
-                    'src' => url('/assets/images/logo-512.png'),
+                    'src' => asset('assets/images/logo-512.png') . '?v=' . $logo512Version,
                     'sizes' => '512x512',
                     'type' => 'image/png',
                     'purpose' => 'any maskable'

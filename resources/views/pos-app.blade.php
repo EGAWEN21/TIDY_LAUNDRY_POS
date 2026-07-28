@@ -35,10 +35,15 @@
     <link rel="manifest" href="{{ url('/manifest.json?v=' . time()) }}">
     
     <!-- iOS / Apple Meta Tags -->
+    @php
+        $logo192Version = file_exists(public_path('assets/images/logo-192.png')) ? filemtime(public_path('assets/images/logo-192.png')) : time();
+        $logo512Version = file_exists(public_path('assets/images/logo-512.png')) ? filemtime(public_path('assets/images/logo-512.png')) : time();
+        $appleTouchVersion = file_exists(public_path('assets/images/apple-touch-icon.png')) ? filemtime(public_path('assets/images/apple-touch-icon.png')) : time();
+    @endphp
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <link rel="apple-touch-icon" href="{{ asset('assets/images/apple-touch-icon.png') }}">
-    <link rel="apple-touch-startup-image" href="{{ asset('assets/images/logo-512.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('assets/images/apple-touch-icon.png') }}?v={{ $appleTouchVersion }}">
+    <link rel="apple-touch-startup-image" href="{{ asset('assets/images/logo-512.png') }}?v={{ $logo512Version }}">
     
     <style>
         #pwa-splash {
@@ -49,12 +54,20 @@
             height: 100%;
             background-color: #ffffff;
             z-index: 99999;
-            display: flex;
+            display: none; /* Hidden by default on website */
             flex-direction: column;
             align-items: center;
             justify-content: center;
             transition: opacity 0.5s ease-out;
         }
+        
+        /* Only show splash screen when installed as PWA (standalone) */
+        @media all and (display-mode: standalone) {
+            #pwa-splash:not(.splash-hidden) {
+                display: flex;
+            }
+        }
+        
         #pwa-splash img {
             width: 120px;
             height: 120px;
@@ -138,7 +151,7 @@
 <body>
     <!-- Splash Screen -->
     <div id="pwa-splash">
-        <img src="{{ asset('assets/images/logo-192.png') }}" alt="Logo">
+        <img src="{{ asset('assets/images/logo-192.png') }}?v={{ $logo192Version }}" alt="Logo">
         <h2>{{ getApplicationName() }}</h2>
     </div>
 
@@ -150,7 +163,8 @@
                 var splash = document.getElementById('pwa-splash');
                 if (splash) {
                     splash.style.opacity = '0';
-                    setTimeout(function() { splash.style.display = 'none'; }, 500);
+                    splash.classList.add('splash-hidden');
+                    setTimeout(function() { splash.remove(); }, 500);
                 }
             }, 800);
         });
