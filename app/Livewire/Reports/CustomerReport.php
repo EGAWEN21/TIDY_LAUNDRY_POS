@@ -55,10 +55,10 @@ class CustomerReport extends Component
                 'customers.created_at as registration_date',
                 DB::raw('COUNT(orders.id) as total_orders'),
                 DB::raw('COALESCE(SUM(orders.total), 0) as total_spend'),
-                DB::raw("COALESCE(SUM(CASE WHEN orders.order_date >= '{$thirtyDaysAgo}' THEN orders.total ELSE 0 END), 0) as spend_30"),
-                DB::raw("COALESCE(SUM(CASE WHEN orders.order_date >= '{$sevenDaysAgo}' THEN orders.total ELSE 0 END), 0) as spend_7"),
                 DB::raw('MAX(orders.order_date) as last_visit')
             )
+            ->selectRaw("COALESCE(SUM(CASE WHEN orders.order_date >= ? THEN orders.total ELSE 0 END), 0) as spend_30", [$thirtyDaysAgo])
+            ->selectRaw("COALESCE(SUM(CASE WHEN orders.order_date >= ? THEN orders.total ELSE 0 END), 0) as spend_7", [$sevenDaysAgo])
             ->leftJoin('orders', function($join) {
                 $join->on('customers.id', '=', 'orders.customer_id')
                      ->where('orders.status', '!=', 4); // Exclude returned orders

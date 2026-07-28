@@ -74,6 +74,14 @@ class CreateOrderAction
                 }
             }
 
+            // Overpayment guard: reject if total payments exceed order total
+            $totalPayments = collect($dto->payments)->sum('amount');
+            if ($totalPayments > $dto->total) {
+                throw new \InvalidArgumentException(
+                    "Total payments ({$totalPayments}) cannot exceed order total ({$dto->total})."
+                );
+            }
+
             foreach ($dto->payments as $payment) {
                 if ($payment->amount < 0) {
                     throw new \InvalidArgumentException('Negative payment amounts are not allowed when creating an order.');

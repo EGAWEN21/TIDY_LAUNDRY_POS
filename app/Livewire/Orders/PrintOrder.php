@@ -28,7 +28,7 @@ class PrintOrder extends Component
         if (!request()->hasValidSignature() && !\Illuminate\Support\Facades\Gate::allows('order_print')) {
             abort(404);
         }
-        $this->order = Order::where('id', $id)->first();
+        $this->order = Order::where('id', $id)->orWhere('uuid', $id)->first();
         /* if order is empty */
         if (!$this->order) {
             abort(404);

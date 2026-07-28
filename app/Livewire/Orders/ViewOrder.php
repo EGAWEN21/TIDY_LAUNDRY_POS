@@ -152,6 +152,53 @@ class ViewOrder extends Component
             $this->dispatch(
                 'alert', ['type' => 'success',  'message' => 'Delivery date Updated!']);
         }
+    }
 
+    public $selected_items_to_split = [];
+    public $split_payment_original = 0;
+    public $split_payment_new = 0;
+
+    public function triggerSplit()
+    {
+        if(!\Illuminate\Support\Facades\Gate::allows('order_split')){
+            $this->dispatch('alert', ['type' => 'error',  'message' => 'You do not have permission to split orders!']);
+            return;
+        }
+
+        if(empty($this->selected_items_to_split)) {
+            $this->dispatch('alert', ['type' => 'error',  'message' => 'Please select at least one item to split.']);
+            return;
+        }
+
+        if(count($this->selected_items_to_split) == count($this->orderdetails)) {
+            $this->dispatch('alert', ['type' => 'error',  'message' => 'Cannot split all items. Leave at least one item on the original order.']);
+            return;
+        }
+
+        $totalPayments = \App\Models\Payment::where('order_id', $this->order->id)->sum('received_amount');
+        
+        $allocations = [
+            'original' => $totalPayments > 0 ? (float)$this->split_payment_original : 0,
+            'new' => $totalPayments > 0 ? (float)$this->split_payment_new : 0,
+        ];
+
+        try {
+            $newOrder = \App\Actions\Orders\SplitOrderAction::execute(
+                $this->order->id, 
+                $this->selected_items_to_split, 
+                $allocations, 
+                Auth::id()
+            );
+
+            $this->dispatch('closemodal');
+            $this->dispatch('alert', ['type' => 'success',  'message' => 'Order split successfully!']);
+            
+            // Redirect to the new order or refresh
+            return redirect()->route('order.view', $this->order->id);
+            
+        } catch (\Exception $e) {
+            $this->dispatch('alert', ['type' => 'error',  'message' => $e->getMessage()]);
+        }
     }
 }
+

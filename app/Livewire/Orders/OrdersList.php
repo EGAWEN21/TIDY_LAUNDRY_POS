@@ -185,6 +185,41 @@ class OrdersList extends Component
         $this->reloadOrders();
         $this->dispatch('alert', ['type' => 'success',  'message' => 'Selected orders have been moved to Recycle Bin!']);
     }
+
+    public function bulkMerge()
+    {
+        if(empty($this->selectedOrders) || count($this->selectedOrders) < 2) {
+            $this->dispatch('alert', ['type' => 'error',  'message' => 'Please select at least two orders to merge.']);
+            return;
+        }
+
+        if(!\Illuminate\Support\Facades\Gate::allows('order_merge')){
+            $this->dispatch('alert', ['type' => 'error',  'message' => 'You do not have permission to merge orders!']);
+            return;
+        }
+
+        $orders = Order::whereIn('id', $this->selectedOrders)->get();
+        $customerId = $orders->first()->customer_id;
+        
+        foreach ($orders as $order) {
+            if ($order->customer_id !== $customerId) {
+                $this->dispatch('alert', ['type' => 'error',  'message' => 'Cannot merge orders belonging to different customers.']);
+                return;
+            }
+        }
+
+        $primaryOrderId = $orders->first()->id;
+        $secondaryOrderIds = $orders->where('id', '!=', $primaryOrderId)->pluck('id')->toArray();
+
+        try {
+            \App\Actions\Orders\MergeOrdersAction::execute($primaryOrderId, $secondaryOrderIds, Auth::id());
+            $this->selectedOrders = [];
+            $this->reloadOrders();
+            $this->dispatch('alert', ['type' => 'success',  'message' => 'Selected orders have been merged successfully!']);
+        } catch (\Exception $e) {
+            $this->dispatch('alert', ['type' => 'error',  'message' => $e->getMessage()]);
+        }
+    }
     /* process while update the content */
     private function getBaseOrderQuery()
     {

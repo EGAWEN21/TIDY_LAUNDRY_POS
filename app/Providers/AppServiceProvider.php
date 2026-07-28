@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\Permission;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -31,7 +32,11 @@ class AppServiceProvider extends ServiceProvider
         });
 
         try {
-            Permission::get()->map(function ($permission) {
+            $permissions = Cache::rememberForever('permissions', function () {
+                return Permission::all();
+            });
+            
+            $permissions->map(function ($permission) {
                 Gate::define($permission->name, function ($user) use ($permission) {
                     return $user->hasPermission($permission->name);
                 });

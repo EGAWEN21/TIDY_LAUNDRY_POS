@@ -83,7 +83,7 @@ class PosApiController extends Controller
         ]);
     }
 
-    public function syncCustomers(Request $request)
+    public function syncCustomers(\App\Http\Requests\SyncCustomersRequest $request)
     {
         $customers = $request->input('customers', []);
         $syncedIds = [];

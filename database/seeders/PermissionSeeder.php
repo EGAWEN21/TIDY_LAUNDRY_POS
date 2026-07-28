@@ -22,6 +22,8 @@ class PermissionSeeder extends Seeder
             ['name' => 'order_delete','display_name' => 'Order Delete','category' => 'Order'],
             ['name' => 'order_restore', 'display_name' => 'Restore Deleted Orders', 'category' => 'Order'],
             ['name' => 'order_force_delete', 'display_name' => 'Permanently Delete Orders', 'category' => 'Order'],
+            ['name' => 'order_merge', 'display_name' => 'Merge Orders', 'category' => 'Order'],
+            ['name' => 'order_split', 'display_name' => 'Split Orders', 'category' => 'Order'],
             ['name' => 'order_print','display_name' => 'Print Order','category' => 'Order'],
             ['name' => 'order_status_change','display_name' => 'Change Order Status','category' => 'Order'],
             ['name' => 'order_price_override', 'display_name' => 'Edit Service/Addon Prices', 'category' => 'Order'],

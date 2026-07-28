@@ -483,6 +483,13 @@
         </div>
         
         <div class="bulk-action-bar__actions">
+            @can('order_merge')
+            <button type="button" class="btn btn-outline-success btn-sm radius-8 d-flex align-items-center gap-2" wire:click="bulkMerge">
+                <iconify-icon icon="lucide:combine"></iconify-icon>
+                Merge
+            </button>
+            @endcan
+
             @can('bulk_order_status_change')
             <div class="dropdown">
                 <button type="button" class="btn btn-outline-primary btn-sm radius-8 d-flex align-items-center gap-2" data-bs-toggle="dropdown">

@@ -53,20 +53,23 @@ class User extends Authenticatable
         ];
     }
 
-    public function hasPermission($permission){
-        if($this->user_type == 1){
+    public function hasPermission($permission)
+    {
+        if ($this->user_type == 1) {
             return true;
         }
-        if(!$this->role){
+        if (!$this->role) {
             return false;
         }
-        return $this->permissions()->where('permission_name',$permission)->first() ? true : false;
+        return $this->role->permissions()->where('permission_name', $permission)->exists();
     }
 
-    //permissions relation
+    /**
+     * Get all permissions through the user's role.
+     */
     public function permissions()
     {
-        return $this->role->permissions;
+        return $this->role ? $this->role->permissions() : collect();
     }
 
     //roles relation

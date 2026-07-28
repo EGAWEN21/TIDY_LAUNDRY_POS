@@ -272,6 +272,12 @@
                 @can('order_print')
                 <a href="{{url('admin/orders/print/'.$order->id)}}" target="_blank" type="button" class="btn btn-outline-warning-600 radius-8 px-20 py-11 tw-mt-3 tw-w-full">{{ $lang->data['print_invoice'] ?? 'Print Invoice' }}</a>
                 @endcan()
+                @can('order_split')
+                <button data-bs-toggle="modal" data-bs-target="#splitOrderModal" type="button" class="btn btn-outline-info-600 radius-8 px-20 py-11 tw-mt-3 tw-w-full">
+                    <iconify-icon icon="lucide:split-square-horizontal" class="me-1"></iconify-icon>
+                    Split Order
+                </button>
+                @endcan
             </div>
         </div>
     </div>
@@ -376,6 +382,86 @@
                                 </div>
                             </div>
                         </form>
+                    </div>
+                @endif
+            </div>
+        </div>
+    <div class="modal fade" id="splitOrderModal" tabindex="-1" aria-labelledby="splitOrderModalLabel" aria-hidden="true" wire:ignore.self>
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content radius-16 bg-base">
+                <div class="modal-header py-16 px-24 border border-top-0 border-start-0 border-end-0">
+                    <h1 class="modal-title text-md" id="splitOrderModalLabel">Split Order</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                @if ($order)
+                    <div class="modal-body p-24">
+                        <div class="tw-mb-4">
+                            <p class="tw-text-sm tw-text-neutral-600">Select the items you want to split into a new order. You must leave at least one item in this original order.</p>
+                        </div>
+                        <div class="table-responsive tw-max-h-[300px] tw-overflow-y-auto tw-mb-4">
+                            <table class="table bordered-table sm-table mb-0">
+                                <thead class="tw-sticky tw-top-0 tw-bg-white tw-z-10">
+                                    <tr>
+                                        <th scope="col" class="tw-w-10"></th>
+                                        <th scope="col">Service Name</th>
+                                        <th scope="col">QTY</th>
+                                        <th scope="col">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($orderdetails as $item)
+                                        @php
+                                            $service = \App\Models\Service::where('id', $item->service_id)->first();
+                                        @endphp
+                                        <tr class="tw-text-sm">
+                                            <td class="tw-align-middle">
+                                                <input type="checkbox" class="form-check-input tw-w-4 tw-h-4" value="{{ $item->id }}" wire:model="selected_items_to_split">
+                                            </td>
+                                            <td>
+                                                <div class="tw-flex tw-flex-col">
+                                                    <span class="tw-font-medium">{{ $service->service_name ?? 'Unknown' }}</span>
+                                                    <span class="tw-text-xs tw-text-neutral-500">[{{ $item->service_name }}]</span>
+                                                </div>
+                                            </td>
+                                            <td>{{ $item->service_quantity }}</td>
+                                            <td class="text-primary">{{ getFormattedCurrency($item->service_detail_total) }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        @php
+                            $totalPayments = \App\Models\Payment::where('order_id', $order->id)->sum('received_amount');
+                        @endphp
+                        
+                        @if($totalPayments > 0)
+                            <div class="tw-bg-warning-50 tw-border tw-border-warning-200 tw-rounded-lg tw-p-4 tw-mb-4">
+                                <h6 class="tw-text-warning-800 tw-font-bold tw-text-sm tw-mb-2">Payment Allocation Required</h6>
+                                <p class="tw-text-xs tw-text-warning-700 tw-mb-3">This order has existing payments totaling <strong>{{ getFormattedCurrency($totalPayments) }}</strong>. You must manually distribute this payment between the original order and the new split order. The sum must exactly match.</p>
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-1">Allocate to Original Order</label>
+                                        <input type="number" step="0.01" class="form-control radius-8" wire:model="split_payment_original">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label fw-semibold text-primary-light text-sm mb-1">Allocate to New Split Order</label>
+                                        <input type="number" step="0.01" class="form-control radius-8" wire:model="split_payment_new">
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                        <div class="d-flex align-items-center justify-content-end gap-3 mt-24">
+                            <button data-bs-dismiss="modal" type="button" class="border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-40 py-11 radius-8"> 
+                            {{ $lang->data['cancel'] ?? 'Cancel' }}
+                            </button>
+                            <button wire:click.prevent="triggerSplit" class="btn btn-primary border border-primary-600 text-md px-24 py-12 radius-8 d-flex align-items-center gap-2"> 
+                                <iconify-icon icon="lucide:split-square-horizontal"></iconify-icon>
+                                Confirm Split
+                            </button>
+                        </div>
                     </div>
                 @endif
             </div>

@@ -95,6 +95,7 @@ class RolesList extends Component
             'type' => 'success',
             'message' => 'Role created successfully!'
         ]);
+        \Illuminate\Support\Facades\Cache::forget('permissions');
         $this->dispatch('closemodal');
     }
 
@@ -134,6 +135,7 @@ class RolesList extends Component
             'type' => 'success',
             'message' => 'Role updated successfully!'
         ]);
+        \Illuminate\Support\Facades\Cache::forget('permissions');
         $this->dispatch('closemodal');
     }
 
@@ -166,6 +168,7 @@ class RolesList extends Component
             'type' => 'success',
             'message' => 'Role deleted successfully!'
         ]);
+        \Illuminate\Support\Facades\Cache::forget('permissions');
     }
 
     //handle checkbox change
