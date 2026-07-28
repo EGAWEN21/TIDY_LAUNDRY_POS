@@ -16,6 +16,18 @@ use App\Models\Order;
 use Illuminate\Support\Facades\Auth;
 use Twilio\Rest\Client;
 
+if (!function_exists('getSessionTranslation')) {
+    /**
+     * Get the active Translation model based on session language or default.
+     */
+    function getSessionTranslation(): ?\App\Models\Translation
+    {
+        if (session()->has('selected_language')) {
+            return \App\Models\Translation::where('id', session()->get('selected_language'))->first();
+        }
+        return \App\Models\Translation::where('default', 1)->first();
+    }
+}
 if (!function_exists('siteSettings')) {
     function siteSettings()
     {
@@ -32,11 +44,7 @@ if (!function_exists('sanitize_search')) {
 
 function getExpenseCategoryType($type)
 {
-    if (session()->has('selected_language')) {
-        $lang = \App\Models\Translation::where('id', session()->get('selected_language'))->first();
-    } else {
-        $lang = \App\Models\Translation::where('default', 1)->first();
-    }
+    $lang = getSessionTranslation();
     if ($lang) {
         switch ($type) {
             case 1:
@@ -59,11 +67,7 @@ function getExpenseCategoryType($type)
 /* get payment mode */
 function getpaymentMode($type)
 {
-    if (session()->has('selected_language')) {
-        $lang = \App\Models\Translation::where('id', session()->get('selected_language'))->first();
-    } else {
-        $lang = \App\Models\Translation::where('default', 1)->first();
-    }
+    $lang = getSessionTranslation();
     if ($lang) {
         switch ($type) {
             case 1:
@@ -155,11 +159,7 @@ if(!function_exists('getTaxPercentage'))
 /* get order status */
 function getOrderStatus($status, $preventlang = null)
 {
-    if (session()->has('selected_language')) {
-        $lang = \App\Models\Translation::where('id', session()->get('selected_language'))->first();
-    } else {
-        $lang = \App\Models\Translation::where('default', 1)->first();
-    }
+    $lang = getSessionTranslation();
     if ($lang == null || $preventlang) {
         switch ($status) {
             case -1:
@@ -319,111 +319,14 @@ function isSMSEnabled()
 
 function sendOrderCreateSMS($order, $to)
 {
-
-    if (isSMSEnabled() == true) {
-    $site = siteSettings();
-        $messageerror = null;
-        try {
-            $myorder = Order::find($order);
-            if (smsOrderDeliveredOnly() && smsOrderReadyToDeliverOnly()) {
-                return;
-            }
-            if (smsOrderDeliveredOnly()) {
-                return;
-            }
-            if (smsOrderReadyToDeliverOnly()) {
-                return;
-            }
-
-            $account_sid = (($site['sms_account_sid']) && ($site['sms_account_sid'] != "")) ? $site['sms_account_sid'] : '';
-            $auth_token = (($site['sms_auth_token']) && ($site['sms_auth_token'] != "")) ? $site['sms_auth_token'] : '';
-            $twilio_number = (($site['sms_twilio_number']) && ($site['sms_twilio_number'] != "")) ? $site['sms_twilio_number'] : '';
-
-            $client = new Client($account_sid, $auth_token);
-            $customer = Customer::find($to);
-            if ($customer) {
-                $phoneInt = (int)$customer->phone;
-                $message = getFormatedTextSMS($order, 1);
-
-                $dailyLimit = isset($site['sms_global_daily_limit']) ? max((int)$site['sms_global_daily_limit'], 100) : 100;
-                if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts('global-sms-limit', $dailyLimit)) {
-                    \Illuminate\Support\Facades\Log::warning('Global SMS limit reached. Blocking outgoing SMS to ' . $phoneInt);
-                    return 'Global SMS limit reached';
-                }
-
-                $client->messages->create(
-                    getCountryCode() . $phoneInt,
-                    ['from' => $twilio_number, 'body' => $message]
-                );
-                
-                \Illuminate\Support\Facades\RateLimiter::hit('global-sms-limit', 86400);
-            }
-        } catch (\Exception $e) {
-            $messageerror = $e->getMessage();
-            if ($e->getCode() == 21211) {
-                $messageerror = 'Could not send SMS,Because the phone number is invalid';
-            }
-        }
-        return $messageerror;
-    }
+    $smsService = new \App\Services\SmsService();
+    return $smsService->sendOrderCreateSMS($order, $to);
 }
 
 function sendOrderStatusChangeSMS($order, $to_status)
 {
-    if (isSMSEnabled() == true) {
-    $site = siteSettings();
-        $messageerror = null;
-        try {
-            $myorder = Order::find($order);
-            if (smsOrderDeliveredOnly() && smsOrderReadyToDeliverOnly()) {
-                if ($myorder->status != 3 && $myorder->status != 2) {
-                    return;
-                }
-            }
-            if (smsOrderDeliveredOnly() && (!smsOrderReadyToDeliverOnly())) {
-                if (smsOrderDeliveredOnly() && $myorder->status != 3) {
-                    return;
-                }
-            }
-            if ((!smsOrderDeliveredOnly()) && (smsOrderReadyToDeliverOnly())) {
-                if (smsOrderReadyToDeliverOnly() && $myorder->status != 2) {
-                    return;
-                }
-            }
-            $account_sid = (($site['sms_account_sid']) && ($site['sms_account_sid'] != "")) ? $site['sms_account_sid'] : '';
-            $auth_token = (($site['sms_auth_token']) && ($site['sms_auth_token'] != "")) ? $site['sms_auth_token'] : '';
-            $twilio_number = (($site['sms_twilio_number']) && ($site['sms_twilio_number'] != "")) ? $site['sms_twilio_number'] : '';
-            $client = new Client($account_sid, $auth_token);
-            $customer = Customer::find($myorder->customer_id);
-            if ($customer) {
-                if ($to_status == 2) {
-                    $message = getFormatedTextSMS($order, 3);
-                } else {
-                    $message = getFormatedTextSMS($order, 2);
-                }
-                $phoneInt = (int)$customer->phone;
-                
-                $dailyLimit = isset($site['sms_global_daily_limit']) ? max((int)$site['sms_global_daily_limit'], 100) : 100;
-                if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts('global-sms-limit', $dailyLimit)) {
-                    \Illuminate\Support\Facades\Log::warning('Global SMS limit reached. Blocking outgoing SMS to ' . $phoneInt);
-                    return 'Global SMS limit reached';
-                }
-
-                $client->messages->create(
-                    getCountryCode() . $phoneInt,
-                    ['from' => $twilio_number, 'body' => $message]
-                );
-                
-                \Illuminate\Support\Facades\RateLimiter::hit('global-sms-limit', 86400);
-            }
-        } catch (\Exception $e) {
-            $messageerror = $e->getMessage();
-            if ($e->getCode() == 21211) {
-                $messageerror = 'Could not send SMS,Because the phone number is invalid';
-            }
-        }
-        return $messageerror;
-    }
+    $smsService = new \App\Services\SmsService();
+    return $smsService->sendOrderStatusChangeSMS($order, $to_status);
 }
 
 //get formatted currency
