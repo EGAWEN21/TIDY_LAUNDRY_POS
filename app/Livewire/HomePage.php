@@ -27,6 +27,7 @@ class HomePage extends Component
         $this->ready_count = $counts[2] ?? 0;
         $this->delivered_count = $counts[3] ?? 0;
         $this->returned_count = $counts[4] ?? 0;
+        $this->array = json_encode(array($this->pending_count,$this->processing_count,$this->ready_count,$this->delivered_count,$this->returned_count));
     }
 
     public function render()
@@ -48,7 +49,6 @@ class HomePage extends Component
             /* if the session has no selected language */
             $this->lang = Translation::where('default',1)->first();
         }
-        $this->array = json_encode(array($this->pending_count,$this->processing_count,$this->ready_count,$this->delivered_count,$this->returned_count));
     }
 
     #[Computed]

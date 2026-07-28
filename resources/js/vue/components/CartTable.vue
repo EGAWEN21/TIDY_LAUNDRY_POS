@@ -42,7 +42,7 @@
                       <span class="icon -tw-translate-y-[2px]">
                           <iconify-icon icon="f7:person"></iconify-icon>
                       </span>
-                      <input type="text" class="form-control" :placeholder="pos.cartCustomer ? 'Change Customer...' : 'Select A Customer'" @focus="showCustomerDropdown = true" @blur="hideCustomerDropdown" v-model="pos.customerQuery">
+                      <input type="text" class="tw-block tw-w-full tw-rounded-md tw-border tw-border-gray-300 tw-px-3 tw-py-2 tw-text-sm tw-shadow-sm focus:tw-border-blue-500 focus:tw-outline-none" :placeholder="pos.cartCustomer ? 'Change Customer...' : 'Select A Customer'" @focus="showCustomerDropdown = true" @blur="hideCustomerDropdown" v-model="pos.customerQuery">
                       <div v-show="showCustomerDropdown && filteredCustomers.length > 0" class="tw-absolute tw-top-[100%] tw-left-0 tw-w-full tw-z-20 tw-shadow-md tw-bg-white tw-rounded-lg">
                           <ul>
                               <li v-for="row in filteredCustomers" :key="row.id" class="dropdown-item px-16 py-8 rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 tw-cursor-pointer" @mousedown.prevent="selectCustomer(row)">{{ row.name }} - {{ row.phone }}</li>

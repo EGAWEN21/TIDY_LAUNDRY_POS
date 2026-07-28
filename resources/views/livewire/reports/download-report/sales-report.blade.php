@@ -1,3 +1,16 @@
+@php
+            $orders = \App\Models\Order::whereDate('order_date', '>=', $from_date)
+                ->whereDate('order_date', '<=', $to_date)
+                ->where('status', 3)
+                ->latest()
+                ->get();
+                $lang = null;
+        if (session()->has('selected_language')) {
+        $lang = \App\Models\Translation::where('id', session()->get('selected_language'))->first();
+        } else {
+            $lang = \App\Models\Translation::where('default', 1)->first();
+        }
+        @endphp
 <div>
     <!DOCTYPE html
         PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -37,19 +50,7 @@
         </style>
     </head>
     <body onload="">
-        @php
-            $orders = \App\Models\Order::whereDate('order_date', '>=', $from_date)
-                ->whereDate('order_date', '<=', $to_date)
-                ->where('status', 3)
-                ->latest()
-                ->get();
-                $lang = null;
-        if (session()->has('selected_language')) {
-        $lang = \App\Models\Translation::where('id', session()->get('selected_language'))->first();
-        } else {
-            $lang = \App\Models\Translation::where('default', 1)->first();
-        }
-        @endphp
+
         <h3 class="fw-500 text-dark">{{$lang->data['sales_report'] ?? 'Sales Report'}}</h3>
         <table width="100%" cellpadding="0" cellspacing="0" border="0">
             <tr>

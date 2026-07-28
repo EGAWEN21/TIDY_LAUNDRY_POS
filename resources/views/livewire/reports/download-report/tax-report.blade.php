@@ -1,3 +1,26 @@
+@php
+            /* sales */
+            if ($category == 1) {
+                $reports = \App\Models\Order::whereDate('order_date', '>=', $from_date)
+                    ->whereDate('order_date', '<=', $to_date)
+                    ->where('status', 3)
+                    ->latest()
+                    ->get();
+            }
+            /* expense */
+            if ($category == 2) {
+                $reports = \App\Models\Expense::whereDate('expense_date', '>=', $from_date)
+                    ->whereDate('expense_date', '<=', $to_date)
+                    ->latest()
+                    ->get();
+            }
+            $lang = null;
+        if (session()->has('selected_language')) {
+        $lang = \App\Models\Translation::where('id', session()->get('selected_language'))->first();
+        } else {
+            $lang = \App\Models\Translation::where('default', 1)->first();
+        }
+        @endphp
 <div>
     <!DOCTYPE html
         PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -37,29 +60,7 @@
         </style>
     </head>
     <body onload="">
-        @php
-            /* sales */
-            if ($category == 1) {
-                $reports = \App\Models\Order::whereDate('order_date', '>=', $from_date)
-                    ->whereDate('order_date', '<=', $to_date)
-                    ->where('status', 3)
-                    ->latest()
-                    ->get();
-            }
-            /* expense */
-            if ($category == 2) {
-                $reports = \App\Models\Expense::whereDate('expense_date', '>=', $from_date)
-                    ->whereDate('expense_date', '<=', $to_date)
-                    ->latest()
-                    ->get();
-            }
-            $lang = null;
-        if (session()->has('selected_language')) {
-        $lang = \App\Models\Translation::where('id', session()->get('selected_language'))->first();
-        } else {
-            $lang = \App\Models\Translation::where('default', 1)->first();
-        }
-        @endphp
+
         <h3 class="fw-500 text-dark">
             @if ($category == 1)
                 {{ 'Sales Tax Report' }}

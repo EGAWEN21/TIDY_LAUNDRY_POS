@@ -1,3 +1,16 @@
+@php
+        $new_order = \App\Models\Order::whereDate('order_date',$today)->count();
+        $delivered_orders = \App\Models\Order::whereDate('order_date',$today)->where('status',3)->count();
+        $total_payment = \App\Models\Payment::whereDate('payment_date',$today)->sum('received_amount');
+        $total_expense = \App\Models\Expense::whereDate('expense_date',$today)->sum('expense_amount');
+        $total_sales = \App\Models\Order::whereDate('order_date',$today)->where('status',3)->sum('total');
+        $lang = null;
+        if (session()->has('selected_language')) {
+        $lang = \App\Models\Translation::where('id', session()->get('selected_language'))->first();
+        } else {
+        $lang = \App\Models\Translation::where('default', 1)->first();
+        }
+        @endphp
 <div>
     <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
     <html xmlns="http://www.w3.org/1999/xhtml">
@@ -37,19 +50,7 @@
         </style>
     </head>
     <body onload="">
-        @php
-        $new_order = \App\Models\Order::whereDate('order_date',$today)->count();
-        $delivered_orders = \App\Models\Order::whereDate('order_date',$today)->where('status',3)->count();
-        $total_payment = \App\Models\Payment::whereDate('payment_date',$today)->sum('received_amount');
-        $total_expense = \App\Models\Expense::whereDate('expense_date',$today)->sum('expense_amount');
-        $total_sales = \App\Models\Order::whereDate('order_date',$today)->where('status',3)->sum('total');
-        $lang = null;
-        if (session()->has('selected_language')) {
-        $lang = \App\Models\Translation::where('id', session()->get('selected_language'))->first();
-        } else {
-        $lang = \App\Models\Translation::where('default', 1)->first();
-        }
-        @endphp
+
         <h3 class="fw-500 text-dark">{{$lang->data['daily_report'] ?? 'Daily Report'}}</h3>
         <table width="100%" cellpadding="0" cellspacing="0" border="0">
             <tr>

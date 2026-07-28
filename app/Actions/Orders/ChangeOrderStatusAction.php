@@ -11,6 +11,12 @@ use Illuminate\Support\Facades\Auth;
 
 class ChangeOrderStatusAction
 {
+    public const VALID_TRANSITIONS = [
+        1 => [2, 4],    // Pending -> Preparing, Returned/Cancelled
+        2 => [3, 4],    // Preparing -> Ready/Delivered, Returned/Cancelled
+        3 => [4],       // Ready/Delivered -> Returned/Cancelled
+        4 => [],        // Returned/Cancelled -> (Terminal)
+    ];
     /**
      * Centralized logic for changing an order's status and triggering all related
      * automations (Email, WhatsApp Burner API, WhatsApp Fallback, and SMS).
@@ -24,8 +30,8 @@ class ChangeOrderStatusAction
             return ['success' => false, 'message' => 'Order not found.'];
         }
 
-        if ($status < $order->status) {
-            return ['success' => false, 'message' => 'Cannot revert an order to a previous status.'];
+        if (!in_array($status, self::VALID_TRANSITIONS[$order->status] ?? [])) {
+            return ['success' => false, 'message' => 'Invalid status transition.'];
         }
 
         if ($status == 3) {
@@ -39,6 +45,7 @@ class ChangeOrderStatusAction
 
         $order->status = $status;
         $order->save();
+        \Illuminate\Support\Facades\Cache::forget('dashboard_order_counts');
         
         $response = ['success' => true, 'message' => 'Status successfully updated!'];
 
