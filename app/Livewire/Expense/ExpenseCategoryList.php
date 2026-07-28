@@ -11,7 +11,8 @@ use App\Models\Translation;
 class ExpenseCategoryList extends Component
 {
     #[Title('Expense Category')]
-    public $expense_category_name,$expense_category_type,$categories,$search,$lang,$category;
+    public $expense_category_name;
+    public $expense_category_type,$categories,$search,$lang,$category;
     public $editMode = false;
      /* validation rules */
     protected $rules = [

@@ -11,7 +11,8 @@ use Livewire\Component;
 class HomePage extends Component
 {
     #[Title('Dashboard')]
-    public $pending_count,$processing_count,$ready_count,$delivered_count,$returned_count,$array,$search_query = '',$order_filter = '',$lang;
+    public $pending_count;
+    public $processing_count,$ready_count,$delivered_count,$returned_count,$array,$search_query = '',$order_filter = '',$lang;
     private function loadOrderCounts()
     {
         $counts = \Illuminate\Support\Facades\Cache::remember('dashboard_order_counts', 300, function() {

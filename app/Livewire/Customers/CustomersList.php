@@ -20,7 +20,8 @@ use App\Actions\Customers\UpdateCustomerAction;
 class CustomersList extends Component
 {
     #[Title('Customers')]
-    public $customers, $name, $email, $tax_number, $is_active = 1, $phone, $address, $search, $lang, $customer;
+    public $customers;
+    public $name, $email, $tax_number, $is_active = 1, $phone, $address, $search, $lang, $customer;
     public $editMode = false;
     public $nextCursor;
     protected $currentCursor;

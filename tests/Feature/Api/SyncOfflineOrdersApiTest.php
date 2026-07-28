@@ -210,8 +210,8 @@ class SyncOfflineOrdersApiTest extends TestCase
         $this->withToken($token)
             ->getJson('/api/pos/rejected-orders')
             ->assertOk()
-            ->assertJsonPath('rejected_orders.0.uuid', 'rejected-request-uuid')
-            ->assertJsonPath('rejected_orders.0.rejection_reason', 'Correct the customer details');
+            ->assertJsonPath('data.rejected_orders.0.uuid', 'rejected-request-uuid')
+            ->assertJsonPath('data.rejected_orders.0.rejection_reason', 'Correct the customer details');
     }
 
     private function grantOrderCreatePermission(UserRole $role): void

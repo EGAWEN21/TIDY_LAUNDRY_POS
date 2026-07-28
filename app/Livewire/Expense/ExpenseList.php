@@ -12,7 +12,8 @@ use App\Models\Translation;
 class ExpenseList extends Component
 {
     #[Title('Expenses')]
-    public $expense_category_id,$expense_amount,$expense_date,$payment_mode,$tax_included=0,$expenses,$tax_percentage,$note,$search,$lang,$expense;
+    public $expense_category_id;
+    public $expense_amount,$expense_date,$payment_mode,$tax_included=0,$expenses,$tax_percentage,$note,$search,$lang,$expense;
     public $editMode = false;
     /* validation rules */
     protected $rules = [

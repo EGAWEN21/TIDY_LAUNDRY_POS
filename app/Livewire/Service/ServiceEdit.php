@@ -17,7 +17,8 @@ class ServiceEdit extends Component
 
     public $newIcon;
     #[Title('Service Edit')]
-    public $services,$files,$imageicon,$inputs=[],$service_types,$prices = [],$servicetypes =[],$inputi=1,$service_name,$is_active=1,$service,$lang;
+    public $services;
+    public $files,$imageicon,$inputs=[],$service_types,$prices = [],$servicetypes =[],$inputi=1,$service_name,$is_active=1,$service,$lang;
     /* render the page */
     public function render()
     {

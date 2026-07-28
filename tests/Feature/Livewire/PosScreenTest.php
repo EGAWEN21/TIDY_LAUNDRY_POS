@@ -23,6 +23,7 @@ class PosScreenTest extends TestCase
     public function test_it_calculates_totals_correctly_when_updating_cart(): void
     {
         $user = User::first();
+        PosDraft::where('user_id', $user->id)->delete();
         
         $customer = Customer::create([
             'name' => 'John Doe',
@@ -61,6 +62,7 @@ class PosScreenTest extends TestCase
     public function test_it_automatically_saves_a_draft(): void
     {
         $user = User::first();
+        PosDraft::where('user_id', $user->id)->delete();
         
         $service = Service::create([
             'service_name' => 'Test Dry',
@@ -93,6 +95,7 @@ class PosScreenTest extends TestCase
     public function test_it_rejects_payment_amounts_above_the_current_balance(): void
     {
         $user = User::firstOrFail();
+        PosDraft::where('user_id', $user->id)->delete();
         [$service, $serviceType] = $this->createCartItem(100);
 
         Livewire::actingAs($user)
@@ -107,6 +110,7 @@ class PosScreenTest extends TestCase
     public function test_it_keeps_a_valid_partial_payment_in_component_state(): void
     {
         $user = User::firstOrFail();
+        PosDraft::where('user_id', $user->id)->delete();
         [$service, $serviceType] = $this->createCartItem(100);
 
         Livewire::actingAs($user)
