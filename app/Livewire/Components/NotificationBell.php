@@ -24,7 +24,7 @@ class NotificationBell extends Component
     {
         $notifications = Auth::check() ? Auth::user()->unreadNotifications()->take(5)->get() : collect();
         $unreadCount = Auth::check() ? Auth::user()->unreadNotifications()->count() : 0;
-        
+
         return view('livewire.components.notification-bell', [
             'notifications' => $notifications,
             'unreadCount' => $unreadCount

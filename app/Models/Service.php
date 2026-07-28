@@ -9,7 +9,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Service extends Model
 {
-    use HasFactory, UpdatesPosSyncTimestamp, SoftDeletes;
+    use HasFactory;
+    use UpdatesPosSyncTimestamp;
+    use SoftDeletes;
 
     protected $fillable = [
         'service_name',

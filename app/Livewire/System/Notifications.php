@@ -10,7 +10,7 @@ use Livewire\Attributes\Title;
 class Notifications extends Component
 {
     use WithPagination;
-    
+
     protected $paginationTheme = 'bootstrap';
 
     public function markAsRead($id)

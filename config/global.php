@@ -1,4 +1,5 @@
 <?php
+
 return [
     "translation" => [
         "section" => [
@@ -83,7 +84,7 @@ return [
                     "password"  => "Password",
                     "order" => "Order",
                     "orders"    => "Orders",
-                    "order_type"    => "Order Type",   
+                    "order_type"    => "Order Type",
                     "order_status_screen"   => "Order Status Screen",
                     "order_status"  => "Order Status",
                     "transactions"  => "Transactions",
@@ -212,7 +213,7 @@ return [
                     "total_amount"  => "Total Amount",
                     "paid_amount"   => "Paid Amount",
                     "expense_amount"    => "Expense Amount",
-                    "add_payment"   => "Add Payment",   
+                    "add_payment"   => "Add Payment",
                     "fully_paid"    => "Fully Paid",
                     "view"  => "View",
                     "payment_details"   => "Payment Details",

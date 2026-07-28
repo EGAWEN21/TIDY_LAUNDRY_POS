@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Class SendOrderNotifications
- * 
+ *
  * Asynchronously handles third-party HTTP requests (SMS/WhatsApp)
  * after an order is securely committed. Implements ShouldQueue to
  * prevent the main UI/API thread from hanging.
@@ -39,7 +39,7 @@ class SendOrderNotifications implements ShouldQueue
             // Future-proofing WhatsApp Automated Status
             // $whatsAppService = app(\App\Services\WhatsAppService::class);
             // $whatsAppService->sendAutomatedStatusUpdate($event->order, "Your order {$event->order->order_number} has been placed successfully!");
-            
+
         } catch (\Exception $e) {
             // Log the error but DO NOT throw it, so we don't break the queue or rollback anything
             Log::error('Order Notification Failed: ' . $e->getMessage(), [

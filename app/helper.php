@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Global Helper Functions for TidyPOS.
  *
@@ -13,8 +14,6 @@
 
 use App\Models\Customer;
 use App\Models\Order;
-use Illuminate\Support\Facades\Auth;
-use Twilio\Rest\Client;
 
 if (!function_exists('getSessionTranslation')) {
     /**
@@ -89,21 +88,21 @@ function getpaymentMode($type)
                 return '';
         }
     } else {
-    switch ($type) {
-        case 1:
-            return 'CASH';
-        case 2:
-            return 'UPI';
-        case 3:
-            return 'CARD';
-        case 4:
-            return 'CHEQUE';
-        case 5:
-            return 'BANK TRANSFER';
-        default:
-            return '';
+        switch ($type) {
+            case 1:
+                return 'CASH';
+            case 2:
+                return 'UPI';
+            case 3:
+                return 'CARD';
+            case 4:
+                return 'CHEQUE';
+            case 5:
+                return 'BANK TRANSFER';
+            default:
+                return '';
+        }
     }
-}
 }
 /* get financial year */
 function getFinancialYearId()
@@ -119,18 +118,20 @@ function getFinancialYearId()
 /* get financial year by date dynamically */
 function resolveFinancialYearId($date)
 {
-    if (!$date) return getFinancialYearId();
-    
+    if (!$date) {
+        return getFinancialYearId();
+    }
+
     $dateObj = \Carbon\Carbon::parse($date)->toDateString();
-    
+
     $financialYear = \App\Models\FinancialYear::where('starting_date', '<=', $dateObj)
         ->where('ending_date', '>=', $dateObj)
         ->first();
-        
+
     if ($financialYear) {
         return $financialYear->id;
     }
-    
+
     // Fallback if transaction date doesn't match any explicitly configured year
     return getFinancialYearId();
 }
@@ -145,14 +146,12 @@ function getCurrency()
     return '$';
 }
 /* get Tax percentage */
-if(!function_exists('getTaxPercentage'))
-{
+if (!function_exists('getTaxPercentage')) {
     function getTaxPercentage()
     {
-    $site = siteSettings();
-        if(isset($site['default_tax_percentage']))
-        {
-            $currency = (($site['default_tax_percentage']) && ($site['default_tax_percentage'] !=""))? $site['default_tax_percentage'] : 0;
+        $site = siteSettings();
+        if (isset($site['default_tax_percentage'])) {
+            $currency = (($site['default_tax_percentage']) && ($site['default_tax_percentage'] != "")) ? $site['default_tax_percentage'] : 0;
             return $currency;
         }
         return 0;
@@ -400,51 +399,51 @@ function getFormatedTextSMS($order, $type)
     return str_replace(array_keys($replacer), array_values($replacement), $string);
 }
 
-if(!function_exists('getTaxType'))
-{
+if (!function_exists('getTaxType')) {
     function getTaxType()
     {
-    $site = siteSettings();
-        if(isset($site['default_tax_mode']))
-        {
-            $tax_type = (($site['default_tax_mode']) && ($site['default_tax_mode'] !=""))? $site['default_tax_mode'] : 1;
+        $site = siteSettings();
+        if (isset($site['default_tax_mode'])) {
+            $tax_type = (($site['default_tax_mode']) && ($site['default_tax_mode'] != "")) ? $site['default_tax_mode'] : 1;
             return $tax_type;
         }
         return 1;
     }
 }
 
-if(!function_exists('getBypassLimit'))
-{
+if (!function_exists('getBypassLimit')) {
     function getBypassLimit()
     {
-    $site = siteSettings();
-        if(isset($site['bypass_approval_limit']))
-        {
-            $limit = (($site['bypass_approval_limit']) && ($site['bypass_approval_limit'] !=""))? $site['bypass_approval_limit'] : 0;
+        $site = siteSettings();
+        if (isset($site['bypass_approval_limit'])) {
+            $limit = (($site['bypass_approval_limit']) && ($site['bypass_approval_limit'] != "")) ? $site['bypass_approval_limit'] : 0;
             return $limit;
         }
         return 0;
     }
 }
 
-if(!function_exists('sendOrderStatusChangeEmail'))
-{
+if (!function_exists('sendOrderStatusChangeEmail')) {
     function sendOrderStatusChangeEmail($order_id, $status)
     {
-    $site = siteSettings();
-        
+        $site = siteSettings();
+
         if (!isset($site['enable_automated_emails']) || $site['enable_automated_emails'] != 1) {
             return;
         }
 
         $template_key = '';
         switch ($status) {
-            case 0: $template_key = 'email_template_pending'; break;
-            case 1: $template_key = 'email_template_processing'; break;
-            case 2: $template_key = 'email_template_ready'; break;
-            case 3: $template_key = 'email_template_delivered'; break;
-            case 4: $template_key = 'email_template_returned'; break;
+            case 0: $template_key = 'email_template_pending';
+                break;
+            case 1: $template_key = 'email_template_processing';
+                break;
+            case 2: $template_key = 'email_template_ready';
+                break;
+            case 3: $template_key = 'email_template_delivered';
+                break;
+            case 4: $template_key = 'email_template_returned';
+                break;
         }
 
         if (empty($template_key) || empty($site[$template_key])) {
@@ -452,13 +451,17 @@ if(!function_exists('sendOrderStatusChangeEmail'))
         }
 
         $myorder = Order::find($order_id);
-        if (!$myorder) return;
+        if (!$myorder) {
+            return;
+        }
 
         $customer = Customer::find($myorder->customer_id);
-        if (!$customer || empty($customer->email)) return;
+        if (!$customer || empty($customer->email)) {
+            return;
+        }
 
         $message = $site[$template_key];
-        
+
         $replacements = [
             '{customer_name}' => $myorder->customer_name,
             '{order_number}' => $myorder->order_number,

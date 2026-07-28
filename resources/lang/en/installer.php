@@ -1,4 +1,5 @@
 <?php
+
 return [
     'lets_get_started'  => 'Lets get started!',
     'tailor_pos_installer'  => 'Laundry Box Installer',

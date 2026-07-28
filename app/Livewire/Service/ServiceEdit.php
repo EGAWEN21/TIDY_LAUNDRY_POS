@@ -18,7 +18,17 @@ class ServiceEdit extends Component
     public $newIcon;
     #[Title('Service Edit')]
     public $services;
-    public $files,$imageicon,$inputs=[],$service_types,$prices = [],$servicetypes =[],$inputi=1,$service_name,$is_active=1,$service,$lang;
+    public $files;
+    public $imageicon;
+    public $inputs = [];
+    public $service_types;
+    public $prices = [];
+    public $servicetypes = [];
+    public $inputi = 1;
+    public $service_name;
+    public $is_active = 1;
+    public $service;
+    public $lang;
     /* render the page */
     public function render()
     {
@@ -27,20 +37,18 @@ class ServiceEdit extends Component
     /* process before render */
     public function mount($id)
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('service_edit')){
+        if (!\Illuminate\Support\Facades\Gate::allows('service_edit')) {
             abort(404);
         }
         $this->service_types = ServiceType::latest()->get();
         $this->loadIcons();
-        $this->service = Service::where('id',$id)->first();
+        $this->service = Service::where('id', $id)->first();
         /* if service is not exist */
-        if(!$this->service)
-        {
+        if (!$this->service) {
             abort(404);
         }
-        $details = ServiceDetail::where('service_id',$this->service->id)->get();
-        foreach($details as $row)
-        {
+        $details = ServiceDetail::where('service_id', $this->service->id)->get();
+        foreach ($details as $row) {
             $this->add($this->inputi);
             $this->servicetypes[$this->inputi] = $row->service_type_id;
             $this->prices[$this->inputi] = $row->service_price;
@@ -48,13 +56,11 @@ class ServiceEdit extends Component
         $this->service_name = $this->service->service_name;
         $this->is_active = $this->service->is_active;
         $this->imageicon['path'] = $this->service->icon;
-        if(session()->has('selected_language'))
-        {   /* if session has selected language */
-            $this->lang = Translation::where('id',session()->get('selected_language'))->first();
-        }
-        else{
+        if (session()->has('selected_language')) {   /* if session has selected language */
+            $this->lang = Translation::where('id', session()->get('selected_language'))->first();
+        } else {
             /* if session has no selected language */
-            $this->lang = Translation::where('default',1)->first();
+            $this->lang = Translation::where('default', 1)->first();
         }
     }
     /* load icons */
@@ -68,7 +74,7 @@ class ServiceEdit extends Component
             $this->files[$i]['path'] = $value->getfilename();
         }
     }
-    
+
     /* upload new Icon */
     public function uploadIcon()
     {
@@ -78,15 +84,15 @@ class ServiceEdit extends Component
 
         $fileName = time() . '_' . $this->newIcon->getClientOriginalName();
         $path = public_path('assets/img/service-icons/' . $fileName);
-        
+
         $manager = new \Intervention\Image\ImageManager(new \Intervention\Image\Drivers\Gd\Driver());
         $image = $manager->decodePath($this->newIcon->getRealPath());
         $image->scaleDown(150, 150);
         $image->save($path);
-        
+
         $this->loadIcons();
         $this->newIcon = null;
-        
+
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Icon uploaded and resized successfully!']);
     }
 
@@ -128,7 +134,7 @@ class ServiceEdit extends Component
     {
         $i = $i + 1;
         $this->inputi = $i;
-        array_push($this->inputs ,$i);
+        array_push($this->inputs, $i);
         $this->prices[$i]    = 100;
         $this->servicetypes[$i] = '';
     }
@@ -140,43 +146,40 @@ class ServiceEdit extends Component
             'prices.*'  => 'numeric|required',
             'service_name'  => 'required',
         ]);
-        if(!$this->imageicon)
-        {
-            $this->addError('icon',"Please select an icon");
+        if (!$this->imageicon) {
+            $this->addError('icon', "Please select an icon");
             return 1;
         }
-        if(count($this->inputs) <= 0)
-        {
-            $this->addError('inputerror',"You must add atleast one service type");
+        if (count($this->inputs) <= 0) {
+            $this->addError('inputerror', "You must add atleast one service type");
             return 1;
         }
         $this->service->service_name = $this->service_name;
         $this->service->icon = $this->imageicon['path'];
         $this->service->is_active = $this->is_active ?? 0;
         $this->service->save();
-        $details = ServiceDetail::where('service_id',$this->service->id)->delete();
-        foreach($this->inputs as $key => $value)
-        {
-           $servicetype = ServiceType::where('id',$this->servicetypes[$value])->first();
-           /* if service type is exist */
-           if($servicetype)
-           {
-               ServiceDetail::create([
-                   'service_id' => $this->service->id,
-                   'service_type_id'    => $servicetype->id,
-                   'service_price'  => $this->prices[$value],
-               ]);
-           }
+        $details = ServiceDetail::where('service_id', $this->service->id)->delete();
+        foreach ($this->inputs as $key => $value) {
+            $servicetype = ServiceType::where('id', $this->servicetypes[$value])->first();
+            /* if service type is exist */
+            if ($servicetype) {
+                ServiceDetail::create([
+                    'service_id' => $this->service->id,
+                    'service_type_id'    => $servicetype->id,
+                    'service_price'  => $this->prices[$value],
+                ]);
+            }
         }
         $this->dispatch(
-            'alert', ['type' => 'success',  'message' => 'Service has been updated!']);
+            'alert',
+            ['type' => 'success',  'message' => 'Service has been updated!']
+        );
         return redirect('/admin/service');
     }
     /* remove the service */
-    public function remove($id,$value)
+    public function remove($id, $value)
     {   /* if the service input is exist */
-        if(isset($this->inputs[$id]))
-        {
+        if (isset($this->inputs[$id])) {
             unset($this->inputs[$id]);
             unset($this->servicetypes[$value]);
             unset($this->prices[$value]);

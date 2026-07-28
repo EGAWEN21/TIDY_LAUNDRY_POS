@@ -1,11 +1,8 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class () extends Migration {
     /**
      * Run the migrations.
      */
@@ -59,7 +56,7 @@ return new class extends Migration
     {
         $permissions = ['order_price_override', 'order_discount_apply'];
         $ids = \Illuminate\Support\Facades\DB::table('permissions')->whereIn('name', $permissions)->pluck('id');
-        
+
         \Illuminate\Support\Facades\DB::table('user_role_permissions')->whereIn('permission_id', $ids)->delete();
         \Illuminate\Support\Facades\DB::table('permissions')->whereIn('id', $ids)->delete();
     }

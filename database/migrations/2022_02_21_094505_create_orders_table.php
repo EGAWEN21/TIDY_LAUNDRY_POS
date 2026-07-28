@@ -21,12 +21,12 @@ class CreateOrdersTable extends Migration
             $table->string('phone_number')->nullable();
             $table->dateTime('order_date')->nullable();
             $table->dateTime('delivery_date')->nullable();
-            $table->double('sub_total',15,2)->default(0);
-            $table->double('addon_total',15,2)->default(0);
-            $table->double('discount',15,2)->default(0);
-            $table->double('tax_percentage',15,2)->default(0);
-            $table->double('tax_amount',15,2)->default(0);
-            $table->double('total',15,2)->default(0);
+            $table->double('sub_total', 15, 2)->default(0);
+            $table->double('addon_total', 15, 2)->default(0);
+            $table->double('discount', 15, 2)->default(0);
+            $table->double('tax_percentage', 15, 2)->default(0);
+            $table->double('tax_amount', 15, 2)->default(0);
+            $table->double('total', 15, 2)->default(0);
             $table->longText('note')->nullable();
             $table->integer('status')->default(0);
             $table->integer('order_type')->nullable();

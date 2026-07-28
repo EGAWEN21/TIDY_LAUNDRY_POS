@@ -3,8 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Permission;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class PermissionSeeder extends Seeder
@@ -97,7 +95,7 @@ class PermissionSeeder extends Seeder
             ['name' => 'setting_sms', 'display_name' => 'SMS Settings', 'category' => 'Setting'],
             ['name' => 'setting_master', 'display_name' => 'Master Settings', 'category' => 'Setting'],
             ['name' => 'setting_theme', 'display_name' => 'Theme Settings', 'category' => 'Setting'],
-            
+
 
             ['name' => 'user_list', 'display_name' => 'User List', 'category' => 'User'],
             ['name' => 'user_view', 'display_name' => 'User View', 'category' => 'User'],

@@ -3,7 +3,6 @@
 namespace App\Livewire\Service;
 
 use Livewire\Component;
-use App\Http\Livewire\Admin\Service\ServiceType as ServiceServiceType;
 use App\Models\Service;
 use App\Models\ServiceDetail;
 use File;
@@ -17,7 +16,17 @@ class ServiceManage extends Component
     use WithFileUploads;
 
     public $newIcon;
-    public $services, $files, $imageicon, $inputs = [], $service_types, $prices = [], $servicetypes = [], $inputi = 1, $service_name, $is_active = 1, $lang;
+    public $services;
+    public $files;
+    public $imageicon;
+    public $inputs = [];
+    public $service_types;
+    public $prices = [];
+    public $servicetypes = [];
+    public $inputi = 1;
+    public $service_name;
+    public $is_active = 1;
+    public $lang;
     /* render the page */
     #[Title('Manage Service')]
     public function render()
@@ -27,7 +36,7 @@ class ServiceManage extends Component
     /* process before mount */
     public function mount()
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('service_create')){
+        if (!\Illuminate\Support\Facades\Gate::allows('service_create')) {
             abort(404);
         }
         $this->service_types = ServiceType::latest()->get();
@@ -49,7 +58,7 @@ class ServiceManage extends Component
             $this->files[$i]['path'] = $value->getfilename();
         }
     }
-    
+
     /* upload new Icon */
     public function uploadIcon()
     {
@@ -59,15 +68,15 @@ class ServiceManage extends Component
 
         $fileName = time() . '_' . $this->newIcon->getClientOriginalName();
         $path = public_path('assets/img/service-icons/' . $fileName);
-        
+
         $manager = new \Intervention\Image\ImageManager(new \Intervention\Image\Drivers\Gd\Driver());
         $image = $manager->decodePath($this->newIcon->getRealPath());
         $image->scaleDown(150, 150);
         $image->save($path);
-        
+
         $this->loadIcons();
         $this->newIcon = null;
-        
+
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Icon uploaded and resized successfully!']);
     }
 

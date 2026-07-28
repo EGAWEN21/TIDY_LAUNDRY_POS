@@ -17,7 +17,7 @@ class PwaManifestController extends Controller
 
         $appName = (isset($site['default_application_name']) && !empty($site['default_application_name'])) ? $site['default_application_name'] : 'TidyPOS';
         $shortName = (isset($site['pwa_short_name']) && !empty($site['pwa_short_name'])) ? $site['pwa_short_name'] : 'TidyPOS';
-        
+
         $favicon = (isset($site['default_favicon']) && !empty($site['default_favicon'])) ? $site['default_favicon'] : '/assets/images/favicon.png';
         $logo = (isset($site['default_logo']) && !empty($site['default_logo'])) ? $site['default_logo'] : '/assets/images/logo.png';
 

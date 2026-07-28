@@ -14,7 +14,8 @@ use Illuminate\Support\Facades\Hash;
 
 class ForgotPassword extends Component
 {
-    public $password, $password_confirm;
+    public $password;
+    public $password_confirm;
 
     #[Locked]
     public string $resetTokenHash;

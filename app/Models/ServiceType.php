@@ -8,7 +8,8 @@ use App\Traits\UpdatesPosSyncTimestamp;
 
 class ServiceType extends Model
 {
-    use HasFactory, UpdatesPosSyncTimestamp;
+    use HasFactory;
+    use UpdatesPosSyncTimestamp;
     protected $fillable = [
         'service_type_name',
         'is_active',

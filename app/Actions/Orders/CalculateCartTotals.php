@@ -8,7 +8,7 @@ use Illuminate\Support\Collection;
 
 /**
  * Class CalculateCartTotals
- * 
+ *
  * Handles the strict mathematical computation of cart totals and taxes.
  * This class ensures 100% parity between the Offline Vue PWA math and the Online Livewire math.
  */
@@ -16,7 +16,7 @@ class CalculateCartTotals
 {
     /**
      * Execute the mathematical calculation.
-     * 
+     *
      * @param Collection<int, CartItemData>|array $cartItems
      * @param float $addonTotal
      * @param float $discount

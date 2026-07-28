@@ -12,7 +12,11 @@ use Livewire\Attributes\Title;
 class FileTools extends Component
 {
     use WithFileUploads;
-    public $icons,$photo,$allowupload = false,$i=0,$lang;
+    public $icons;
+    public $photo;
+    public $allowupload = false;
+    public $i = 0;
+    public $lang;
     #[Title('File Tools')]
     public function render()
     {
@@ -20,16 +24,14 @@ class FileTools extends Component
     }
     public function mount()
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('setting_file_tools')){
+        if (!\Illuminate\Support\Facades\Gate::allows('setting_file_tools')) {
             abort(404);
         }
-        if(session()->has('selected_language'))
-        {   /*if session has selected language */
-            $this->lang = Translation::where('id',session()->get('selected_language'))->first();
-        }
-        else{
+        if (session()->has('selected_language')) {   /*if session has selected language */
+            $this->lang = Translation::where('id', session()->get('selected_language'))->first();
+        } else {
             /* if session has no selected language */
-            $this->lang = Translation::where('default',1)->first();
+            $this->lang = Translation::where('default', 1)->first();
         }
         $this->getFiles();
     }
@@ -38,15 +40,15 @@ class FileTools extends Component
         $this->dispatch('removelocalError');
         $this->allowupload = false;
         $this->validate([
-            'photo' => 'image|max:1024', 
+            'photo' => 'image|max:1024',
         ]);
         $this->allowupload = true;
     }
- 
+
     public function save()
     {
         $this->validate([
-            'photo' => 'image|max:1024', 
+            'photo' => 'image|max:1024',
         ]);
         $extension = strtolower($this->photo->getClientOriginalExtension());
         $baseName = Str::slug(pathinfo($this->photo->getClientOriginalName(), PATHINFO_FILENAME));
@@ -60,7 +62,7 @@ class FileTools extends Component
     }
     public function getFiles()
     {
-        
+
         $files = File::files(public_path('assets/img/service-icons'));
         $myfiles = collect($files)->sortByDesc(function ($file) {
             return $file->getCTime();

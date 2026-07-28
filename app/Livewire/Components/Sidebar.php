@@ -15,22 +15,20 @@ class Sidebar extends Component
     {
         return view('livewire.components.sidebar');
     }
-     //Perform Logout
-     public function logout()
-     {
-         Auth::logout();
-         Session::flush();
-         return redirect('/');
-     }
-       /* process before render */
+    //Perform Logout
+    public function logout()
+    {
+        Auth::logout();
+        Session::flush();
+        return redirect('/');
+    }
+    /* process before render */
     public function mount()
     {
-        if(session()->has('selected_language'))
-        { /* if session has selected laugage*/
-            $this->lang = Translation::where('id',session()->get('selected_language'))->first();
-        }
-        else{
-            $this->lang = Translation::where('default',1)->first();
+        if (session()->has('selected_language')) { /* if session has selected laugage*/
+            $this->lang = Translation::where('id', session()->get('selected_language'))->first();
+        } else {
+            $this->lang = Translation::where('default', 1)->first();
         }
     }
 }

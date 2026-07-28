@@ -3,7 +3,6 @@
 namespace App\Livewire;
 
 use App\Models\Order;
-use App\Models\Translation;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
@@ -12,10 +11,17 @@ class HomePage extends Component
 {
     #[Title('Dashboard')]
     public $pending_count;
-    public $processing_count,$ready_count,$delivered_count,$returned_count,$array,$search_query = '',$order_filter = '',$lang;
+    public $processing_count;
+    public $ready_count;
+    public $delivered_count;
+    public $returned_count;
+    public $array;
+    public $search_query = '';
+    public $order_filter = '';
+    public $lang;
     private function loadOrderCounts()
     {
-        $counts = \Illuminate\Support\Facades\Cache::remember('dashboard_order_counts', 300, function() {
+        $counts = \Illuminate\Support\Facades\Cache::remember('dashboard_order_counts', 300, function () {
             return Order::select('status', \Illuminate\Support\Facades\DB::raw('count(*) as total'))
                 ->groupBy('status')
                 ->pluck('total', 'status')
@@ -53,7 +59,7 @@ class HomePage extends Component
         }
 
         if (!empty($this->search_query)) {
-            $query->where(function($q) {
+            $query->where(function ($q) {
                 $q->where('order_number', 'like', '%' . sanitize_search($this->search_query) . '%')
                   ->orWhere('customer_name', 'like', '%' . sanitize_search($this->search_query) . '%');
             });

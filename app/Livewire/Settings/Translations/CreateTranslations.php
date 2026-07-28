@@ -8,7 +8,12 @@ use Livewire\Attributes\Title;
 
 class CreateTranslations extends Component
 {
-    public $data=[],$default,$name,$is_active=1,$is_rtl = 0,$lang;
+    public $data = [];
+    public $default;
+    public $name;
+    public $is_active = 1;
+    public $is_rtl = 0;
+    public $lang;
     /* render the page */
     #[Title('Create Translations')]
     public function render()
@@ -18,30 +23,27 @@ class CreateTranslations extends Component
     /* process before render */
     public function mount()
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('translation_create')){
+        if (!\Illuminate\Support\Facades\Gate::allows('translation_create')) {
             abort(404);
         }
-        if(session()->has('selected_language'))
-        {
+        if (session()->has('selected_language')) {
             /* if the session has selected language */
-            $this->lang = \App\Models\Translation::where('id',session()->get('selected_language'))->first();
-        }
-        else{
+            $this->lang = \App\Models\Translation::where('id', session()->get('selected_language'))->first();
+        } else {
             /* if the session has no selected language */
-            $this->lang = \App\Models\Translation::where('default',1)->first();
+            $this->lang = \App\Models\Translation::where('default', 1)->first();
         }
         $this->initialData();
     }
     /* initial data fetch */
-    public function initialData(){
+    public function initialData()
+    {
         $this->name = '';
         $this->is_active = 1;
         $this->is_rtl = 0;
-        $this->data=[];
-        foreach(config('global.translation.section') as $value)
-        {
-            foreach($value['values'] as $key => $default)
-            {
+        $this->data = [];
+        foreach (config('global.translation.section') as $value) {
+            foreach ($value['values'] as $key => $default) {
                 $this->data[$key] = $default;
             }
         }
@@ -53,14 +55,13 @@ class CreateTranslations extends Component
             'name'  => 'required',
             'data.*' => 'required'
         ]);
-        if($this->default)
-        {
-            Translation::where('default',1)->update([
-                'default'=> 0]
+        if ($this->default) {
+            Translation::where('default', 1)->update(
+                [
+                'default' => 0]
             );
         }
-        if($this->is_rtl == null || !$this->is_rtl)
-        {
+        if ($this->is_rtl == null || !$this->is_rtl) {
             $this->is_rtl = 0;
         }
         Translation::create([

@@ -7,12 +7,12 @@ use Livewire\Attributes\Title;
 use App\Models\Translation;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Livewire\Attributes\Computed;
 
 class CustomerReport extends Component
 {
-    public $lang, $statusFilter = 'all';
+    public $lang;
+    public $statusFilter = 'all';
 
     #[Title('Customer Report')]
     public function render()
@@ -22,10 +22,10 @@ class CustomerReport extends Component
 
     public function mount()
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('report_customer')){
+        if (!\Illuminate\Support\Facades\Gate::allows('report_customer')) {
             abort(404);
         }
-        
+
         if (session()->has('selected_language')) {
             $this->lang = Translation::where('id', session()->get('selected_language'))->first();
         } else {
@@ -36,10 +36,10 @@ class CustomerReport extends Component
     #[Computed]
     public function customersData()
     {
-        /** 
+        /**
          * OPTIMIZATION (Preventing N+1 & Memory Exhaustion):
          * Instead of loading all customers and iterating over their orders via Eloquent relationships
-         * which would crash on large datasets, we use a single aggregate SQL query to sum up 
+         * which would crash on large datasets, we use a single aggregate SQL query to sum up
          * lifetime spend, 30-day velocity, and 7-day velocity.
          */
         $thirtyDaysAgo = Carbon::today()->subDays(30)->toDateString();
@@ -60,7 +60,7 @@ class CustomerReport extends Component
             )
             ->selectRaw("COALESCE(SUM(CASE WHEN orders.order_date >= ? THEN orders.total ELSE 0 END), 0) as spend_30", [$thirtyDaysAgo])
             ->selectRaw("COALESCE(SUM(CASE WHEN orders.order_date >= ? THEN orders.total ELSE 0 END), 0) as spend_7", [$sevenDaysAgo])
-            ->leftJoin('orders', function($join) {
+            ->leftJoin('orders', function ($join) {
                 $join->on('customers.id', '=', 'orders.customer_id')
                      ->where('orders.status', '!=', 4) // Exclude returned orders
                      ->whereNull('orders.deleted_at');
@@ -68,7 +68,7 @@ class CustomerReport extends Component
             ->groupBy('customers.id', 'customers.name', 'customers.phone', 'customers.created_at')
             ->having('total_orders', '>', 0) // Only show customers who actually have orders
             ->get();
-            
+
         // Aggregate Payments per customer for Outstanding Balances
         $payments = DB::table('payments')
             ->whereNull('payments.deleted_at')
@@ -78,17 +78,17 @@ class CustomerReport extends Component
             ->keyBy('customer_id');
 
         $data = [];
-        foreach($customersAggregates as $c) {
+        foreach ($customersAggregates as $c) {
             $totalPaid = isset($payments[$c->id]) ? $payments[$c->id]->total_paid : 0;
             $outstanding = $c->total_spend - $totalPaid;
             $aov = $c->total_orders > 0 ? $c->total_spend / $c->total_orders : 0;
-            
+
             // Status Logic (21 Days)
             $status = 'Active';
             if ($c->last_visit && Carbon::parse($c->last_visit)->lt($atRiskThreshold)) {
                 $status = 'At-Risk';
             }
-            
+
             // Filtering
             if ($this->statusFilter == 'all' || strtolower($this->statusFilter) == strtolower($status)) {
                 $data[] = [
@@ -106,7 +106,7 @@ class CustomerReport extends Component
                 ];
             }
         }
-        
+
         // Sort by highest lifetime spend
         return collect($data)->sortByDesc('total_spend')->values()->all();
     }

@@ -8,8 +8,32 @@ use App\Models\MasterSettings;
 use Livewire\Attributes\Title;
 
 class SmsSettings extends Component
-{  
-    public $accountsid,$auth_token,$twilio_number,$store,$enabled,$format,$replacer,$replacement,$create_order,$status_change,$delivered_only,$ready_to_deliver_only,$lang;
+{
+    public $accountsid;
+
+    public $auth_token;
+
+    public $twilio_number;
+
+    public $store;
+
+    public $enabled;
+
+    public $format;
+
+    public $replacer;
+
+    public $replacement;
+
+    public $create_order;
+
+    public $status_change;
+
+    public $delivered_only;
+
+    public $ready_to_deliver_only;
+
+    public $lang;
     public $global_daily_limit = 100;
     #[Title('SMS Settings')]
     public function render()
@@ -18,13 +42,13 @@ class SmsSettings extends Component
     }
     public function mount()
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('setting_sms')){
+        if (!\Illuminate\Support\Facades\Gate::allows('setting_sms')) {
             abort(404);
         }
         $settings = new MasterSettings();
         $site = $settings->siteData();
         $this->replacer = [
-            '<name>' => 'Name', 
+            '<name>' => 'Name',
             '<order_date>' => 'Order Date',
             '<delivery_date>' => 'Delivery Date',
             '<no_of_products>' => 'No Of Products',
@@ -44,20 +68,17 @@ class SmsSettings extends Component
         $this->delivered_only = (isset($site['sms_delivered_only']) && !empty($site['sms_delivered_only'])) ? $site['sms_delivered_only'] : 0;
         $this->ready_to_deliver_only = (isset($site['sms_ready_to_deliver_only']) && !empty($site['sms_ready_to_deliver_only'])) ? $site['sms_ready_to_deliver_only'] : 0;
         $this->global_daily_limit = (isset($site['sms_global_daily_limit']) && !empty($site['sms_global_daily_limit'])) ? $site['sms_global_daily_limit'] : 100;
-        $this->enabled = $this->enabled == 1 ? true: false;
-        if(session()->has('selected_language'))
-        {   /*if session has selected language */
-            $this->lang = Translation::where('id',session()->get('selected_language'))->first();
-        }
-        else{
+        $this->enabled = $this->enabled == 1 ? true : false;
+        if (session()->has('selected_language')) {   /*if session has selected language */
+            $this->lang = Translation::where('id', session()->get('selected_language'))->first();
+        } else {
             /* if session has no selected language */
-            $this->lang = Translation::where('default',1)->first();
+            $this->lang = Translation::where('default', 1)->first();
         }
     }
     public function save()
     {
-        if($this->enabled)
-        {
+        if ($this->enabled) {
             $this->validate([
                 'accountsid'    => 'required',
                 'auth_token'    => 'required',
@@ -69,12 +90,12 @@ class SmsSettings extends Component
         $site['sms_account_sid'] = $this->accountsid;
         $site['sms_auth_token'] = $this->auth_token;
         $site['sms_twilio_number'] = $this->twilio_number;
-        $site['sms_enabled'] = $this->enabled ? 1: 0;
+        $site['sms_enabled'] = $this->enabled ? 1 : 0;
         $site['sms_createorder'] = $this->create_order;
         $site['sms_statuschange'] = $this->status_change;
         $site['sms_delivered_only'] = $this->delivered_only;
         $site['sms_ready_to_deliver_only'] = $this->ready_to_deliver_only;
-        if($this->global_daily_limit < 100) {
+        if ($this->global_daily_limit < 100) {
             $this->global_daily_limit = 100;
         }
         $site['sms_global_daily_limit'] = $this->global_daily_limit;
@@ -82,15 +103,15 @@ class SmsSettings extends Component
             MasterSettings::updateOrCreate(['master_title' => $key], ['master_value' => $value]);
         }
         $this->dispatch(
-            'alert', ['type' => 'success',  'message' => 'Settings Updated!']);
+            'alert',
+            ['type' => 'success',  'message' => 'Settings Updated!']
+        );
     }
-    public function addTextToItem($replace,$index)
+    public function addTextToItem($replace, $index)
     {
-        if($index == 1)
-        {
+        if ($index == 1) {
             $this->create_order = $this->create_order.$replace;
-        }
-        else{
+        } else {
 
             $this->status_change = $this->status_change.$replace;
         }

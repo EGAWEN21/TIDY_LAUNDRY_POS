@@ -14,7 +14,7 @@ class Admin
      *
      * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
-   public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next): Response
     {
         if (Auth::check() && (Auth::user()->user_type == 1 || Auth::user()->user_type == null)) {
             return $next($request);

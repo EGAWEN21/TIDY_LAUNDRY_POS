@@ -8,7 +8,8 @@ use App\Traits\UpdatesPosSyncTimestamp;
 
 class Addon extends Model
 {
-    use HasFactory, UpdatesPosSyncTimestamp;
+    use HasFactory;
+    use UpdatesPosSyncTimestamp;
     protected $fillable = [
         'addon_name',
         'addon_price',

@@ -10,7 +10,7 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\AuthorizePosAccess::clas
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
-    
+
     Route::get('/pos/init', [PosApiController::class, 'init']);
     Route::get('/pos/check-update', [PosApiController::class, 'checkUpdates']);
     Route::get('/pos/sync-catalog', [PosApiController::class, 'syncCatalog']);

@@ -7,7 +7,6 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Support\Facades\File;
 
-
 class RedirectIfNotInstalled
 {
     /**
@@ -21,9 +20,7 @@ class RedirectIfNotInstalled
         $updateFile = File::exists(base_path('update'));
         if ($installFile) {
             return redirect()->route('install');
-        }
-        elseif($updateFile)
-        {
+        } elseif ($updateFile) {
             return redirect()->route('update');
         }
         return $next($request);

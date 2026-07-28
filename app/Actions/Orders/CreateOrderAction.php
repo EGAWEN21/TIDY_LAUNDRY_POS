@@ -5,7 +5,6 @@ namespace App\Actions\Orders;
 use App\DTOs\OrderData;
 use App\Models\Order;
 use App\Models\OrderDetail;
-use App\Models\OrderAddonDetail;
 use App\Models\Payment;
 use App\Events\OrderSuccessfullyCreated;
 use Carbon\Carbon;
@@ -13,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Class CreateOrderAction
- * 
+ *
  * Securely persists an order to the database using strict DTO contracts.
  * Locks the sequence table to guarantee Order ID uniqueness.
  * Dispatches an asynchronous event for third-party webhooks upon completion.
@@ -114,24 +113,24 @@ class CreateOrderAction
     private static function generateOrderID(): string
     {
         $code_prefix = 'ORD-';
-        
+
         $sequence = DB::table('sequences')
             ->where('name', 'order_number')
             ->lockForUpdate()
             ->first();
-            
+
         // Fallback for fresh installs without sequences
         if (!$sequence) {
             DB::table('sequences')->insert(['name' => 'order_number', 'value' => 1]);
             return $code_prefix . '0001';
         }
-        
+
         $new_code = $sequence->value + 1;
-        
+
         DB::table('sequences')
             ->where('name', 'order_number')
             ->update(['value' => $new_code]);
-            
+
         $new_code_str = str_pad($new_code, 4, "0", STR_PAD_LEFT);
         return $code_prefix . $new_code_str;
     }

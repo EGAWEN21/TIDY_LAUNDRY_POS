@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use App\Models\MasterSettings;
 
@@ -30,7 +29,7 @@ class MasterControlSeeder extends Seeder
         $site['sms_createorder'] = 'Hi <name> An Order #<order_number> was created and will be delivered on <delivery_date> Your Order Total is <total>.';
         $site['sms_statuschange'] = 'Hi <name> Your Order #<order_number> status has been changed to <status> on <current_time>';
         foreach ($site as $key => $value) {
-            MasterSettings::updateOrCreate(['master_title' => $key],['master_value' => $value]);
+            MasterSettings::updateOrCreate(['master_title' => $key], ['master_value' => $value]);
         }
 
 

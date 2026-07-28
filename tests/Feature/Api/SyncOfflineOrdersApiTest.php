@@ -35,7 +35,7 @@ class SyncOfflineOrdersApiTest extends TestCase
             'user_type' => 1,
             'is_active' => 1,
         ]);
-        
+
         $service = Service::create([
             'service_name' => 'Wash',
             'is_active' => 1,
@@ -95,9 +95,9 @@ class SyncOfflineOrdersApiTest extends TestCase
             'requires_approval',
             'failed'
         ]);
-        
+
         $json = $response->json();
-        
+
         // Assert that the customer was created
         $this->assertDatabaseHas('customers', [
             'phone' => '0987654321',
@@ -107,7 +107,7 @@ class SyncOfflineOrdersApiTest extends TestCase
         // Since it's a Super Admin (user_type = 1), it should bypass approval and create the order directly
         $this->assertArrayHasKey('dummy-uuid-1234', $json['requires_approval']);
         $this->assertFalse($json['requires_approval']['dummy-uuid-1234']);
-        
+
         $this->assertDatabaseHas('orders', [
             'uuid' => 'dummy-uuid-1234'
         ]);

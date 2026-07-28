@@ -13,16 +13,18 @@ class CustomerPayments extends Component
 {
     public $nextCursor;
     protected $currentCursor;
-    public $hasMorePages;   
+    public $hasMorePages;
     public $payments;
-    public $customer, $lang;
+    public $customer;
+    public $lang;
 
     public function render()
     {
         return view('livewire.customers.partials.customer-payments');
     }
 
-    public function mount(Customer $customer){
+    public function mount(Customer $customer)
+    {
         $this->customer = $customer;
         $this->payments = new EloquentCollection();
         $this->loadPayments();
@@ -46,8 +48,9 @@ class CustomerPayments extends Component
         $this->currentCursor = $myorder->cursor();
     }
 
-    public function filterdata(){
-        $orders = Payment::where('customer_id',$this->customer->id)->latest()->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
+    public function filterdata()
+    {
+        $orders = Payment::where('customer_id', $this->customer->id)->latest()->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
         return $orders;
     }
 

@@ -9,7 +9,9 @@ use App\Traits\UpdatesPosSyncTimestamp;
 
 class Customer extends Model
 {
-    use HasFactory, UpdatesPosSyncTimestamp, SoftDeletes;
+    use HasFactory;
+    use UpdatesPosSyncTimestamp;
+    use SoftDeletes;
     protected $fillable = [
         'name',
         'email',

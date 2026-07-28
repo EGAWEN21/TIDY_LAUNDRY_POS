@@ -14,7 +14,7 @@ class SecurityMiddlewareTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         Route::middleware(['web', 'auth', \App\Http\Middleware\CheckUserIsActive::class, \App\Http\Middleware\SingleSession::class])->group(function () {
             Route::get('/dummy-protected', function () {
                 return 'Success';

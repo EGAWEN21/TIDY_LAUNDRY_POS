@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Pagination\Cursor;
 use Auth;
 use App\Exports\CustomersExport;
-use App\Models\Payment;
 use App\Models\Order;
 use Excel;
 use App\DTOs\CustomerData;
@@ -21,7 +20,15 @@ class CustomersList extends Component
 {
     #[Title('Customers')]
     public $customers;
-    public $name, $email, $tax_number, $is_active = 1, $phone, $address, $search, $lang, $customer;
+    public $name;
+    public $email;
+    public $tax_number;
+    public $is_active = 1;
+    public $phone;
+    public $address;
+    public $search;
+    public $lang;
+    public $customer;
     public $editMode = false;
     public $nextCursor;
     protected $currentCursor;
@@ -30,7 +37,7 @@ class CustomersList extends Component
     /* called before render */
     public function mount()
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('customer_list')){
+        if (!\Illuminate\Support\Facades\Gate::allows('customer_list')) {
             abort(404);
         }
         $this->customers = new EloquentCollection();
@@ -170,7 +177,7 @@ class CustomersList extends Component
         if ($this->search && $this->search != '') {
             $query->where('name', 'like', '%' . sanitize_search($this->search) . '%');
         }
-        
+
         return $query->latest()->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
     }
     public function reloadCustomers()
@@ -191,13 +198,15 @@ class CustomersList extends Component
     /* export to excel */
     public function downloadFile()
     {
-        return Excel::download(new CustomersExport, 'customers_list.xlsx');
+        return Excel::download(new CustomersExport(), 'customers_list.xlsx');
     }
     /* delete the service */
     public function delete($id)
     {
         $customer = Customer::find($id);
-        if (!$customer) return;
+        if (!$customer) {
+            return;
+        }
 
         try {
             $customer->delete();

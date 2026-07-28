@@ -47,7 +47,7 @@ class DummyDataSeeder extends Seeder
             'service_type_id' => $type2->id,
             'service_price' => 100.0
         ]);
-        
+
         ServiceDetail::create([
             'service_id' => $service2->id,
             'service_type_id' => $type1->id,
@@ -60,7 +60,7 @@ class DummyDataSeeder extends Seeder
             'email' => 'test@example.com',
             'is_active' => 1
         ]);
-        
+
         Customer::create([
             'name' => 'Walk-in User',
             'phone' => '0000000000',

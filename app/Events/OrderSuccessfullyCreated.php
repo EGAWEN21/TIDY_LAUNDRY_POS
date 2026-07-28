@@ -9,14 +9,16 @@ use Illuminate\Queue\SerializesModels;
 
 /**
  * Class OrderSuccessfullyCreated
- * 
+ *
  * Fired immediately after an order is securely committed to the database.
  * Used to decouple slow, third-party HTTP requests (like SMS and WhatsApp)
  * from the main database transaction to prevent catastrophic rollbacks.
  */
 class OrderSuccessfullyCreated
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
+    use Dispatchable;
+    use InteractsWithSockets;
+    use SerializesModels;
 
     public Order $order;
     public int $customerId;

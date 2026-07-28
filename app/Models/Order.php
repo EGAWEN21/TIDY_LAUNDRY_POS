@@ -13,7 +13,9 @@ class Order extends Model
 {
     // Updates the 'pos_last_update' cache timestamp when an order is created/modified,
     // ensuring the Offline POS app instantly syncs updated customer balances.
-    use HasFactory, UpdatesPosSyncTimestamp, SoftDeletes;
+    use HasFactory;
+    use UpdatesPosSyncTimestamp;
+    use SoftDeletes;
     protected $fillable = [
         'order_number',
         'customer_id',
@@ -48,7 +50,7 @@ class Order extends Model
     {
         return $this->hasMany(\App\Models\OrderDetail::class, 'order_id', 'id');
     }
-    
+
     /* addon relation */
     public function addons(): HasMany
     {
@@ -78,12 +80,12 @@ class Order extends Model
             if ($order->isDirty('status')) {
                 $oldStatus = $order->getOriginal('status');
                 $newStatus = $order->status;
-                
+
                 // Prevent moving backwards from Delivered (3) to Pending/Processing/Ready (0, 1, 2)
                 if ($oldStatus == 3 && in_array($newStatus, [0, 1, 2])) {
                     throw new \DomainException("Cannot transition order status backwards from Delivered.");
                 }
-                
+
                 // Prevent changes if already Returned (4)
                 if ($oldStatus == 4 && $newStatus != 4) {
                     throw new \DomainException("Cannot change status of a returned or cancelled order.");

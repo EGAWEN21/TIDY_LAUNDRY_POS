@@ -24,9 +24,9 @@ class UpdateCustomerAction
             $customer->tax_number = $data->tax_number;
             $customer->address = $data->address;
             $customer->is_active = $data->is_active;
-            
+
             $customer->save();
-            
+
             return $customer;
         });
     }

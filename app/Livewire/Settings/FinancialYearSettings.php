@@ -10,7 +10,14 @@ use Livewire\Attributes\Title;
 
 class FinancialYearSettings extends Component
 {
-    public $years, $name, $start_date, $end_date, $year, $edityear, $search_query, $lang;
+    public $years;
+    public $name;
+    public $start_date;
+    public $end_date;
+    public $year;
+    public $edityear;
+    public $search_query;
+    public $lang;
     /* render the page */
     #[Title('Financial Year Settings')]
     public function render()
@@ -20,7 +27,7 @@ class FinancialYearSettings extends Component
     /* process before render */
     public function mount()
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('setting_financial_year')){
+        if (!\Illuminate\Support\Facades\Gate::allows('setting_financial_year')) {
             abort(404);
         }
         $this->years = FinancialYear::orderBy('year', 'DESC')->get();
@@ -98,7 +105,8 @@ class FinancialYearSettings extends Component
     }
     /* reset input fields */
     public function resetFields()
-    {$this->resetErrorBag();
+    {
+        $this->resetErrorBag();
         $this->start_date = Carbon::today()->month(4)->startOfMonth()->toDateString();
         $this->end_date = Carbon::today()->month(3)->endOfMonth()->addYear(1)->toDateString();
         $this->year = Carbon::today()->format('Y');

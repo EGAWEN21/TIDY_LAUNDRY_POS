@@ -4,8 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class () extends Migration {
     /**
      * Run the migrations.
      */
@@ -39,7 +38,7 @@ return new class extends Migration
                 'updated_at' => now(),
             ],
         ];
-        
+
         // Insert if they don't already exist to avoid errors
         foreach ($permissions as $permission) {
             if (!\Illuminate\Support\Facades\DB::table('permissions')->where('name', $permission['name'])->exists()) {

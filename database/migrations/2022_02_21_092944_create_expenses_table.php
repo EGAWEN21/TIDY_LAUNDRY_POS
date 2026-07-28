@@ -18,10 +18,10 @@ class CreateExpensesTable extends Migration
             $table->date('expense_date');
             $table->unsignedBigInteger('expense_category_id')->nullable();
             $table->foreign('expense_category_id')->references('id')->on('expense_categories');
-            $table->double('expense_amount',15,2);
+            $table->double('expense_amount', 15, 2);
             $table->integer('payment_mode')->nullable();
             $table->integer('tax_included');
-            $table->double('tax_percentage',6,2)->nullable();
+            $table->double('tax_percentage', 6, 2)->nullable();
             $table->longText('note')->nullable();
             $table->unsignedBigInteger('financial_year_id')->nullable();
             $table->timestamps();

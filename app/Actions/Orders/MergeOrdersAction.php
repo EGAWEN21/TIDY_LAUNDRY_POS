@@ -12,7 +12,7 @@ class MergeOrdersAction
 {
     /**
      * Merges secondary orders into a primary order.
-     * 
+     *
      * @param int $primaryOrderId
      * @param array $secondaryOrderIds
      * @return void
@@ -38,12 +38,12 @@ class MergeOrdersAction
 
                 // 1. Move details
                 OrderDetail::where('order_id', $secondaryOrder->id)->update(['order_id' => $primaryOrder->id]);
-                
+
                 // 2. Move addons
                 if (class_exists(OrderAddonDetail::class)) {
                     OrderAddonDetail::where('order_id', $secondaryOrder->id)->update(['order_id' => $primaryOrder->id]);
                 }
-                
+
                 // 3. Move payments
                 Payment::where('order_id', $secondaryOrder->id)->update(['order_id' => $primaryOrder->id]);
 
@@ -69,7 +69,7 @@ class MergeOrdersAction
             if ($primaryOrder->addons) {
                 $addonTotal = $primaryOrder->addons->sum('addon_price');
             }
-            
+
             $newDiscount = (float)$primaryOrder->discount + $totalDiscountToAdd;
 
             // Recalculate totals

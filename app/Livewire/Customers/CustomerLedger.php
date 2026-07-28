@@ -5,14 +5,14 @@ namespace App\Livewire\Customers;
 use Livewire\Component;
 use App\Models\Customer;
 use App\Models\Translation;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Title;
 
 class CustomerLedger extends Component
 {
-    public $data,$customer,$lang;
+    public $data;
+    public $customer;
+    public $lang;
 
     #[Title('Customer Ledger')]
     public function render()
@@ -22,23 +22,22 @@ class CustomerLedger extends Component
 
     public function mount($id)
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('customer_view')){
+        if (!\Illuminate\Support\Facades\Gate::allows('customer_view')) {
             abort(404);
         }
-        if(session()->has('selected_language'))
-        { /* if session has selected laugage*/
-            $this->lang = Translation::where('id',session()->get('selected_language'))->first();
-        }
-        else{
-            $this->lang = Translation::where('default',1)->first();
+        if (session()->has('selected_language')) { /* if session has selected laugage*/
+            $this->lang = Translation::where('id', session()->get('selected_language'))->first();
+        } else {
+            $this->lang = Translation::where('default', 1)->first();
         }
         $this->data = collect();
         $this->customer = Customer::find($id);
-        if(!$this->customer)
-        {
+        if (!$this->customer) {
             return abort(404);
         }
-        $this->data = array_map(function($row) { return (array) $row; }, DB::select("
+        $this->data = array_map(function ($row) {
+            return (array) $row;
+        }, DB::select("
             SELECT order_date as date, 'debit' as type, order_number, total, 0 as received_amount, id, NULL as order_id
             FROM orders WHERE customer_id = ? AND status != 4 AND deleted_at IS NULL
             UNION ALL

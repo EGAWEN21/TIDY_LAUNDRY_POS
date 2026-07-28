@@ -10,7 +10,10 @@ use Livewire\Attributes\Title;
 
 class OrderRequestsList extends Component
 {
-    public $requests, $lang, $rejection_note, $reject_id;
+    public $requests;
+    public $lang;
+    public $rejection_note;
+    public $reject_id;
 
     #[Title('Order Requests')]
     public function render()
@@ -44,16 +47,16 @@ class OrderRequestsList extends Component
         }
 
         $req = OrderRequest::findOrFail($id);
-        
+
         $dto = \App\DTOs\OrderData::from($req->payload);
         $order = \App\Actions\Orders\CreateOrderAction::execute($dto, $req->created_by);
-        
+
         // Preserve UUID for idempotency
         if (!empty($req->uuid)) {
             $order->uuid = $req->uuid;
             $order->save();
         }
-        
+
         $req->delete();
         $this->loadRequests();
         $this->dispatch('alert', ['type' => 'success',  'message' => 'Order Request Accepted!']);

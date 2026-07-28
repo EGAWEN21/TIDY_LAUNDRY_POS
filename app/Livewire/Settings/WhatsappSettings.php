@@ -16,7 +16,10 @@ class WhatsappSettings extends Component
     public $whatsapp_webhook_verify_token;
     public $whatsapp_not_found_message;
     public $whatsapp_business_number;
-    public $enable_automated_whatsapp, $unofficial_whatsapp_url, $unofficial_whatsapp_instance_token, $whatsapp_burner_number;
+    public $enable_automated_whatsapp;
+    public $unofficial_whatsapp_url;
+    public $unofficial_whatsapp_instance_token;
+    public $whatsapp_burner_number;
     public $lang;
 
     #[Title('WhatsApp Settings')]
@@ -28,7 +31,7 @@ class WhatsappSettings extends Component
     public function mount()
     {
         // Use an existing gate, we'll use setting_sms as a fallback if setting_whatsapp doesn't exist
-        if(!\Illuminate\Support\Facades\Gate::allows('setting_master')){
+        if (!\Illuminate\Support\Facades\Gate::allows('setting_master')) {
             abort(404);
         }
 
@@ -42,7 +45,7 @@ class WhatsappSettings extends Component
         $this->whatsapp_webhook_verify_token = (isset($site['whatsapp_webhook_verify_token']) && !empty($site['whatsapp_webhook_verify_token'])) ? $site['whatsapp_webhook_verify_token'] : '';
         $this->whatsapp_not_found_message = (isset($site['whatsapp_not_found_message']) && !empty($site['whatsapp_not_found_message'])) ? $site['whatsapp_not_found_message'] : "Sorry, we couldn't find an order with that number. Please check the number and try again. For further assistance, contact us at <support_number>.";
         $this->whatsapp_business_number = (isset($site['whatsapp_business_number']) && !empty($site['whatsapp_business_number'])) ? $site['whatsapp_business_number'] : '';
-        
+
         $this->enable_automated_whatsapp = (isset($site['enable_automated_whatsapp']) && $site['enable_automated_whatsapp'] == 1) ? 1 : null;
         $this->unofficial_whatsapp_url = $site['unofficial_whatsapp_url'] ?? '';
         $this->unofficial_whatsapp_instance_token = $site['unofficial_whatsapp_instance_token'] ?? '';
@@ -50,19 +53,16 @@ class WhatsappSettings extends Component
 
         $this->whatsapp_enabled = $this->whatsapp_enabled == 1 ? true : false;
 
-        if(session()->has('selected_language'))
-        {
+        if (session()->has('selected_language')) {
             $this->lang = Translation::where('id', session()->get('selected_language'))->first();
-        }
-        else{
+        } else {
             $this->lang = Translation::where('default', 1)->first();
         }
     }
 
     public function save()
     {
-        if($this->whatsapp_enabled)
-        {
+        if ($this->whatsapp_enabled) {
             $this->validate([
                 'whatsapp_api_url' => 'required',
                 'whatsapp_access_token' => 'required',
@@ -73,7 +73,7 @@ class WhatsappSettings extends Component
 
         $settings = new MasterSettings();
         $site = $settings->siteData();
-        
+
         $site['whatsapp_enabled'] = $this->whatsapp_enabled ? 1 : 0;
         $site['whatsapp_api_url'] = $this->whatsapp_api_url;
         $site['whatsapp_access_token'] = $this->whatsapp_access_token;
@@ -81,7 +81,7 @@ class WhatsappSettings extends Component
         $site['whatsapp_webhook_verify_token'] = $this->whatsapp_webhook_verify_token;
         $site['whatsapp_not_found_message'] = $this->whatsapp_not_found_message;
         $site['whatsapp_business_number'] = $this->whatsapp_business_number;
-        
+
         $site['enable_automated_whatsapp'] = $this->enable_automated_whatsapp ? 1 : 0;
         $site['unofficial_whatsapp_url'] = $this->unofficial_whatsapp_url;
         $site['unofficial_whatsapp_instance_token'] = $this->unofficial_whatsapp_instance_token;
@@ -92,7 +92,8 @@ class WhatsappSettings extends Component
         }
 
         $this->dispatch(
-            'alert', ['type' => 'success',  'message' => 'WhatsApp Settings Updated!']
+            'alert',
+            ['type' => 'success',  'message' => 'WhatsApp Settings Updated!']
         );
     }
 }

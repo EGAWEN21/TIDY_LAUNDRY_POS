@@ -68,7 +68,7 @@ class WhatsAppWebhookController extends Controller
                     if ($textBody === '' || strlen($textBody) > 500) {
                         return response()->json(['status' => 'success'], 200);
                     }
-                    
+
                     // Split text: e.g. "ORD-000012 08012345678"
                     $parts = explode(' ', $textBody);
                     $orderPart = array_shift($parts);
@@ -77,7 +77,7 @@ class WhatsAppWebhookController extends Controller
                     // Normalize order number (Exact formatting reconstruction)
                     $cleanOrder = preg_replace('/[^0-9]/', '', $orderPart);
                     $order = null;
-                    
+
                     if (!empty($cleanOrder)) {
                         $formattedOrderNumber = "ORD-" . str_pad($cleanOrder, 6, "0", STR_PAD_LEFT);
                         $order = Order::with('details.service', 'customer')->where('order_number', $formattedOrderNumber)->first();
@@ -108,7 +108,7 @@ class WhatsAppWebhookController extends Controller
                         } else {
                             // Dispatch Secondary Verification Challenge
                             $whatsAppService->sendMessagePayload(
-                                $senderPhone, 
+                                $senderPhone,
                                 "To protect your privacy, please reply with your order number followed by your registered phone number."
                             );
                         }

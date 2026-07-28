@@ -48,7 +48,7 @@ class OrderDataTest extends TestCase
         $this->assertEquals(110.0, $orderData->total);
         $this->assertInstanceOf(DataCollection::class, $orderData->details);
         $this->assertCount(1, $orderData->details);
-        
+
         $item = $orderData->details->first();
         $this->assertInstanceOf(CartItemData::class, $item);
         $this->assertEquals(1, $item->service_id);

@@ -9,7 +9,13 @@ use Livewire\Attributes\Title;
 
 class ServiceAddonsList extends Component
 {
-    public $name,$price,$addon,$addons,$is_active=1,$search_query,$lang;
+    public $name;
+    public $price;
+    public $addon;
+    public $addons;
+    public $is_active = 1;
+    public $search_query;
+    public $lang;
     /* render the page */
     #[Title('Service Addons')]
     public function render()
@@ -19,17 +25,15 @@ class ServiceAddonsList extends Component
     /* process before render */
     public function mount()
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('addon_list')){
+        if (!\Illuminate\Support\Facades\Gate::allows('addon_list')) {
             abort(404);
         }
         $this->addons = Addon::latest()->get();
-        if(session()->has('selected_language'))
-        {   /* if session has selected language */
-            $this->lang = Translation::where('id',session()->get('selected_language'))->first();
-        }
-        else{
+        if (session()->has('selected_language')) {   /* if session has selected language */
+            $this->lang = Translation::where('id', session()->get('selected_language'))->first();
+        } else {
             /* if session has no selected language */
-            $this->lang = Translation::where('default',1)->first();
+            $this->lang = Translation::where('default', 1)->first();
         }
     }
     /* create service addon */
@@ -45,7 +49,7 @@ class ServiceAddonsList extends Component
             'is_active' => $this->is_active ? 1 : 0
         ]);
         $this->name = '';
-        $this->price= '';
+        $this->price = '';
         $this->is_active = 1;
         $this->addons = Addon::latest()->get();
         $this->dispatch('closemodal');
@@ -54,7 +58,7 @@ class ServiceAddonsList extends Component
     public function edit($id)
     {
         $this->resetErrorBag();
-        $this->addon = Addon::where('id',$id)->first();
+        $this->addon = Addon::where('id', $id)->first();
         $this->name = $this->addon->addon_name;
         $this->price = $this->addon->addon_price;
 
@@ -67,27 +71,24 @@ class ServiceAddonsList extends Component
             'price' => 'required|numeric'
         ]);
         /* if any addon is exist */
-        if($this->addon)
-        {
+        if ($this->addon) {
             $this->addon->addon_name = $this->name;
             $this->addon->addon_price = $this->price;
             $this->addon->is_active = $this->is_active ?? 0;
             $this->addon->save();
         }
         $this->name = '';
-        $this->price= '';
+        $this->price = '';
         $this->addons = Addon::latest()->get();
         $this->dispatch('closemodal');
     }
     /* process while change the element */
-    public function updated($name,$value)
+    public function updated($name, $value)
     {
         /* if the updated value is search_query */
-        if($name == 'search_query' && $value != '')
-        {
-            $this->addons = Addon::where('addon_name', 'like' , '%' . sanitize_search($value) . '%')->get();
-        }
-        elseif($name == 'search_query' && $value == ''){
+        if ($name == 'search_query' && $value != '') {
+            $this->addons = Addon::where('addon_name', 'like', '%' . sanitize_search($value) . '%')->get();
+        } elseif ($name == 'search_query' && $value == '') {
             $this->addons = Addon::latest()->get();
 
         }
@@ -97,13 +98,17 @@ class ServiceAddonsList extends Component
     {
         if (\App\Models\OrderAddonDetail::where('addon_id', $id)->doesntExist()) {
             /* if addon has any childen */
-            $addon = Addon::where('id',$id)->delete();
+            $addon = Addon::where('id', $id)->delete();
             $this->dispatch(
-                'alert', ['type' => 'success',  'message' => 'AddOn deleted Successfully!']);
+                'alert',
+                ['type' => 'success',  'message' => 'AddOn deleted Successfully!']
+            );
         } else {
             /* if addon has no children */
-                $this->dispatch(
-                'alert', ['type' => 'error',  'message' => 'Addon deletion restricted!']);
+            $this->dispatch(
+                'alert',
+                ['type' => 'error',  'message' => 'Addon deletion restricted!']
+            );
         }
         $this->addons = Addon::latest()->get();
     }

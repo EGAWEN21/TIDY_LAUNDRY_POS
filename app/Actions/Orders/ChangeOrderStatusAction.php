@@ -20,7 +20,7 @@ class ChangeOrderStatusAction
     /**
      * Centralized logic for changing an order's status and triggering all related
      * automations (Email, WhatsApp Burner API, WhatsApp Fallback, and SMS).
-     * 
+     *
      * Returns an array with instructions for the Livewire frontend (e.g. if it needs to open a fallback URL).
      */
     public static function execute(int $orderId, int $status, bool $isBulk = false)
@@ -46,7 +46,7 @@ class ChangeOrderStatusAction
         $order->status = $status;
         $order->save();
         \Illuminate\Support\Facades\Cache::forget('dashboard_order_counts');
-        
+
         $response = ['success' => true, 'message' => 'Status successfully updated!'];
 
         // 1. Trigger Email Automation
@@ -59,12 +59,12 @@ class ChangeOrderStatusAction
         // 2. Trigger WhatsApp Hybrid Automation
         $settings = new MasterSettings();
         $site = $settings->siteData();
-        
+
         if (isset($site['enable_automated_whatsapp']) && $site['enable_automated_whatsapp'] == 1) {
             // Strategy 3: Burner API (Automated)
             $waService = new WhatsAppService();
             $messagePayload = getFormatedTextSMS($order->id, ($status == 2 ? 3 : 2));
-            $waService->sendAutomatedStatusUpdate($order, $messagePayload); 
+            $waService->sendAutomatedStatusUpdate($order, $messagePayload);
             if (Auth::check()) {
                 Auth::user()->notify(new SystemNotification('WhatsApp Automation', "Automated WhatsApp Message sent for Order {$order->order_number} via Burner API", 'success'));
             }
@@ -79,10 +79,10 @@ class ChangeOrderStatusAction
                     }
                     $messagePayload = getFormatedTextSMS($order->id, ($status == 2 ? 3 : 2));
                     $url = "https://wa.me/{$phone}?text=" . urlencode($messagePayload);
-                    
+
                     // Instruct frontend to open this URL
                     $response['open_url'] = $url;
-                    
+
                     if (Auth::check()) {
                         Auth::user()->notify(new SystemNotification('WhatsApp Fallback', "Manual wa.me link generated for Order {$order->order_number}", 'warning'));
                     }

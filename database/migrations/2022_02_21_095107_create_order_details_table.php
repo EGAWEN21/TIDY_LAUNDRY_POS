@@ -20,9 +20,9 @@ class CreateOrderDetailsTable extends Migration
             $table->unsignedBigInteger('service_id');
             $table->foreign('service_id')->references('id')->on('services');
             $table->string('service_name')->nullable();
-            $table->double('service_price',15,2)->nullable();
+            $table->double('service_price', 15, 2)->nullable();
             $table->string('service_quantity')->nullable();
-            $table->double('service_detail_total',15,2)->nullable();
+            $table->double('service_detail_total', 15, 2)->nullable();
             $table->timestamps();
         });
     }

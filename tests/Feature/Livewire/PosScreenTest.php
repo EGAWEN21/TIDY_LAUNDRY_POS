@@ -24,7 +24,7 @@ class PosScreenTest extends TestCase
     {
         $user = User::first();
         PosDraft::where('user_id', $user->id)->delete();
-        
+
         $customer = Customer::create([
             'name' => 'John Doe',
             'phone' => '1234567890',
@@ -63,7 +63,7 @@ class PosScreenTest extends TestCase
     {
         $user = User::first();
         PosDraft::where('user_id', $user->id)->delete();
-        
+
         $service = Service::create([
             'service_name' => 'Test Dry',
             'is_active' => 1,
@@ -85,7 +85,7 @@ class PosScreenTest extends TestCase
             ->test(PosScreen::class)
             ->call('selectService', $service->id)
             ->call('addItem');
-            // calculateTotal is called inside addItem
+        // calculateTotal is called inside addItem
 
         $this->assertDatabaseHas('pos_drafts', [
             'user_id' => $user->id

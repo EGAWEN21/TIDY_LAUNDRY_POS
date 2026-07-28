@@ -13,7 +13,7 @@ class SplitOrderAction
     /**
      * Splits specific line items from an original order into a new order,
      * and manually allocates existing payments between them.
-     * 
+     *
      * @param int $originalOrderId
      * @param array $orderDetailIdsToSplit
      * @param array $paymentAllocations ['original' => float, 'new' => float]
@@ -89,10 +89,10 @@ class SplitOrderAction
             $newOrder->refresh();
 
             // 5. Recalculate original order
-            $originalItems = $originalOrder->details->map(fn($d) => ['price' => (float)$d->service_price, 'quantity' => (float)$d->service_quantity])->toArray();
+            $originalItems = $originalOrder->details->map(fn ($d) => ['price' => (float)$d->service_price, 'quantity' => (float)$d->service_quantity])->toArray();
             $originalAddons = $originalOrder->addons ? $originalOrder->addons->sum('addon_price') : 0;
             $originalTotals = CalculateCartTotals::execute($originalItems, (float)$originalAddons, (float)($originalOrder->discount ?? 0));
-            
+
             $originalOrder->update([
                 'sub_total' => $originalTotals['sub_total'],
                 'addon_total' => $originalTotals['addon_total'],
@@ -102,9 +102,9 @@ class SplitOrderAction
             ]);
 
             // 6. Recalculate new order
-            $newItems = $newOrder->details->map(fn($d) => ['price' => (float)$d->service_price, 'quantity' => (float)$d->service_quantity])->toArray();
+            $newItems = $newOrder->details->map(fn ($d) => ['price' => (float)$d->service_price, 'quantity' => (float)$d->service_quantity])->toArray();
             $newTotals = CalculateCartTotals::execute($newItems, 0, 0); // No addons or discount for split order
-            
+
             $newOrder->update([
                 'sub_total' => $newTotals['sub_total'],
                 'addon_total' => $newTotals['addon_total'],
@@ -124,9 +124,11 @@ class SplitOrderAction
             // 8. Re-assign payments
             if ($totalExistingPayments > 0) {
                 $remainingForNew = $allocatedNew;
-                
+
                 foreach ($originalOrder->payments as $payment) {
-                    if ($remainingForNew <= 0) break;
+                    if ($remainingForNew <= 0) {
+                        break;
+                    }
 
                     if ($payment->received_amount <= $remainingForNew) {
                         // Move this entire payment to the new order
@@ -141,9 +143,9 @@ class SplitOrderAction
                         // Split this payment
                         $amountForNew = $remainingForNew;
                         $amountForOriginal = $payment->received_amount - $remainingForNew;
-                        
+
                         $payment->update(['received_amount' => $amountForOriginal]);
-                        
+
                         // Create new payment for new order with same type
                         Payment::create([
                             'payment_date' => $payment->payment_date,
@@ -156,7 +158,7 @@ class SplitOrderAction
                             'financial_year_id' => $newOrder->financial_year_id,
                             'created_by' => $userId,
                         ]);
-                        
+
                         $remainingForNew = 0;
                     }
                 }

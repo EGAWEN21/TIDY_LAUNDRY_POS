@@ -25,7 +25,7 @@ class WhatsAppService
         $this->accessToken = (isset($site['whatsapp_access_token']) && !empty($site['whatsapp_access_token'])) ? $site['whatsapp_access_token'] : '';
         $this->phoneNumberId = (isset($site['whatsapp_phone_number_id']) && !empty($site['whatsapp_phone_number_id'])) ? $site['whatsapp_phone_number_id'] : '';
         $this->notFoundMessage = (isset($site['whatsapp_not_found_message']) && !empty($site['whatsapp_not_found_message'])) ? $site['whatsapp_not_found_message'] : 'Order not found.';
-        
+
         $businessNumber = (isset($site['whatsapp_business_number']) && !empty($site['whatsapp_business_number'])) ? $site['whatsapp_business_number'] : '';
         $this->notFoundMessage = str_replace('<support_number>', $businessNumber, $this->notFoundMessage);
     }
@@ -53,7 +53,7 @@ class WhatsAppService
         $status = getOrderStatus($order->status, true);
         $total = getFormattedCurrency($order->total);
         $paid = Payment::where('order_id', $order->id)->sum('received_amount');
-        
+
         $paymentStatus = ($paid >= $order->total) ? 'Paid' : 'Unpaid (Remaining: ' . getFormattedCurrency($order->total - $paid) . ')';
 
         $itemsList = "";
@@ -68,11 +68,11 @@ class WhatsAppService
         $message .= "Order Number: {$order->order_number}\n";
         $message .= "Order Date: {$orderDate}\n";
         $message .= "Expected Date: {$deliveryDate}\n\n";
-        
+
         $message .= "*Status:* {$status}\n\n";
-        
+
         $message .= "*Items:*\n{$itemsList}\n";
-        
+
         $message .= "*Payment Status:* {$paymentStatus}\n";
         $message .= "*Total Amount:* {$total}";
 
@@ -104,11 +104,11 @@ class WhatsAppService
     {
         $settings = new MasterSettings();
         $site = $settings->siteData();
-        
+
         $isAutomatedEnabled = (isset($site['enable_automated_whatsapp']) && $site['enable_automated_whatsapp'] == 1);
         $url = $site['unofficial_whatsapp_url'] ?? '';
         $token = $site['unofficial_whatsapp_instance_token'] ?? '';
-        
+
         if (!$isAutomatedEnabled || empty($url) || empty($token)) {
             return false;
         }
@@ -130,7 +130,7 @@ class WhatsAppService
                 'to' => $phone,
                 'body' => $statusMessage
             ]);
-            
+
             return $response->successful();
         } catch (\Exception $e) {
             \Log::error('WhatsApp Automation Failed: ' . $e->getMessage());

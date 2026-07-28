@@ -11,9 +11,21 @@ use Livewire\Attributes\Title;
 
 class StaffList extends Component
 {
-
-    public $name, $phone, $email, $password, $address, $is_active = 1, $staffs, $staff, $search = '', $lang, $is_active_edit=true,$roles,$user_role;
-    public $can_view_all_orders = false, $viewable_staff_ids = [];
+    public $name;
+    public $phone;
+    public $email;
+    public $password;
+    public $address;
+    public $is_active = 1;
+    public $staffs;
+    public $staff;
+    public $search = '';
+    public $lang;
+    public $is_active_edit = true;
+    public $roles;
+    public $user_role;
+    public $can_view_all_orders = false;
+    public $viewable_staff_ids = [];
     #[Title('Staff')]
     public function render()
     {
@@ -32,12 +44,13 @@ class StaffList extends Component
         return view('livewire.settings.staff.staff-list');
     }
 
-    public function mount(){
-        if(!\Illuminate\Support\Facades\Gate::allows('user_list')){
+    public function mount()
+    {
+        if (!\Illuminate\Support\Facades\Gate::allows('user_list')) {
             abort(404);
         }
         $this->roles = UserRole::latest()->get();
-        if(count($this->roles) > 0){
+        if (count($this->roles) > 0) {
             $this->user_role = $this->roles->first()->id;
         }
     }
@@ -52,7 +65,7 @@ class StaffList extends Component
         $this->can_view_all_orders = false;
         $this->viewable_staff_ids = [];
         $this->staff = null;
-        if(count($this->roles) > 0){
+        if (count($this->roles) > 0) {
             $this->user_role = $this->roles->first()->id;
         }
         $this->resetErrorBag();
@@ -94,7 +107,9 @@ class StaffList extends Component
     public function toggle($id)
     {
         $staff = User::find($id);
-        if (!$staff) return;
+        if (!$staff) {
+            return;
+        }
         if ($staff->user_type == 1 && (!\Illuminate\Support\Facades\Auth::check() || \Illuminate\Support\Facades\Auth::user()->user_type != 1)) {
             $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized to modify Super Admin.']);
             return;
@@ -132,8 +147,8 @@ class StaffList extends Component
         $this->email = $this->staff->email;
         $this->phone = $this->staff->phone;
         $this->user_role = $this->staff->role_id ?? count($this->roles) > 0 ? $this->roles->first()->id : null;
-        $this->is_active_edit = $this->staff->is_active==1 ? true: false;
-        
+        $this->is_active_edit = $this->staff->is_active == 1 ? true : false;
+
         $this->can_view_all_orders = $this->staff->viewable_staff_orders === 'all';
         $this->viewable_staff_ids = ($this->staff->viewable_staff_orders && $this->staff->viewable_staff_orders !== 'all')
             ? explode(',', $this->staff->viewable_staff_orders)
@@ -160,7 +175,7 @@ class StaffList extends Component
         if ($this->staff->is_active == 0) {
             $this->staff->tokens()->delete(); // Forcefully revoke API tokens
         }
-        
+
         $viewable_staff_orders = null;
         if ($this->can_view_all_orders) {
             $viewable_staff_orders = 'all';
@@ -184,7 +199,9 @@ class StaffList extends Component
     public function delete($id)
     {
         $staff = User::find($id);
-        if (!$staff) return;
+        if (!$staff) {
+            return;
+        }
         if ($staff->user_type == 1) {
             $this->dispatch('alert', ['type' => 'error', 'message' => 'Cannot delete Super Admin.']);
             return;

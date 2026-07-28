@@ -16,7 +16,10 @@ use Livewire\Attributes\Title;
 
 class Login extends Component
 {
-    public $email,$password,$success=false,$forgetpassword=0;
+    public $email;
+    public $password;
+    public $success = false;
+    public $forgetpassword = 0;
     //Render Page
     #[Layout('components.layouts.base'),Title('Login')]
     public function render()
@@ -41,56 +44,50 @@ class Login extends Component
         // Check if account is deactivated (skip for Super Admins user_type = 1)
         $user = User::where('email', $this->email)->first();
         if ($user && $user->user_type != 1 && $user->is_active == 0) {
-            $this->addError('login_error','Account is deactivated. Please contact administrator.');
+            $this->addError('login_error', 'Account is deactivated. Please contact administrator.');
             return;
         }
 
         if (Auth::attempt(['email' => $this->email, 'password' => $this->password, 'user_type' => '1'])) {
             /* user type admin and login is successful */
             request()->session()->regenerate();
-            DB::table('password_resets')->where('email',$this->email)->delete();
+            DB::table('password_resets')->where('email', $this->email)->delete();
             Auth::user()->update(['current_session_id' => session()->getId()]);
             RateLimiter::clear($throttleKey);
             return redirect('admin/dashboard');
-        }  
+        }
         if (Auth::attempt(['email' => $this->email, 'password' => $this->password, 'user_type' => '2'])) {
             /* user type staff and login is successful */
             request()->session()->regenerate();
-            DB::table('password_resets')->where('email',$this->email)->delete();
+            DB::table('password_resets')->where('email', $this->email)->delete();
             Auth::user()->update(['current_session_id' => session()->getId()]);
             RateLimiter::clear($throttleKey);
             return redirect('admin/dashboard');
-        }  
-        else {
+        } else {
             /* if the credentials are incorrect */
             RateLimiter::hit($throttleKey, 60);
-            $this->addError('login_error','Invalid Email/Password');
+            $this->addError('login_error', 'Invalid Email/Password');
         }
     }
     //Initialize Variables
     public function mount()
     {
-        if(Auth::user())
-        {
+        if (Auth::user()) {
             return redirect()->route('admin.dashboard');
         }
         $settings = new MasterSettings();
         $site = $settings->siteData();
-        if(isset($site['forget_password_enable']))
-        {
-            if($site['forget_password_enable'] == 0)
-            {
-            }
-            else{
-                $this->forgetpassword =1;
+        if (isset($site['forget_password_enable'])) {
+            if ($site['forget_password_enable'] == 0) {
+            } else {
+                $this->forgetpassword = 1;
             }
         }
     }
     //Process Forgot Password
     public function forgotpassword()
     {
-        if($this->forgetpassword == 1)
-        {
+        if ($this->forgetpassword == 1) {
             $this->validate([
                 'email' => 'required|email',
             ]);
@@ -101,33 +98,29 @@ class Login extends Component
             }
             RateLimiter::hit($throttleKey, 300);
 
-            $user = User::where('email',$this->email)->first();
-            if($user)
-            {
+            $user = User::where('email', $this->email)->first();
+            if ($user) {
                 $token = Str::random(64);
-                DB::table('password_resets')->where('email',$this->email)->delete();
+                DB::table('password_resets')->where('email', $this->email)->delete();
                 DB::table('password_resets')->insert([
                     'email' => $this->email,
                     'token' => hash('sha256', $token),
                     'created_at' => Carbon::now()
                 ]);
                 $link = url('reset-password/'.$token);
-                $data=[
+                $data = [
                     'name'  => $user->name,
                     'link'  => $link,
                 ];
-                try{
+                try {
                     Mail::to($user->email)->send(new \App\Mail\ForgotPassword($data));
-    
-                }
-                catch(\Exception $e)
-                {
-                    $this->addError('login_error','Failed to send mail, Contact an Admin');
+
+                } catch (\Exception $e) {
+                    $this->addError('login_error', 'Failed to send mail, Contact an Admin');
                     return 1;
                 }
                 $this->success = true;
-            }
-            else{
+            } else {
                 // Use the same response for unknown addresses to prevent account enumeration.
                 $this->success = true;
             }

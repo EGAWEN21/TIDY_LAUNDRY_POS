@@ -8,7 +8,7 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 
 /**
  * Class PaymentData
- * 
+ *
  * Represents a payment payload attached to an Order.
  */
 #[MapName(SnakeCaseMapper::class)]

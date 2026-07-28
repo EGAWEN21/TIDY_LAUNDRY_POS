@@ -14,7 +14,7 @@ class AddTaxableAmountToOrdersTable extends Migration
     public function up()
     {
         Schema::table('orders', function (Blueprint $table) {
-            $table->double('taxable_amount',15,2)->after('tax_type')->default(0);
+            $table->double('taxable_amount', 15, 2)->after('tax_type')->default(0);
         });
     }
 

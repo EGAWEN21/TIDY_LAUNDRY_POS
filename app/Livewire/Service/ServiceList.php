@@ -10,7 +10,9 @@ use Livewire\Attributes\Title;
 
 class ServiceList extends Component
 {
-    public $services,$search_query,$lang;
+    public $services;
+    public $search_query;
+    public $lang;
     /* render the page */
     #[Title('Services')]
     public function render()
@@ -20,42 +22,38 @@ class ServiceList extends Component
     /* process before render */
     public function mount()
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('service_list')){
+        if (!\Illuminate\Support\Facades\Gate::allows('service_list')) {
             abort(404);
         }
         $this->services = Service::latest()->get();
-        if(session()->has('selected_language'))
-        {   /* if session has selected language */
-            $this->lang = Translation::where('id',session()->get('selected_language'))->first();
-        }
-        else{
+        if (session()->has('selected_language')) {   /* if session has selected language */
+            $this->lang = Translation::where('id', session()->get('selected_language'))->first();
+        } else {
             /* if session has no selected language */
-            $this->lang = Translation::where('default',1)->first();
+            $this->lang = Translation::where('default', 1)->first();
         }
     }
     /* delete the service */
     public function delete($id)
     {
-        try{
+        try {
             $service = Service::findOrFail($id);
             $service->delete();
             // We intentionally do NOT delete ServiceDetail to preserve historical order integrity.
             $this->services = Service::latest()->get();
-        }
-        catch(\Exception $e)
-        {
+        } catch (\Exception $e) {
             $this->dispatch(
-                'alert', ['type' => 'error',  'message' => 'Cannot Delete Service List!']);
+                'alert',
+                ['type' => 'error',  'message' => 'Cannot Delete Service List!']
+            );
         }
     }
     /* process while update the content */
-    public function updated($name,$value)
+    public function updated($name, $value)
     {   /* if the updated element is search_query */
-        if($name == 'search_query' && $value != '')
-        {
-            $this->services = Service::where('service_name', 'like' , '%' . sanitize_search($value) . '%')->get();
-        }
-        elseif($name == 'search_query' && $value == ''){
+        if ($name == 'search_query' && $value != '') {
+            $this->services = Service::where('service_name', 'like', '%' . sanitize_search($value) . '%')->get();
+        } elseif ($name == 'search_query' && $value == '') {
             $this->services = Service::latest()->get();
 
         }

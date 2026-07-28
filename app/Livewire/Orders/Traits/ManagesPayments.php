@@ -6,7 +6,8 @@ use Livewire\Attributes\Computed;
 
 trait ManagesPayments
 {
-    public function add_payment(){
+    public function add_payment()
+    {
         $this->validate([
             'payment_type' => 'required',
             'payment_amount' => 'required|numeric|min:0|lte:'.$this->getPaymentBalance(),
@@ -21,7 +22,7 @@ trait ManagesPayments
         $this->payment_amount = '';
         $this->notes = '';
         $this->payment_type = 1;
-        array_push($this->payments,$payment);
+        array_push($this->payments, $payment);
         $this->dispatch(
             'alert',
             ['type' => 'success',  'message' => ' Payment has been created']
@@ -29,14 +30,16 @@ trait ManagesPayments
     }
 
     #[Computed()]
-    public function currentBalance(){
+    public function currentBalance()
+    {
         return $this->getPaymentBalance();
     }
 
-    public function getPaymentBalance(){
+    public function getPaymentBalance()
+    {
         $orderBalance = $this->total;
         $paymentsTotal = 0;
-        foreach($this->payments as $payment){
+        foreach ($this->payments as $payment) {
             $paymentsTotal += $payment['amount'];
         }
         return $orderBalance - $paymentsTotal;
@@ -52,11 +55,12 @@ trait ManagesPayments
     }
 
     //remove payment
-    public function removePayment($paymentIndex){
+    public function removePayment($paymentIndex)
+    {
         if (isset($this->payments[$paymentIndex]['payment_id'])) {
             $this->dispatch('alert', ['type' => 'error', 'message' => 'Historical payments cannot be deleted. Please issue a refund/void instead.']);
             return;
         }
-        array_splice($this->payments,$paymentIndex,1);
+        array_splice($this->payments, $paymentIndex, 1);
     }
 }

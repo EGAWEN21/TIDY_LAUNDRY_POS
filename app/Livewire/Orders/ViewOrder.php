@@ -15,7 +15,23 @@ use Illuminate\Support\Facades\Auth;
 
 class ViewOrder extends Component
 {
-    public $order,$orderdetails,$orderaddons,$lang,$balance,$total,$customer,$payments,$sitename,$address,$phone,$paid_amount,$payment_type,$zipcode,$tax_number,$store_email,$notes;
+    public $order;
+    public $orderdetails;
+    public $orderaddons;
+    public $lang;
+    public $balance;
+    public $total;
+    public $customer;
+    public $payments;
+    public $sitename;
+    public $address;
+    public $phone;
+    public $paid_amount;
+    public $payment_type;
+    public $zipcode;
+    public $tax_number;
+    public $store_email;
+    public $notes;
     public $current_delivery_date;
     #[Title('View Order')]
     public function render()
@@ -26,69 +42,60 @@ class ViewOrder extends Component
     /* process before mount */
     public function mount($id)
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('order_view')){
+        if (!\Illuminate\Support\Facades\Gate::allows('order_view')) {
             abort(404);
         }
-        if(Auth::user()->user_type==1)
-        {  $this->order = Order::where('id',$id)->first();
-            if($this->order) {
+        if (Auth::user()->user_type == 1) {
+            $this->order = Order::where('id', $id)->first();
+            if ($this->order) {
                 $this->current_delivery_date = \Carbon\Carbon::parse($this->order->delivery_date)->toDateString();
             }
         } else {
-            $this->order = Order::where('created_by',Auth::user()->id)->where('id',$id)->first();
-            if($this->order) {
+            $this->order = Order::where('created_by', Auth::user()->id)->where('id', $id)->first();
+            if ($this->order) {
                 $this->current_delivery_date = \Carbon\Carbon::parse($this->order->delivery_date)->toDateString();
-                }
+            }
         }
-        if(!$this->order)
-        {
+        if (!$this->order) {
             abort(404);
         }
-        $this->customer = Customer::where('id',$this->order->customer_id)->first();
-        $this->orderaddons = OrderAddonDetail::where('order_id',$this->order->id)->get();
-        $this->orderdetails = OrderDetail::where('order_id',$this->order->id)->get();
-        $this->payments = Payment::where('order_id',$this->order->id)->get();
+        $this->customer = Customer::where('id', $this->order->customer_id)->first();
+        $this->orderaddons = OrderAddonDetail::where('order_id', $this->order->id)->get();
+        $this->orderdetails = OrderDetail::where('order_id', $this->order->id)->get();
+        $this->payments = Payment::where('order_id', $this->order->id)->get();
         $settings = new MasterSettings();
         $site = $settings->siteData();
-        if(isset($site['default_application_name']))
-        {   /* if site  has default application name */
-            $sitename = (($site['default_application_name']) && ($site['default_application_name'] !=""))? $site['default_application_name'] : 'Tidy LMS';
+        if (isset($site['default_application_name'])) {   /* if site  has default application name */
+            $sitename = (($site['default_application_name']) && ($site['default_application_name'] != "")) ? $site['default_application_name'] : 'Tidy LMS';
             $this->sitename = $sitename;
         }
-        if(isset($site['default_phone_number']))
-        {  /* if site has default phone number */
-            $phone = (($site['default_phone_number']) && ($site['default_phone_number'] !=""))? $site['default_phone_number'] : '123456789';
+        if (isset($site['default_phone_number'])) {  /* if site has default phone number */
+            $phone = (($site['default_phone_number']) && ($site['default_phone_number'] != "")) ? $site['default_phone_number'] : '123456789';
             $this->phone = $phone;
         }
-        if(isset($site['default_address']))
-        {
+        if (isset($site['default_address'])) {
             /* if site has default address */
-            $address = (($site['default_address']) && ($site['default_address'] !=""))? $site['default_address'] : 'Address';
+            $address = (($site['default_address']) && ($site['default_address'] != "")) ? $site['default_address'] : 'Address';
             $this->address = $address;
         }
-        if(isset($site['default_zip_code']))
-        {   /* if site has default zip code */
-            $zipcode = (($site['default_zip_code']) && ($site['default_zip_code'] !=""))? $site['default_zip_code'] : 'ZipCode';
+        if (isset($site['default_zip_code'])) {   /* if site has default zip code */
+            $zipcode = (($site['default_zip_code']) && ($site['default_zip_code'] != "")) ? $site['default_zip_code'] : 'ZipCode';
             $this->zipcode = $zipcode;
         }
-        if(isset($site['store_tax_number']))
-        {   /* if site has store tax number */
-            $tax_number = (($site['store_tax_number']) && ($site['store_tax_number'] !=""))? $site['store_tax_number'] : 'Tax Number';
+        if (isset($site['store_tax_number'])) {   /* if site has store tax number */
+            $tax_number = (($site['store_tax_number']) && ($site['store_tax_number'] != "")) ? $site['store_tax_number'] : 'Tax Number';
             $this->tax_number = $tax_number;
         }
-        if(isset($site['store_email']))
-        {   /* if site has store email */
-            $store_email = (($site['store_email']) && ($site['store_email'] !=""))? $site['store_email'] : 'store@store.com';
+        if (isset($site['store_email'])) {   /* if site has store email */
+            $store_email = (($site['store_email']) && ($site['store_email'] != "")) ? $site['store_email'] : 'store@store.com';
             $this->store_email = $store_email;
         }
-        $this->balance = $this->order->total -  Payment::where('order_id',$this->order->id)->sum('received_amount');
+        $this->balance = $this->order->total -  Payment::where('order_id', $this->order->id)->sum('received_amount');
         $this->paid_amount = $this->balance;
-        if(session()->has('selected_language'))
-        {   /* session has selected language */
-            $this->lang = Translation::where('id',session()->get('selected_language'))->first();
-        }
-        else{
-            $this->lang = Translation::where('default',1)->first();
+        if (session()->has('selected_language')) {   /* session has selected language */
+            $this->lang = Translation::where('id', session()->get('selected_language'))->first();
+        } else {
+            $this->lang = Translation::where('default', 1)->first();
         }
     }
     /* add the payment */
@@ -106,13 +113,13 @@ class ViewOrder extends Component
                 $this->payment_type,
                 $this->notes
             );
-            
-            $this->payments = Payment::where('order_id',$this->order->id)->get();
-            $this->balance = $this->order->total -  Payment::where('order_id',$this->order->id)->sum('received_amount');
+
+            $this->payments = Payment::where('order_id', $this->order->id)->get();
+            $this->balance = $this->order->total -  Payment::where('order_id', $this->order->id)->sum('received_amount');
             $this->paid_amount = $this->balance;
             $this->notes = '';
             $this->payment_type = '';
-            
+
             $this->dispatch('closemodal');
             $this->dispatch('alert', ['type' => 'success',  'message' => 'Payment Successfully Added!']);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -122,12 +129,12 @@ class ViewOrder extends Component
     /* change the status */
     public function changeStatus($status)
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('order_status_change')){
+        if (!\Illuminate\Support\Facades\Gate::allows('order_status_change')) {
             abort(404);
         }
-        
+
         $result = \App\Actions\Orders\ChangeOrderStatusAction::execute($this->order->id, $status);
-        
+
         if (!$result['success']) {
             $this->dispatch('alert', ['type' => 'error', 'message' => $result['message']]);
             return;
@@ -144,13 +151,16 @@ class ViewOrder extends Component
         }
     }
 
-    public function changeDeliveryDate(){
-        if($this->order) {
+    public function changeDeliveryDate()
+    {
+        if ($this->order) {
             $this->order->delivery_date = $this->current_delivery_date;
             $this->order->save();
             $this->emit('closemodal');
             $this->dispatch(
-                'alert', ['type' => 'success',  'message' => 'Delivery date Updated!']);
+                'alert',
+                ['type' => 'success',  'message' => 'Delivery date Updated!']
+            );
         }
     }
 
@@ -160,23 +170,23 @@ class ViewOrder extends Component
 
     public function triggerSplit()
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('order_split')){
+        if (!\Illuminate\Support\Facades\Gate::allows('order_split')) {
             $this->dispatch('alert', ['type' => 'error',  'message' => 'You do not have permission to split orders!']);
             return;
         }
 
-        if(empty($this->selected_items_to_split)) {
+        if (empty($this->selected_items_to_split)) {
             $this->dispatch('alert', ['type' => 'error',  'message' => 'Please select at least one item to split.']);
             return;
         }
 
-        if(count($this->selected_items_to_split) == count($this->orderdetails)) {
+        if (count($this->selected_items_to_split) == count($this->orderdetails)) {
             $this->dispatch('alert', ['type' => 'error',  'message' => 'Cannot split all items. Leave at least one item on the original order.']);
             return;
         }
 
         $totalPayments = \App\Models\Payment::where('order_id', $this->order->id)->sum('received_amount');
-        
+
         $allocations = [
             'original' => $totalPayments > 0 ? (float)$this->split_payment_original : 0,
             'new' => $totalPayments > 0 ? (float)$this->split_payment_new : 0,
@@ -184,21 +194,20 @@ class ViewOrder extends Component
 
         try {
             $newOrder = \App\Actions\Orders\SplitOrderAction::execute(
-                $this->order->id, 
-                $this->selected_items_to_split, 
-                $allocations, 
+                $this->order->id,
+                $this->selected_items_to_split,
+                $allocations,
                 Auth::id()
             );
 
             $this->dispatch('closemodal');
             $this->dispatch('alert', ['type' => 'success',  'message' => 'Order split successfully!']);
-            
+
             // Redirect to the new order or refresh
             return redirect()->route('order.view', $this->order->id);
-            
+
         } catch (\Exception $e) {
             $this->dispatch('alert', ['type' => 'error',  'message' => $e->getMessage()]);
         }
     }
 }
-

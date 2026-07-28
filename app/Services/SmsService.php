@@ -15,7 +15,7 @@ class SmsService
     {
         $settings = new MasterSettings();
         $site = $settings->siteData();
-        
+
         if (!isset($site['sms_gateway']) || $site['sms_gateway'] != 1) {
             return true; // SMS disabled
         }
@@ -46,7 +46,7 @@ class SmsService
                 getCountryCode() . $phoneInt,
                 ['from' => $twilio_number, 'body' => $message]
             );
-            
+
             RateLimiter::hit('global-sms-limit', 86400);
             return true;
         } catch (\Exception $e) {
@@ -120,7 +120,7 @@ class SmsService
                         $message = getFormatedTextSMS($order, 2);
                     }
                     $phoneInt = (string)$customer->phone;
-                    
+
                     $result = $this->send($phoneInt, $message);
                     if ($result !== true) {
                         return $result;

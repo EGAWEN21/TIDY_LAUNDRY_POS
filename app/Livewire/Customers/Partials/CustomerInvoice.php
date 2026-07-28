@@ -8,7 +8,6 @@ use App\Models\Payment;
 use Livewire\Component;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Pagination\Cursor;
-use Illuminate\Support\Facades\Auth;
 use App\Models\Translation;
 
 class CustomerInvoice extends Component
@@ -18,8 +17,16 @@ class CustomerInvoice extends Component
     public $hasMorePages;
     public $customer;
     public $orders;
-    public $order, $amount_to_pay, $note, $balance, $payment_mode, $order_filter, $lang;
-    public $paid_amount, $customer_name, $search_query;
+    public $order;
+    public $amount_to_pay;
+    public $note;
+    public $balance;
+    public $payment_mode;
+    public $order_filter;
+    public $lang;
+    public $paid_amount;
+    public $customer_name;
+    public $search_query;
     public $collapsedGroups = [];
 
 
@@ -28,7 +35,8 @@ class CustomerInvoice extends Component
         return view('livewire.customers.partials.customer-invoice');
     }
 
-    public function mount(Customer $customer){
+    public function mount(Customer $customer)
+    {
         $this->customer = $customer;
         $this->orders = new EloquentCollection();
         $this->loadOrders();
@@ -39,8 +47,9 @@ class CustomerInvoice extends Component
         }
     }
 
-    public function filterdata(){
-        $orders = Order::where('customer_id',$this->customer->id)->latest()->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
+    public function filterdata()
+    {
+        $orders = Order::where('customer_id', $this->customer->id)->latest()->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
         return $orders;
     }
 

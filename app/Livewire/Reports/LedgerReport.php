@@ -13,7 +13,12 @@ use Illuminate\Support\Facades\DB;
 
 class LedgerReport extends Component
 {
-    public $selected_customer,$customers,$customer_query,$start_date,$end_date,$lang;
+    public $selected_customer;
+    public $customers;
+    public $customer_query;
+    public $start_date;
+    public $end_date;
+    public $lang;
     public $ageingData = [];
     #[Title('Ledger Report')]
     public function render()
@@ -22,15 +27,13 @@ class LedgerReport extends Component
     }
     public function mount()
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('report_ledger')){
+        if (!\Illuminate\Support\Facades\Gate::allows('report_ledger')) {
             abort(404);
         }
-        if(session()->has('selected_language'))
-        { /* if session has selected laugage*/
-            $this->lang = Translation::where('id',session()->get('selected_language'))->first();
-        }
-        else{
-            $this->lang = Translation::where('default',1)->first();
+        if (session()->has('selected_language')) { /* if session has selected laugage*/
+            $this->lang = Translation::where('id', session()->get('selected_language'))->first();
+        } else {
+            $this->lang = Translation::where('default', 1)->first();
         }
         $this->start_date = Carbon::now()->startOfMonth()->toDateString();
         $this->end_date = Carbon::now()->endOfMonth()->toDateString();
@@ -41,7 +44,7 @@ class LedgerReport extends Component
     public function calculateAgeing()
     {
         $today = Carbon::today();
-        
+
         $paymentsSub = DB::table('payments')
             ->whereNull('payments.deleted_at')
             ->select('order_id', DB::raw('SUM(received_amount) as total_paid'))
@@ -56,24 +59,24 @@ class LedgerReport extends Component
             ->whereRaw('orders.total > COALESCE(paid_orders.total_paid, 0)')
             ->where('orders.status', '!=', 4)
             ->get();
-            
+
         $ageing = [ '0_30' => 0, '31_60' => 0, '61_90' => 0, '90_plus' => 0 ];
-        
-        foreach($orders as $o) {
+
+        foreach ($orders as $o) {
             $balance = $o->total - $o->paid;
             $days = Carbon::parse($o->order_date)->diffInDays($today);
-            
+
             if ($days <= 30) {
                 $ageing['0_30'] += $balance;
-            } else if ($days <= 60) {
+            } elseif ($days <= 60) {
                 $ageing['31_60'] += $balance;
-            } else if ($days <= 90) {
+            } elseif ($days <= 90) {
                 $ageing['61_90'] += $balance;
             } else {
                 $ageing['90_plus'] += $balance;
             }
         }
-        
+
         $this->ageingData = [
             $ageing['0_30'],
             $ageing['31_60'],
@@ -82,15 +85,13 @@ class LedgerReport extends Component
         ];
     }
 
-    public function updated($name,$value)
+    public function updated($name, $value)
     {
-        if($name == 'customer_query' && $value != '')
-        {
-            $this->customers = Customer::where(function($query) use ($value) { 
+        if ($name == 'customer_query' && $value != '') {
+            $this->customers = Customer::where(function ($query) use ($value) {
                 $query->where('name', 'like', '%' . sanitize_search($value) . '%')->orWhere('phone', 'like', '%' . sanitize_search($value) . '%');
             })->latest()->limit(5)->get();
-        }
-        elseif($name == 'customer_query' && $value == ''){
+        } elseif ($name == 'customer_query' && $value == '') {
             $this->customers = collect();
         }
     }
@@ -98,7 +99,7 @@ class LedgerReport extends Component
     /* select customer */
     public function selectCustomer($id)
     {
-        $this->selected_customer = Customer::where('id',$id)->first();
+        $this->selected_customer = Customer::where('id', $id)->first();
         $this->customer_query = '';
         $this->customers = collect();
     }
@@ -106,10 +107,11 @@ class LedgerReport extends Component
     /* get Data */
     public function getData()
     {
-        if(!$this->selected_customer)
-        {
+        if (!$this->selected_customer) {
             $this->dispatch(
-                'alert', ['type' => 'error','title' => 'Fetching failed',  'message' => 'You have not selected a customer!']);
+                'alert',
+                ['type' => 'error','title' => 'Fetching failed',  'message' => 'You have not selected a customer!']
+            );
             return;
         }
     }
@@ -117,12 +119,16 @@ class LedgerReport extends Component
     #[\Livewire\Attributes\Computed]
     public function data()
     {
-        if(!$this->selected_customer) return [];
+        if (!$this->selected_customer) {
+            return [];
+        }
         $customerId = $this->selected_customer->id;
         $startDate = Carbon::parse($this->start_date)->toDateString();
         $endDate = Carbon::parse($this->end_date)->toDateString();
 
-        return array_map(function($row) { return (array) $row; }, DB::select("
+        return array_map(function ($row) {
+            return (array) $row;
+        }, DB::select("
             SELECT order_date as date, 'debit' as type, order_number, total, 0 as received_amount
             FROM orders 
             WHERE customer_id = ? AND DATE(order_date) >= ? AND DATE(order_date) <= ? AND status != 4 AND deleted_at IS NULL
@@ -137,10 +143,12 @@ class LedgerReport extends Component
     #[\Livewire\Attributes\Computed]
     public function firstData()
     {
-        if(!$this->selected_customer) return ['debits' => 0, 'credits' => 0];
+        if (!$this->selected_customer) {
+            return ['debits' => 0, 'credits' => 0];
+        }
         return [
-            'debits'    => Order::where('customer_id',$this->selected_customer->id)->where('status', '!=', 4)->whereDate('order_date','<',Carbon::parse($this->start_date)->toDateString())->sum('total'),
-            'credits'    => Payment::where('customer_id',$this->selected_customer->id)->whereDate('payment_date','<',Carbon::parse($this->start_date)->toDateString())->sum('received_amount'),
+            'debits'    => Order::where('customer_id', $this->selected_customer->id)->where('status', '!=', 4)->whereDate('order_date', '<', Carbon::parse($this->start_date)->toDateString())->sum('total'),
+            'credits'    => Payment::where('customer_id', $this->selected_customer->id)->whereDate('payment_date', '<', Carbon::parse($this->start_date)->toDateString())->sum('received_amount'),
         ];
     }
 }

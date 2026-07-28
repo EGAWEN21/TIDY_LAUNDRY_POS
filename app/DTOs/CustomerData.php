@@ -8,7 +8,7 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 
 /**
  * Class CustomerData
- * 
+ *
  * Represents a nested offline customer payload from the Vue PWA.
  * Enables the Unified Graph Sync strategy.
  */

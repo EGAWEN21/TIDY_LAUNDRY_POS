@@ -19,7 +19,7 @@ class CreateServiceDetailsTable extends Migration
             $table->foreign('service_id')->references('id')->on('services');
             $table->unsignedBigInteger('service_type_id')->nullable();
             $table->foreign('service_type_id')->references('id')->on('service_types');
-            $table->double('service_price',15,2);
+            $table->double('service_price', 15, 2);
             $table->timestamps();
         });
     }

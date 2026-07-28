@@ -14,11 +14,33 @@ use Livewire\Attributes\Title;
 
 class MasterSetting extends Component
 {
-    public $default_currency, $default_application_name, $default_phone_number, $default_financial_year, $default_tax_percentage;
-    public $default_state, $default_city, $default_district, $default_zip_code, $default_address, $user, $email, $password, $default_logo, $default_favicon, $default_currency_alignment = 1;
-    public $old_favicon, $old_logo, $default_printer = 1, $lang, $country_code, $default_country, $store_tax, $store_email,$default_tax_mode;
-    public $bypass_approval_limit;
     use WithFileUploads;
+    public $default_currency;
+    public $default_application_name;
+    public $default_phone_number;
+    public $default_financial_year;
+    public $default_tax_percentage;
+    public $default_state;
+    public $default_city;
+    public $default_district;
+    public $default_zip_code;
+    public $default_address;
+    public $user;
+    public $email;
+    public $password;
+    public $default_logo;
+    public $default_favicon;
+    public $default_currency_alignment = 1;
+    public $old_favicon;
+    public $old_logo;
+    public $default_printer = 1;
+    public $lang;
+    public $country_code;
+    public $default_country;
+    public $store_tax;
+    public $store_email;
+    public $default_tax_mode;
+    public $bypass_approval_limit;
     /* render the page */
     #[Title('Master Settings')]
     public function render()
@@ -26,16 +48,17 @@ class MasterSetting extends Component
         return view('livewire.settings.master-setting');
     }
     /* set the rules */
-  
+
     /* set value at the time of render */
     public function mount()
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('setting_master')){
+        if (!\Illuminate\Support\Facades\Gate::allows('setting_master')) {
             abort(404);
         }
-       $this->initialValue();
+        $this->initialValue();
     }
-    public function initialValue(){
+    public function initialValue()
+    {
         $settings = new MasterSettings();
         $site = $settings->siteData();
         $this->default_currency = (isset($site['default_currency']) && !empty($site['default_currency'])) ? $site['default_currency'] : '';
@@ -118,46 +141,46 @@ class MasterSetting extends Component
                 ini_set('memory_limit', '512M');
                 $filename = 'logo_' . time() . '.' . $this->default_logo->getClientOriginalExtension();
                 $tempPath = sys_get_temp_dir() . '/' . $filename;
-                
+
                 if (isset($site['default_logo'])) {
                     $oldPath = str_replace('/storage/', '', $site['default_logo']);
                     if (\Illuminate\Support\Facades\Storage::disk('public')->exists($oldPath)) {
                         \Illuminate\Support\Facades\Storage::disk('public')->delete($oldPath);
                     }
                 }
-            
+
                 $imgFile = Image::decodePath($this->default_logo->getRealPath());
                 $imgFile->scaleDown(width: 500)->save($tempPath);
-                
+
                 \Illuminate\Support\Facades\Storage::disk('public')->putFileAs('logo', new \Illuminate\Http\File($tempPath), $filename);
                 @unlink($tempPath);
-            
+
                 $site['default_logo'] = '/storage/logo/' . $filename;
             } catch (\Exception $e) {
                 \Illuminate\Support\Facades\Log::error("Logo upload failed: " . $e->getMessage());
             }
         }
-        
+
         /* if default_favicon exists */
         if ($this->default_favicon) {
             try {
                 ini_set('memory_limit', '512M');
                 $filename = 'favicon_' . time() . '.' . $this->default_favicon->getClientOriginalExtension();
                 $tempPath = sys_get_temp_dir() . '/' . $filename;
-                
+
                 if (isset($site['default_favicon'])) {
                     $oldPath = str_replace('/storage/', '', $site['default_favicon']);
                     if (\Illuminate\Support\Facades\Storage::disk('public')->exists($oldPath)) {
                         \Illuminate\Support\Facades\Storage::disk('public')->delete($oldPath);
                     }
                 }
-            
+
                 $imgFile = Image::decodePath($this->default_favicon->getRealPath());
                 $imgFile->scaleDown(width: 100)->save($tempPath);
-                
+
                 \Illuminate\Support\Facades\Storage::disk('public')->putFileAs('favicon', new \Illuminate\Http\File($tempPath), $filename);
                 @unlink($tempPath);
-            
+
                 $site['default_favicon'] = '/storage/favicon/' . $filename;
             } catch (\Exception $e) {
                 \Illuminate\Support\Facades\Log::error("Favicon upload failed: " . $e->getMessage());

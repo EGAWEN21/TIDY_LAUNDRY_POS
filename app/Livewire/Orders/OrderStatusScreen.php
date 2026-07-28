@@ -11,7 +11,12 @@ use Illuminate\Support\Facades\Auth;
 
 class OrderStatusScreen extends Component
 {
-    public $orders, $pending_orders, $processing_orders, $ready_orders, $lang,$dateFilter='today';
+    public $orders;
+    public $pending_orders;
+    public $processing_orders;
+    public $ready_orders;
+    public $lang;
+    public $dateFilter = 'today';
     #[Title('Order Status Screen')]
     public function render()
     {
@@ -19,7 +24,7 @@ class OrderStatusScreen extends Component
         $processing_orders = Order::where('status', 1)->latest();
         $ready_orders = Order::where('status', 2)->latest();
         if (Auth::user()->user_type == 1 || Auth::user()->viewable_staff_orders === 'all') {
-           
+
         } else {
             $viewable_ids = [Auth::user()->id];
             if (!empty(Auth::user()->viewable_staff_orders)) {
@@ -30,8 +35,8 @@ class OrderStatusScreen extends Component
             $processing_orders->whereIn('created_by', $viewable_ids)->where('status', 1);
             $ready_orders->whereIn('created_by', $viewable_ids)->where('status', 2);
         }
-    
-        switch($this->dateFilter){
+
+        switch ($this->dateFilter) {
             case 'today':
                 $startDate = Carbon::today()->startOfDay()->toDateString();
                 $endDate = Carbon::today()->endOfDay()->toDateString();
@@ -42,16 +47,16 @@ class OrderStatusScreen extends Component
             case 'weekly':
                 $startDate = Carbon::now()->startOfWeek()->startOfDay();
                 $endDate = Carbon::now()->endOfWeek()->endOfDay();
-                $pending_orders->whereDate('order_date','>=', $startDate)->whereDate('order_date','<=', $endDate);
-                $processing_orders->whereDate('order_date','>=', $startDate)->whereDate('order_date','<=', $endDate);
-                $ready_orders->whereDate('order_date','>=', $startDate)->whereDate('order_date','<=', $endDate);
+                $pending_orders->whereDate('order_date', '>=', $startDate)->whereDate('order_date', '<=', $endDate);
+                $processing_orders->whereDate('order_date', '>=', $startDate)->whereDate('order_date', '<=', $endDate);
+                $ready_orders->whereDate('order_date', '>=', $startDate)->whereDate('order_date', '<=', $endDate);
                 break;
             case 'monthly':
                 $startDate = Carbon::now()->startOfMonth()->startOfDay();
                 $endDate = Carbon::now()->endOfMonth()->endOfDay();
-                $pending_orders->whereDate('order_date','>=', $startDate)->whereDate('order_date','<=', $endDate);
-                $processing_orders->whereDate('order_date','>=', $startDate)->whereDate('order_date','<=', $endDate);
-                $ready_orders->whereDate('order_date','>=', $startDate)->whereDate('order_date','<=', $endDate);
+                $pending_orders->whereDate('order_date', '>=', $startDate)->whereDate('order_date', '<=', $endDate);
+                $processing_orders->whereDate('order_date', '>=', $startDate)->whereDate('order_date', '<=', $endDate);
+                $ready_orders->whereDate('order_date', '>=', $startDate)->whereDate('order_date', '<=', $endDate);
                 break;
         }
         $this->pending_orders = $pending_orders->get();
@@ -63,7 +68,7 @@ class OrderStatusScreen extends Component
     /* process before render */
     public function mount()
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('order_status_change')){
+        if (!\Illuminate\Support\Facades\Gate::allows('order_status_change')) {
             abort(404);
         }
         if (session()->has('selected_language')) {  /* if session has selected language */
@@ -73,15 +78,18 @@ class OrderStatusScreen extends Component
             $this->lang = Translation::where('default', 1)->first();
         }
 
-      
+
     }
     public function changestatus($order, $status)
     {
         $statusInt = 0;
         switch ($status) {
-            case 'processing': $statusInt = 1; break;
-            case 'ready': $statusInt = 2; break;
-            case 'pending': $statusInt = 0; break;
+            case 'processing': $statusInt = 1;
+                break;
+            case 'ready': $statusInt = 2;
+                break;
+            case 'pending': $statusInt = 0;
+                break;
         }
 
         $result = \App\Actions\Orders\ChangeOrderStatusAction::execute($order, $statusInt);

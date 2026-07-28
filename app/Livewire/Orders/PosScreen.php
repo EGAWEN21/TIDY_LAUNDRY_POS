@@ -3,32 +3,68 @@
 namespace App\Livewire\Orders;
 
 use Livewire\Component;
-
 use App\Models\Addon;
 use App\Models\Customer;
 use App\Models\Order;
-use App\Models\OrderDetail;
 use App\Models\Payment;
 use App\Models\Service;
-use App\Models\ServiceDetail;
 use App\Models\ServiceType;
-use App\Models\OrderAddonDetail;
-use App\Models\Translation;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
-use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 
 class PosScreen extends Component
 {
-    use Traits\ManagesCart, Traits\ManagesPayments, Traits\ManagesCustomers;
-    public $services, $search_query, $order_id, $inputs = [], $selservices = [], $customer, $date, $delivery_date, $discount, $paid_amount, $payment_type = 1;
-    public $payment_notes, $service_types, $service, $inputi, $prices = [], $selling_price = [], $quantity = [], $selected_type = [], $addons, $selected_addons = [], $colors = [];
-    public $customer_name, $customer_phone, $email, $tax_no, $address, $selected_customer, $customers, $customer_query, $is_active = 1;
-    public $total, $sub_total, $addon_total, $tax_percent, $tax, $balance, $flag = 0, $lang,$taxamount;
-    public $taxable,$order, $request_id;
-    public $payments = [],$payment_amount,$notes;
+    use Traits\ManagesCart;
+    use Traits\ManagesPayments;
+    use Traits\ManagesCustomers;
+    public $services;
+    public $search_query;
+    public $order_id;
+    public $inputs = [];
+    public $selservices = [];
+    public $customer;
+    public $date;
+    public $delivery_date;
+    public $discount;
+    public $paid_amount;
+    public $payment_type = 1;
+    public $payment_notes;
+    public $service_types;
+    public $service;
+    public $inputi;
+    public $prices = [];
+    public $selling_price = [];
+    public $quantity = [];
+    public $selected_type = [];
+    public $addons;
+    public $selected_addons = [];
+    public $colors = [];
+    public $customer_name;
+    public $customer_phone;
+    public $email;
+    public $tax_no;
+    public $address;
+    public $selected_customer;
+    public $customers;
+    public $customer_query;
+    public $is_active = 1;
+    public $total;
+    public $sub_total;
+    public $addon_total;
+    public $tax_percent;
+    public $tax;
+    public $balance;
+    public $flag = 0;
+    public $lang;
+    public $taxamount;
+    public $taxable;
+    public $order;
+    public $request_id;
+    public $payments = [];
+    public $payment_amount;
+    public $notes;
 
     #[Layout('components.layouts.pos'),Title('POS')]
     public function render()
@@ -52,7 +88,7 @@ class PosScreen extends Component
         $this->addons = Addon::where('is_active', 1)->latest()->get();
         $this->delivery_date = Carbon::today()->addDays(2)->toDateString();
         $this->tax_percent = getTaxPercentage();
-        
+
         // Remove prospective ID guessing to prevent race conditions.
         // True ID is securely generated inside CreateOrderAction lockForUpdate.
         $this->order_id = '[New Order]';
@@ -64,10 +100,10 @@ class PosScreen extends Component
                 abort(403);
             }
             $payload = $req->payload;
-            
+
             if (isset($payload['payments'])) {
-                foreach($payload['payments'] as $payment){
-                    array_push($this->payments,[
+                foreach ($payload['payments'] as $payment) {
+                    array_push($this->payments, [
                         'payment_id' => $payment['payment_id'] ?? null,
                         'payment_type' => $payment['payment_type'],
                         'amount' => $payment['amount'],
@@ -75,15 +111,15 @@ class PosScreen extends Component
                     ]);
                 }
             }
-            if (isset($payload['customer_id']) && $payload['customer_id'] != NULL) {
+            if (isset($payload['customer_id']) && $payload['customer_id'] != null) {
                 $this->selectCustomer($payload['customer_id']);
             }
-            
+
             if (isset($payload['details'])) {
                 foreach ($payload['details'] as $row) {
                     $this->add($this->inputi);
                     $service = Service::where('id', $row['service_id'])->first();
-                    
+
                     if ($service) {
                         $typeIds = $row['service_type_ids'] ?? null;
 
@@ -97,17 +133,17 @@ class PosScreen extends Component
                             $this->selservices[$this->inputi]['service'] = $service->id;
                             $this->selservices[$this->inputi]['service_types'] = $serviceType ? [$serviceType->id] : [];
                         }
-                        
+
                         $this->selling_price[$this->inputi] = $row['service_price'];
                         $this->colors[$this->inputi] = $row['color_code'] ?? '#000000';
-                        
+
                         if ($payload['tax_type'] == 2) {
                             $itemtotallocal = $row['service_price'] * (100 / (100 + ($this->tax_percent ?? 0)));
                             $this->prices[$this->inputi] = number_format($itemtotallocal, 2);
                         } else {
                             $this->prices[$this->inputi] = $row['service_price'];
                         }
-                        
+
                         $this->quantity[$this->inputi] = $row['service_quantity'];
                     }
                 }
@@ -117,24 +153,24 @@ class PosScreen extends Component
             $this->order_id = $req->request_number;
             $this->payment_notes = $payload['note'] ?? '';
             $this->discount = $payload['discount'] ?? 0;
-            
+
             if (isset($payload['addons'])) {
                 foreach ($payload['addons'] as $row) {
                     $this->selected_addons[$row['addon_id']] = true;
                 }
             }
-        } elseif($id) {
+        } elseif ($id) {
             $this->order = Order::whereId($id)->firstOrFail();
             $payments = Payment::where('order_id', $this->order->id)->get();
-            foreach($payments as $payment){
-                array_push($this->payments,[
+            foreach ($payments as $payment) {
+                array_push($this->payments, [
                     'payment_id' => $payment->id,
                     'payment_type' => $payment->payment_type,
                     'amount' => $payment->received_amount,
                     'notes' => $payment->payment_note
                 ]);
             }
-            if ($this->order->customer_id && $this->order->customer_id != NULL) {
+            if ($this->order->customer_id && $this->order->customer_id != null) {
                 $this->selectCustomer($this->order->customer_id);
             }
             foreach ($this->order->details as $row) {
@@ -148,7 +184,7 @@ class PosScreen extends Component
             foreach ($this->order->addons as $row) {
                 $this->selected_addons[$row->addon_id] = true;
             }
-            
+
         } else {
             $draft = \App\Models\PosDraft::where('user_id', Auth::id())->first();
             if ($draft && isset($draft->payload)) {
@@ -179,7 +215,9 @@ class PosScreen extends Component
     {
 
         /* if updated value is empty set the value as null */
-        if ($value == '') data_set($this, $name, null);
+        if ($value == '') {
+            data_set($this, $name, null);
+        }
         /* if updated elemtnt is search_query */
         if ($name == 'search_query' && $value != '') {
             $this->services = Service::where('service_name', 'like', '%' . sanitize_search($value) . '%')->latest()->get();
@@ -249,9 +287,9 @@ class PosScreen extends Component
         $this->tax = $totals['tax_amount'];
         $this->taxable = $totals['taxable_amount'];
         $this->total = $totals['total'];
-        
+
         $this->balance = $this->total - $this->paid_amount;
-        
+
         if (!$this->order && !$this->request_id) {
             $draftPayload = [
                 'selservices' => $this->selservices,
@@ -283,9 +321,9 @@ class PosScreen extends Component
         }
 
         $amount = 0;
-        if($type === 'cash'){
+        if ($type === 'cash') {
             $this->payments = [];
-            array_push($this->payments,[
+            array_push($this->payments, [
                 'amount' => $this->total,
                 'notes' => $this->payment_notes,
                 'payment_type' => $this->payment_type,
@@ -322,7 +360,7 @@ class PosScreen extends Component
             return 0;
         }
         $this->generateOrderID();
-        
+
         $payload = [
             'customer_id' => $this->selected_customer->id ?? null,
             'customer_name' => $this->selected_customer->name ?? null,
@@ -342,10 +380,10 @@ class PosScreen extends Component
             'addons' => [],
             'payments' => []
         ];
-        
+
         foreach ($this->selservices as $key => $value) {
             $service = Service::where('id', $value['service'])->first();
-            
+
             // Support both composite (service_types array) and legacy (service_type single int)
             $typeIds = $value['service_types'] ?? (isset($value['service_type']) ? [$value['service_type']] : []);
             $typeNames = [];
@@ -368,7 +406,7 @@ class PosScreen extends Component
                 'color_code' => $this->colors[$key] ?? null,
             ];
         }
-        
+
         if ($this->selected_addons) {
             foreach ($this->selected_addons as $key => $value) {
                 if ($value === true) {
@@ -381,7 +419,7 @@ class PosScreen extends Component
                 }
             }
         }
-        
+
         if (count($this->payments) > 0) {
             foreach ($this->payments as $payment) {
                 $payload['payments'][] = [
@@ -414,7 +452,7 @@ class PosScreen extends Component
             'addons' => $payload['addons'],
             'payments' => $payload['payments']
         ]);
-        
+
         // Securely recalculate the cart totals based on user permissions
         try {
             $orderDto = \App\Actions\Orders\CalculateSecureOrderMathAction::execute($orderDto, Auth::user());
@@ -422,7 +460,7 @@ class PosScreen extends Component
             $this->dispatch('alert', ['type' => 'error', 'message' => $e->getMessage()]);
             return 0;
         }
-        
+
         // Update the raw array payload so OrderRequest receives the secured math
         $payload = $orderDto->toArray();
 
@@ -436,7 +474,7 @@ class PosScreen extends Component
                 $order = \App\Actions\Orders\UpdateOrderAction::execute($orderDto, $this->order, Auth::id());
                 $this->flag = 1;
                 $this->dispatch('alert', ['type' => 'success',  'message' => $order->order_number . ' Was Successfully Updated!']);
-                if(\Illuminate\Support\Facades\Gate::allows('order_print')){
+                if (\Illuminate\Support\Facades\Gate::allows('order_print')) {
                     $this->dispatch('printPageOrder', $order->id);
                 }
             } catch (\Exception $e) {
@@ -448,19 +486,19 @@ class PosScreen extends Component
                 try {
                     // 2. Dispatch to the secure Action
                     $order = \App\Actions\Orders\CreateOrderAction::execute($orderDto, Auth::id());
-                    
+
                     $this->order_id = $order->order_number;
-                    
+
                     if ($this->request_id) {
                         \App\Models\OrderRequest::whereId($this->request_id)->delete();
                     }
-                    
+
                     // SMS is now handled completely asynchronously by SendOrderNotifications Event Listener.
                     // We no longer block the main thread or risk rolling back the DB here!
-                    
+
                     $this->dispatch('alert', ['type' => 'success',  'message' => $order->order_number . ' Was Successfully Created!']);
-                    
-                    if(\Illuminate\Support\Facades\Gate::allows('order_print')){
+
+                    if (\Illuminate\Support\Facades\Gate::allows('order_print')) {
                         $this->dispatch('printPage', $order->id);
                         $this->clearAll();
                     } else {
@@ -491,22 +529,22 @@ class PosScreen extends Component
                     ]);
                     $this->dispatch('alert', ['type' => 'success',  'message' => 'Order Request Submitted for Approval!']);
                 }
-                
+
                 // Notify Managers
-                $managers = \App\Models\User::where('user_type', 1)->orWhereHas('role', function($q) {
-                    $q->whereHas('permissions', function($p) {
+                $managers = \App\Models\User::where('user_type', 1)->orWhereHas('role', function ($q) {
+                    $q->whereHas('permissions', function ($p) {
                         $p->where('permission_name', 'accept_reject_order');
                     });
                 })->get();
-                
-                foreach($managers as $manager) {
+
+                foreach ($managers as $manager) {
                     $manager->notify(new \App\Notifications\SystemNotification(
                         'New Online Order Request',
                         "A new online order request requires your approval.",
                         route('orders.requests')
                     ));
                 }
-                
+
                 $this->clearAll();
             }
         }

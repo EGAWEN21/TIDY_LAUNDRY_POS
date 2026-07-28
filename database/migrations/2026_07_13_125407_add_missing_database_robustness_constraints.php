@@ -4,8 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class () extends Migration {
     /**
      * Run the migrations.
      */
@@ -14,10 +13,10 @@ return new class extends Migration
         Schema::table('expenses', function (Blueprint $table) {
             $table->dropForeign(['expense_category_id']);
             $table->foreign('expense_category_id')->references('id')->on('expense_categories')->onDelete('cascade');
-            
+
             $table->index('created_by');
             $table->foreign('created_by')->references('id')->on('users')->onDelete('set null');
-            
+
             $table->index('financial_year_id');
             $table->foreign('financial_year_id')->references('id')->on('financial_years')->onDelete('set null');
         });
@@ -46,7 +45,7 @@ return new class extends Migration
             $table->index('role_id');
             $table->foreign('role_id')->references('id')->on('user_roles')->onDelete('set null');
         });
-        
+
         Schema::table('payments', function (Blueprint $table) {
             $table->index('order_id');
         });
@@ -63,7 +62,7 @@ return new class extends Migration
 
             $table->dropForeign(['created_by']);
             $table->dropIndex(['created_by']);
-            
+
             $table->dropForeign(['financial_year_id']);
             $table->dropIndex(['financial_year_id']);
         });
@@ -92,7 +91,7 @@ return new class extends Migration
             $table->dropForeign(['role_id']);
             $table->dropIndex(['role_id']);
         });
-        
+
         Schema::table('payments', function (Blueprint $table) {
             $table->dropIndex(['order_id']);
         });

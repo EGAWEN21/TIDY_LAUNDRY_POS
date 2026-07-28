@@ -12,19 +12,28 @@ use Auth;
 use App\Models\Translation;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Pagination\Cursor;
-
 use Livewire\Component;
 
 class OrdersList extends Component
 {
     public $orders;
-    public $paid_amount, $customer, $customer_name, $search_query;
-    public $order, $amount_to_pay, $note, $balance, $payment_mode, $order_filter, $lang;
+    public $paid_amount;
+    public $customer;
+    public $customer_name;
+    public $search_query;
+    public $order;
+    public $amount_to_pay;
+    public $note;
+    public $balance;
+    public $payment_mode;
+    public $order_filter;
+    public $lang;
     public $nextCursor;
     protected $currentCursor;
     public $hasMorePages;
     public $paid_filter;
-    public $date_from, $date_to;
+    public $date_from;
+    public $date_to;
     public $date_preset;
     public $collapsedGroups = [];
     public $selectedOrders = [];
@@ -38,7 +47,7 @@ class OrdersList extends Component
     /* process before render */
     public function mount()
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('order_list')){
+        if (!\Illuminate\Support\Facades\Gate::allows('order_list')) {
             abort(404);
         }
         $this->orders = new EloquentCollection();
@@ -142,9 +151,11 @@ class OrdersList extends Component
 
     public function bulkChangeStatus($status)
     {
-        if(empty($this->selectedOrders)) return;
-        
-        if(!\Illuminate\Support\Facades\Gate::allows('bulk_order_status_change')){
+        if (empty($this->selectedOrders)) {
+            return;
+        }
+
+        if (!\Illuminate\Support\Facades\Gate::allows('bulk_order_status_change')) {
             $this->dispatch('alert', ['type' => 'error',  'message' => 'You do not have permission to change status in bulk!']);
             return;
         }
@@ -152,16 +163,18 @@ class OrdersList extends Component
         foreach ($this->selectedOrders as $orderId) {
             $this->changeOrderStatus($orderId, $status, true);
         }
-        
+
         $this->selectedOrders = [];
         $this->dispatch('alert', ['type' => 'success',  'message' => 'Status successfully updated for selected orders!']);
     }
 
     public function bulkDelete()
     {
-        if(empty($this->selectedOrders)) return;
+        if (empty($this->selectedOrders)) {
+            return;
+        }
 
-        if(!\Illuminate\Support\Facades\Gate::allows('bulk_order_delete')){
+        if (!\Illuminate\Support\Facades\Gate::allows('bulk_order_delete')) {
             $this->dispatch('alert', ['type' => 'error',  'message' => 'You do not have permission to delete orders in bulk!']);
             return;
         }
@@ -172,7 +185,7 @@ class OrdersList extends Component
                 if ($order) {
                     $order->deleted_by = Auth::id();
                     $order->save();
-                    
+
                     OrderDetail::where('order_id', $order->id)->delete();
                     OrderAddonDetail::where('order_id', $order->id)->delete();
                     Payment::where('order_id', $order->id)->delete();
@@ -180,7 +193,7 @@ class OrdersList extends Component
                 }
             }
         });
-        
+
         $this->selectedOrders = [];
         $this->reloadOrders();
         $this->dispatch('alert', ['type' => 'success',  'message' => 'Selected orders have been moved to Recycle Bin!']);
@@ -188,19 +201,19 @@ class OrdersList extends Component
 
     public function bulkMerge()
     {
-        if(empty($this->selectedOrders) || count($this->selectedOrders) < 2) {
+        if (empty($this->selectedOrders) || count($this->selectedOrders) < 2) {
             $this->dispatch('alert', ['type' => 'error',  'message' => 'Please select at least two orders to merge.']);
             return;
         }
 
-        if(!\Illuminate\Support\Facades\Gate::allows('order_merge')){
+        if (!\Illuminate\Support\Facades\Gate::allows('order_merge')) {
             $this->dispatch('alert', ['type' => 'error',  'message' => 'You do not have permission to merge orders!']);
             return;
         }
 
         $orders = Order::whereIn('id', $this->selectedOrders)->get();
         $customerId = $orders->first()->customer_id;
-        
+
         foreach ($orders as $order) {
             if ($order->customer_id !== $customerId) {
                 $this->dispatch('alert', ['type' => 'error',  'message' => 'Cannot merge orders belonging to different customers.']);
@@ -238,7 +251,7 @@ class OrdersList extends Component
     {
 
         // $this->reloadOrders();
-        $ordersQuery = $this->getBaseOrderQuery()->orderBy('id','DESC');
+        $ordersQuery = $this->getBaseOrderQuery()->orderBy('id', 'DESC');
 
         if ($this->date_from && $this->date_to) {
             $ordersQuery = $ordersQuery->whereDate('order_date', '>=', $this->date_from)
@@ -263,7 +276,7 @@ class OrdersList extends Component
             } elseif ($this->paid_filter != '') {
                 $paymentStatus = $this->paid_filter;
                 // Fetch orders and calculate payment status
-                $this->orders = $ordersQuery->orderBy('id','DESC')->get()->map(function ($order) {
+                $this->orders = $ordersQuery->orderBy('id', 'DESC')->get()->map(function ($order) {
                     $paidAmount = $order->payments_sum_received_amount ?? 0;
 
                     if ($paidAmount == 0) {
@@ -302,7 +315,7 @@ class OrdersList extends Component
             } elseif ($this->paid_filter != '') {
                 $paymentStatus = $this->paid_filter;
                 // Fetch orders and calculate payment status
-                $this->orders = $ordersQuery->orderBy('id','DESC')->get()->map(function ($order) {
+                $this->orders = $ordersQuery->orderBy('id', 'DESC')->get()->map(function ($order) {
                     $paidAmount = $order->payments_sum_received_amount ?? 0;
 
                     if ($paidAmount == 0) {
@@ -337,7 +350,7 @@ class OrdersList extends Component
 
                 $paymentStatus = $value;
                 // Fetch orders and calculate payment status
-                $this->orders = $ordersQuery->orderBy('id','DESC')->get()->map(function ($order) {
+                $this->orders = $ordersQuery->orderBy('id', 'DESC')->get()->map(function ($order) {
                     $paidAmount = $order->payments_sum_received_amount ?? 0;
 
                     if ($paidAmount == 0) {
@@ -364,7 +377,7 @@ class OrdersList extends Component
                 if ($this->order_filter != '') {
                     $ordersQuery = $ordersQuery->where('status', $this->order_filter);
                 }
-                $this->orders = $ordersQuery->orderBy('id','DESC')->get();
+                $this->orders = $ordersQuery->orderBy('id', 'DESC')->get();
             }
         }
     }
@@ -455,7 +468,7 @@ class OrdersList extends Component
 
         if ($this->search_query || $this->search_query != '') {
             $searchQuery = $this->search_query;
-            $baseQuery = $baseQuery->where(function($q) use ($searchQuery) {
+            $baseQuery = $baseQuery->where(function ($q) use ($searchQuery) {
                 $q->where('order_number', 'like', '%' . sanitize_search($searchQuery) . '%')
                   ->orWhere('customer_name', 'like', '%' . sanitize_search($searchQuery) . '%')
                   ->orWhere('phone_number', 'like', '%' . sanitize_search($searchQuery) . '%');
@@ -499,7 +512,7 @@ class OrdersList extends Component
                 $this->dispatch('alert', ['type' => 'error', 'message' => 'Customer phone number is not provided.']);
                 return;
             }
-            
+
             sendOrderCreateSMS($order->id, $order->customer_id);
             $this->dispatch('alert', ['type' => 'success', 'message' => 'Receipt sent via SMS successfully.']);
         } catch (\Exception $e) {
@@ -522,10 +535,10 @@ class OrdersList extends Component
 
         $service = app(\App\Services\WhatsAppService::class);
         $message = $service->formatOrderMessage($order);
-        
-        $receiptUrl = \Illuminate\Support\Facades\URL::signedRoute('receipt.view', ['id' => $order->id]); 
+
+        $receiptUrl = \Illuminate\Support\Facades\URL::signedRoute('receipt.view', ['id' => $order->id]);
         $message .= "\n\n*View Secure Digital Receipt:*\n" . $receiptUrl;
-        
+
         $countryCode = getCountryCode();
         $countryCode = str_replace('+', '', $countryCode);
         $phone = ltrim($phone, '0');
@@ -550,12 +563,12 @@ class OrdersList extends Component
 
     public function changeOrderStatus($orderId, $status, $isBulk = false)
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('order_status_change')){
+        if (!\Illuminate\Support\Facades\Gate::allows('order_status_change')) {
             abort(404);
         }
-        
+
         $result = \App\Actions\Orders\ChangeOrderStatusAction::execute($orderId, $status, $isBulk);
-        
+
         if (!$result['success']) {
             $this->dispatch('alert', ['type' => 'error', 'message' => $result['message']]);
             return;
@@ -570,13 +583,13 @@ class OrdersList extends Component
         } else {
             $this->dispatch('alert', ['type' => 'success', 'message' => $result['message']]);
         }
-        
+
         $this->reloadOrders();
     }
 
     public function deleteOrder($order)
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('order_delete')){
+        if (!\Illuminate\Support\Facades\Gate::allows('order_delete')) {
             abort(404);
         }
 
@@ -585,7 +598,7 @@ class OrdersList extends Component
             \Illuminate\Support\Facades\DB::transaction(function () use ($order) {
                 $order->deleted_by = Auth::id();
                 $order->save();
-                
+
                 OrderDetail::where('order_id', $order->id)->delete();
                 OrderAddonDetail::where('order_id', $order->id)->delete();
                 Payment::where('order_id', $order->id)->delete();

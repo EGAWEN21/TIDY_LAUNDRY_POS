@@ -16,7 +16,9 @@ use Illuminate\Support\Facades\DB;
 
 class RecycleBin extends Component
 {
-    public $orders, $customers, $staff;
+    public $orders;
+    public $customers;
+    public $staff;
     public $search_query;
     public $selectedItems = [];
     public $lang;
@@ -46,7 +48,7 @@ class RecycleBin extends Component
             $this->currentTab = 'staff';
         }
 
-        if(session()->has('selected_language')) {
+        if (session()->has('selected_language')) {
             $this->lang = Translation::where('id', session()->get('selected_language'))->first();
         } else {
             $this->lang = Translation::where('default', 1)->first();
@@ -80,14 +82,14 @@ class RecycleBin extends Component
 
         if ($this->search_query) {
             $searchQuery = $this->search_query;
-            $query->where(function($q) use ($searchQuery) {
+            $query->where(function ($q) use ($searchQuery) {
                 $q->where('order_number', 'like', '%' . sanitize_search($searchQuery) . '%')
                   ->orWhere('customer_name', 'like', '%' . sanitize_search($searchQuery) . '%')
                   ->orWhere('phone_number', 'like', '%' . sanitize_search($searchQuery) . '%');
             });
         }
 
-        $this->orders = $query->get()->map(function($order) {
+        $this->orders = $query->get()->map(function ($order) {
             $order->days_remaining = 90 - now()->diffInDays($order->deleted_at);
             $order->paid_amount = Payment::withTrashed()->where('order_id', $order->id)->sum('received_amount');
             return $order;
@@ -101,7 +103,7 @@ class RecycleBin extends Component
             $query->where('name', 'like', '%' . sanitize_search($this->search_query) . '%')
                   ->orWhere('phone', 'like', '%' . sanitize_search($this->search_query) . '%');
         }
-        $this->customers = $query->get()->map(function($c) {
+        $this->customers = $query->get()->map(function ($c) {
             $c->days_remaining = 90 - now()->diffInDays($c->deleted_at);
             return $c;
         });
@@ -114,7 +116,7 @@ class RecycleBin extends Component
             $query->where('name', 'like', '%' . sanitize_search($this->search_query) . '%')
                   ->orWhere('email', 'like', '%' . sanitize_search($this->search_query) . '%');
         }
-        $this->staff = $query->get()->map(function($s) {
+        $this->staff = $query->get()->map(function ($s) {
             $s->days_remaining = 90 - now()->diffInDays($s->deleted_at);
             return $s;
         });
@@ -129,10 +131,15 @@ class RecycleBin extends Component
 
     public function bulkRestore()
     {
-        if(empty($this->selectedItems)) return;
+        if (empty($this->selectedItems)) {
+            return;
+        }
 
         if ($this->currentTab == 'orders') {
-            if(!Gate::allows('order_restore')){ $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']); return; }
+            if (!Gate::allows('order_restore')) {
+                $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']);
+                return;
+            }
             DB::transaction(function () {
                 foreach ($this->selectedItems as $id) {
                     $order = Order::onlyTrashed()->find($id);
@@ -145,10 +152,16 @@ class RecycleBin extends Component
                 }
             });
         } elseif ($this->currentTab == 'customers') {
-            if(!Gate::allows('customer_restore')){ $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']); return; }
+            if (!Gate::allows('customer_restore')) {
+                $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']);
+                return;
+            }
             Customer::onlyTrashed()->whereIn('id', $this->selectedItems)->restore();
         } elseif ($this->currentTab == 'staff') {
-            if(!Gate::allows('user_restore')){ $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']); return; }
+            if (!Gate::allows('user_restore')) {
+                $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']);
+                return;
+            }
             User::onlyTrashed()->whereIn('id', $this->selectedItems)->restore();
         }
 
@@ -159,10 +172,15 @@ class RecycleBin extends Component
 
     public function bulkForceDelete()
     {
-        if(empty($this->selectedItems)) return;
+        if (empty($this->selectedItems)) {
+            return;
+        }
 
         if ($this->currentTab == 'orders') {
-            if(!Gate::allows('order_force_delete')){ $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']); return; }
+            if (!Gate::allows('order_force_delete')) {
+                $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']);
+                return;
+            }
             DB::transaction(function () {
                 foreach ($this->selectedItems as $id) {
                     $order = Order::onlyTrashed()->find($id);
@@ -175,10 +193,16 @@ class RecycleBin extends Component
                 }
             });
         } elseif ($this->currentTab == 'customers') {
-            if(!Gate::allows('customer_force_delete')){ $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']); return; }
+            if (!Gate::allows('customer_force_delete')) {
+                $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']);
+                return;
+            }
             Customer::onlyTrashed()->whereIn('id', $this->selectedItems)->forceDelete();
         } elseif ($this->currentTab == 'staff') {
-            if(!Gate::allows('user_force_delete')){ $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']); return; }
+            if (!Gate::allows('user_force_delete')) {
+                $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']);
+                return;
+            }
             User::onlyTrashed()->whereIn('id', $this->selectedItems)->forceDelete();
         }
 
@@ -190,7 +214,10 @@ class RecycleBin extends Component
     public function emptyRecycleBin()
     {
         if ($this->currentTab == 'orders') {
-            if(!Gate::allows('order_force_delete')){ $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']); return; }
+            if (!Gate::allows('order_force_delete')) {
+                $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']);
+                return;
+            }
             DB::transaction(function () {
                 $orders = Order::onlyTrashed()->get();
                 foreach ($orders as $order) {
@@ -201,10 +228,16 @@ class RecycleBin extends Component
                 }
             });
         } elseif ($this->currentTab == 'customers') {
-            if(!Gate::allows('customer_force_delete')){ $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']); return; }
+            if (!Gate::allows('customer_force_delete')) {
+                $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']);
+                return;
+            }
             Customer::onlyTrashed()->forceDelete();
         } elseif ($this->currentTab == 'staff') {
-            if(!Gate::allows('user_force_delete')){ $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']); return; }
+            if (!Gate::allows('user_force_delete')) {
+                $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']);
+                return;
+            }
             User::onlyTrashed()->where('user_type', 2)->forceDelete();
         }
 

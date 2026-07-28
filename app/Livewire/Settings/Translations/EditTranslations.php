@@ -8,7 +8,14 @@ use Livewire\Attributes\Title;
 
 class EditTranslations extends Component
 {
-    public $data =[],$name,$is_active=1,$default,$translation,$is_rtl,$lang,$current_id;
+    public $data = [];
+    public $name;
+    public $is_active = 1;
+    public $default;
+    public $translation;
+    public $is_rtl;
+    public $lang;
+    public $current_id;
     /* render the content */
     #[Title('Edit Translations')]
     public function render()
@@ -19,29 +26,27 @@ class EditTranslations extends Component
     public function mount($id)
     {
         $this->current_id = $id;
-        $translation = Translation::where('id',$id)->first();
-        if(!\Illuminate\Support\Facades\Gate::allows('translation_edit')){
+        $translation = Translation::where('id', $id)->first();
+        if (!\Illuminate\Support\Facades\Gate::allows('translation_edit')) {
             abort(404);
         }
         /* if translation is not empty */
-        if(!$translation)
-        {
+        if (!$translation) {
             abort(404);
         }
-       $this->initialData();
-        if(session()->has('selected_language'))
-        {
+        $this->initialData();
+        if (session()->has('selected_language')) {
             /* if the session has selected language */
-            $this->lang = \App\Models\Translation::where('id',session()->get('selected_language'))->first();
-        }
-        else{
+            $this->lang = \App\Models\Translation::where('id', session()->get('selected_language'))->first();
+        } else {
             /* if the session has no selected language */
-            $this->lang = \App\Models\Translation::where('default',1)->first();
+            $this->lang = \App\Models\Translation::where('default', 1)->first();
         }
     }
     /* set initial Data */
-    public function initialData(){
-        $translation = Translation::where('id',$this->current_id)->first();
+    public function initialData()
+    {
+        $translation = Translation::where('id', $this->current_id)->first();
         $this->data = $translation->data;
         $this->name = $translation->name;
         $this->is_active = $translation->is_active;
@@ -56,19 +61,17 @@ class EditTranslations extends Component
             'name'  => 'required',
             'data.*' => 'required'
         ]);
-        if($this->default && $this->translation->default == 0)
-        {
-            Translation::where('default',1)->update([
-                'default'=> 0]
+        if ($this->default && $this->translation->default == 0) {
+            Translation::where('default', 1)->update(
+                [
+                'default' => 0]
             );
         }
         /* if active is 0 */
-        if(!$this->is_active)
-        {
+        if (!$this->is_active) {
             $this->default = 0;
         }
-        if($this->is_rtl == null || !$this->is_rtl)
-        {
+        if ($this->is_rtl == null || !$this->is_rtl) {
             $this->is_rtl = 0;
         }
         $this->translation->name = $this->name;

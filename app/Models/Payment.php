@@ -12,7 +12,9 @@ class Payment extends Model
 {
     // Updates the 'pos_last_update' cache timestamp when a payment is created/modified,
     // ensuring the Offline POS app instantly syncs updated customer balances.
-    use HasFactory, UpdatesPosSyncTimestamp, SoftDeletes;
+    use HasFactory;
+    use UpdatesPosSyncTimestamp;
+    use SoftDeletes;
     protected $fillable = [
         'payment_date',
         'customer_id',
@@ -25,14 +27,14 @@ class Payment extends Model
         'created_by'
     ];
 
-     /* customer relation */
-     public function customer(): BelongsTo
-     {
-         return $this->belongsTo(\App\Models\Customer::class, 'customer_id', 'id')->withTrashed();
-     }
-      /* order relation */
-      public function order(): BelongsTo
-      {
-          return $this->belongsTo(\App\Models\Order::class, 'order_id', 'id');
-      }
+    /* customer relation */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Customer::class, 'customer_id', 'id')->withTrashed();
+    }
+    /* order relation */
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Order::class, 'order_id', 'id');
+    }
 }

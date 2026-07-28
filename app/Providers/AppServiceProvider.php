@@ -37,7 +37,7 @@ class AppServiceProvider extends ServiceProvider
             $permissions = Cache::rememberForever('permissions', function () {
                 return Permission::all();
             });
-            
+
             $permissions->map(function ($permission) {
                 Gate::define($permission->name, function ($user) use ($permission) {
                     return $user->hasPermission($permission->name);

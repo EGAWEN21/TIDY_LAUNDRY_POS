@@ -10,11 +10,22 @@ use Illuminate\Support\Facades\File;
 use Jackiedo\DotenvEditor\Facades\DotenvEditor;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
+
 class InstallApp extends Component
 {
-    public $extensions,$directories,$errormessage,$page,$step=1,$requirement_satisfied =false;
-    public $host='localhost',$port=3306,$username,$password,$name,$dberror =true;
-    
+    public $extensions;
+    public $directories;
+    public $errormessage;
+    public $page;
+    public $step = 1;
+    public $requirement_satisfied = false;
+    public $host = 'localhost';
+    public $port = 3306;
+    public $username;
+    public $password;
+    public $name;
+    public $dberror = true;
+
     #[Layout('components.layouts.install-layout')]
     public function render()
     {
@@ -37,8 +48,7 @@ class InstallApp extends Component
         $this->extensions = $requirement->extensions();
         $this->directories = $requirement->directories();
         $this->requirement_satisfied = $requirement->satisfied();
-        if($this->requirement_satisfied == true)
-        {
+        if ($this->requirement_satisfied == true) {
             return true;
         }
         return false;
@@ -54,25 +64,20 @@ class InstallApp extends Component
             'username'  => 'required',
             'name'  => 'required'
         ]);
-        $error =false;
-        try{
-            $connection = mysqli_connect($this->host,$this->username,$this->password,$this->name,$this->port);
-        }
-        catch(\Exception $e)
-        {
+        $error = false;
+        try {
+            $connection = mysqli_connect($this->host, $this->username, $this->password, $this->name, $this->port);
+        } catch (\Exception $e) {
             $error = $e->getMessage();
         }
-        if($error == false)
-        {
+        if ($error == false) {
             $this->step = 3;
             $this->dberror = false;
-        }
-        else{
+        } else {
             $this->dberror = true;
         }
         $this->errormessage = $error;
-        if(!$error)
-        {
+        if (!$error) {
             return true;
         }
     }

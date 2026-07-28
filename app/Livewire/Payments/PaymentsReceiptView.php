@@ -7,12 +7,14 @@ use Livewire\Component;
 use App\Models\Translation;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Pagination\Cursor;
-use Auth;
 use App\Models\Payment;
 
 class PaymentsReceiptView extends Component
 {
-    public $payments, $search, $lang, $name;
+    public $payments;
+    public $search;
+    public $lang;
+    public $name;
     public $nextCursor;
     protected $currentCursor;
     public $hasMorePages;
@@ -20,7 +22,7 @@ class PaymentsReceiptView extends Component
     /* called before render */
     public function mount()
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('payment_list')){
+        if (!\Illuminate\Support\Facades\Gate::allows('payment_list')) {
             abort(404);
         }
         $this->payments = new EloquentCollection();
@@ -82,7 +84,7 @@ class PaymentsReceiptView extends Component
     public function filterdata()
     {
         if ($this->search || $this->search != '') {
-             $search = $this->search;
+            $search = $this->search;
             $customer = \App\Models\Customer::where(function ($query) use ($search) {
                 $query->where('name', 'like', '%' . sanitize_search($search) . '%')->orWhere('phone', 'like', '%' . sanitize_search($search) . '%');
             })->pluck('id')->toArray();

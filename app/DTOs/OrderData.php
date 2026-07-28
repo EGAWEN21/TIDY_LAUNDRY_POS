@@ -10,9 +10,9 @@ use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 
 /**
  * Class OrderData
- * 
+ *
  * The master Data Transfer Object for creating and syncing orders.
- * This class maps exactly to the legacy Vue 3 PWA `buildOrderData()` JSON structure 
+ * This class maps exactly to the legacy Vue 3 PWA `buildOrderData()` JSON structure
  * to ensure offline synchronization does not fail due to validation errors.
  */
 #[MapName(SnakeCaseMapper::class)]

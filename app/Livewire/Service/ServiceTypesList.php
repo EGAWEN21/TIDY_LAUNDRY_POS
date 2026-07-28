@@ -12,7 +12,13 @@ use Livewire\Attributes\Title;
 
 class ServiceTypesList extends Component
 {
-    public $service_types,$name,$is_active=1,$service_type,$inputs,$search_query,$lang;
+    public $service_types;
+    public $name;
+    public $is_active = 1;
+    public $service_type;
+    public $inputs;
+    public $search_query;
+    public $lang;
     public $nextCursor;
     protected $currentCursor;
     public $hasMorePages;
@@ -25,20 +31,18 @@ class ServiceTypesList extends Component
     /* process before render */
     public function mount()
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('service_type_list')){
+        if (!\Illuminate\Support\Facades\Gate::allows('service_type_list')) {
             abort(404);
         }
         $this->service_types = new EloquentCollection();
         $this->loadServiceTypes();
 
         //$this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
-        if(session()->has('selected_language'))
-        {  /* if session has selected language */
-            $this->lang = Translation::where('id',session()->get('selected_language'))->first();
-        }
-        else{
+        if (session()->has('selected_language')) {  /* if session has selected language */
+            $this->lang = Translation::where('id', session()->get('selected_language'))->first();
+        } else {
             /* if session has no selected language */
-            $this->lang = Translation::where('default',1)->first();
+            $this->lang = Translation::where('default', 1)->first();
         }
     }
     /* create the service type */
@@ -55,15 +59,17 @@ class ServiceTypesList extends Component
         $this->is_active = 1;
         $this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
         $this->dispatch(
-            'alert', ['type' => 'success',  'message' => 'Service Type has been created!']);
+            'alert',
+            ['type' => 'success',  'message' => 'Service Type has been created!']
+        );
         $this->dispatch('closemodal');
         $this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
     }
-    /* set content to edit */   
+    /* set content to edit */
     public function edit($id)
     {
         $this->resetErrorBag();
-        $this->service_type = ModelsServiceType::where('id',$id)->first();
+        $this->service_type = ModelsServiceType::where('id', $id)->first();
         $this->is_active = $this->service_type->is_active;
         $this->name = $this->service_type->service_type_name;
         $this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
@@ -74,8 +80,7 @@ class ServiceTypesList extends Component
         $this->validate([
             'name'  => 'required'
         ]);
-        if($this->service_type)
-        {
+        if ($this->service_type) {
             $this->service_type->service_type_name = $this->name;
             $this->service_type->is_active = $this->is_active;
             $this->service_type->save();
@@ -84,38 +89,40 @@ class ServiceTypesList extends Component
         $this->is_active = 1;
         $this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
         $this->dispatch(
-            'alert', ['type' => 'success',  'message' => 'Service Type has been updated!']);
+            'alert',
+            ['type' => 'success',  'message' => 'Service Type has been updated!']
+        );
         $this->dispatch('closemodal');
         $this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
     }
     /* service type delete */
     public function delete($id)
     {
-        $this->service_type = ModelsServiceType::where('id',$id)->first();
-        $getcount = ServiceDetail::where('service_type_id',$this->service_type->id)->count();
-         /* if no.of.services > 0 */
-        if($getcount > 0)
-        {
+        $this->service_type = ModelsServiceType::where('id', $id)->first();
+        $getcount = ServiceDetail::where('service_type_id', $this->service_type->id)->count();
+        /* if no.of.services > 0 */
+        if ($getcount > 0) {
             $this->dispatch(
-                'alert', ['type' => 'error',  'message' => 'Failed to delete!']);
-                return 0;
+                'alert',
+                ['type' => 'error',  'message' => 'Failed to delete!']
+            );
+            return 0;
         }
         /* if service type is exists */
-        if($this->service_type)
-        {
+        if ($this->service_type) {
             $this->service_type->delete();
             $this->dispatch(
-                'alert', ['type' => 'success',  'message' => 'Service Type has been deleted!']);
+                'alert',
+                ['type' => 'success',  'message' => 'Service Type has been deleted!']
+            );
         }
         $this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
     }
-    public function updated($name,$value)
+    public function updated($name, $value)
     {   /* if updated element is search query */
-        if($name == 'search_query' && $value != '')
-        {
-            $this->service_types = ModelsServiceType::where('service_type_name', 'like' , '%' . sanitize_search($value) . '%')->orderBy('position', 'asc')->orderBy('id', 'asc')->get();
-        }
-        elseif($name == 'search_query' && $value == ''){
+        if ($name == 'search_query' && $value != '') {
+            $this->service_types = ModelsServiceType::where('service_type_name', 'like', '%' . sanitize_search($value) . '%')->orderBy('position', 'asc')->orderBy('id', 'asc')->get();
+        } elseif ($name == 'search_query' && $value == '') {
             $this->service_types = ModelsServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
         }
     }
@@ -127,69 +134,69 @@ class ServiceTypesList extends Component
                 ModelsServiceType::where('id', $id)->update(['position' => $index]);
             }
             $this->dispatch(
-                'alert', ['type' => 'success',  'message' => 'Service Types order updated!']);
+                'alert',
+                ['type' => 'success',  'message' => 'Service Types order updated!']
+            );
             $this->reloadOrders();
         }
     }
 
-      /* refresh the page */
-      public function refresh()
-      {
-          /* if search query or order filter is empty */
-          if( $this->search_query == '')
-          {
-              $this->service_types->fresh();
-  
-          }
-      }
-      public function loadServiceTypes()
-      {
-          if ($this->hasMorePages !== null  && ! $this->hasMorePages) {
-              return;
-          }
-          $myservicetype = $this->filterdata();
-          //dd($myservicetype);
-          $this->service_types->push(...$myservicetype->items());
-          if ($this->hasMorePages = $myservicetype->hasMorePages()) {
-              $this->nextCursor = $myservicetype->nextCursor()->encode();
-          }
-          $this->currentCursor = $myservicetype->cursor();
-      }
-      public function reloadOrders()
-      {
-          $this->service_types = new EloquentCollection();
-          $this->nextCursor = null;
-          $this->hasMorePages = null;
-          if ($this->hasMorePages !== null  && ! $this->hasMorePages) {
-              return;
-          }
-          $service_types = $this->filterdata();
-          $this->service_types->push(...$service_types->items());
-          if ($this->hasMorePages = $service_types->hasMorePages()) {
-              $this->nextCursor = $service_types->nextCursor()->encode();
-          }
-          $this->currentCursor = $service_types->cursor();
-      }
-      public function filterdata()
-      {
-          if($this->search_query || $this->search_query != '')
-          {
-            $service_types = ModelsServiceType::where('service_type_name', 'like' , '%' . sanitize_search($this->search_query) . '%')
+    /* refresh the page */
+    public function refresh()
+    {
+        /* if search query or order filter is empty */
+        if ($this->search_query == '') {
+            $this->service_types->fresh();
+
+        }
+    }
+    public function loadServiceTypes()
+    {
+        if ($this->hasMorePages !== null  && ! $this->hasMorePages) {
+            return;
+        }
+        $myservicetype = $this->filterdata();
+        //dd($myservicetype);
+        $this->service_types->push(...$myservicetype->items());
+        if ($this->hasMorePages = $myservicetype->hasMorePages()) {
+            $this->nextCursor = $myservicetype->nextCursor()->encode();
+        }
+        $this->currentCursor = $myservicetype->cursor();
+    }
+    public function reloadOrders()
+    {
+        $this->service_types = new EloquentCollection();
+        $this->nextCursor = null;
+        $this->hasMorePages = null;
+        if ($this->hasMorePages !== null  && ! $this->hasMorePages) {
+            return;
+        }
+        $service_types = $this->filterdata();
+        $this->service_types->push(...$service_types->items());
+        if ($this->hasMorePages = $service_types->hasMorePages()) {
+            $this->nextCursor = $service_types->nextCursor()->encode();
+        }
+        $this->currentCursor = $service_types->cursor();
+    }
+    public function filterdata()
+    {
+        if ($this->search_query || $this->search_query != '') {
+            $service_types = ModelsServiceType::where('service_type_name', 'like', '%' . sanitize_search($this->search_query) . '%')
             ->orderBy('position', 'asc')
             ->orderBy('id', 'asc')
             ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
             return $service_types;
-          }
-          else{
+        } else {
             $service_types = ModelsServiceType::orderBy('position', 'asc')
             ->orderBy('id', 'asc')
             ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
             return $service_types;
-          }
-      }
+        }
+    }
 
-    public function resetInputFields(){
-        $this->name='';
+    public function resetInputFields()
+    {
+        $this->name = '';
         $this->is_active = 1;
         $this->resetErrorBag();
     }

@@ -7,10 +7,7 @@ use Livewire\Component;
 use App\Models\Translation;
 use App\Models\UserRole;
 use App\Models\UserRolePermission;
-use Illuminate\Support\Carbon;
 use Livewire\Attributes\Title;
-
-
 
 class RolesList extends Component
 {
@@ -32,12 +29,19 @@ class RolesList extends Component
         'Bulk Actions' => null,
     ];
 
-    public $roles, $role, $editRole, $search_query, $lang ,$permissions,$selected_permissions = [],$name;
+    public $roles;
+    public $role;
+    public $editRole;
+    public $search_query;
+    public $lang ;
+    public $permissions;
+    public $selected_permissions = [];
+    public $name;
     #[Title('Roles')]
     public function render()
     {
         $roles = UserRole::latest();
-        if($this->search_query != ''){
+        if ($this->search_query != '') {
             $roles->where('name', 'like', '%' . sanitize_search($this->search_query) . '%');
         }
         $this->roles = $roles->get();
@@ -47,7 +51,7 @@ class RolesList extends Component
     /* process before render */
     public function mount()
     {
-        if(!\Illuminate\Support\Facades\Gate::allows('role_list')){
+        if (!\Illuminate\Support\Facades\Gate::allows('role_list')) {
             abort(404);
         }
         if (session()->has('selected_language')) {  /*if session has selected language */
@@ -59,12 +63,11 @@ class RolesList extends Component
         //get permissions and order by category
         $permissions = Permission::get();
         $finalPermissions = [];
-        foreach($permissions as $permission){
-            if(!isset($finalPermissions[$permission->category]))
-            {
+        foreach ($permissions as $permission) {
+            if (!isset($finalPermissions[$permission->category])) {
                 $finalPermissions[$permission['category']] = [];
             }
-            array_push($finalPermissions[$permission['category']],$permission->toArray());
+            array_push($finalPermissions[$permission['category']], $permission->toArray());
             $this->selected_permissions[$permission->name] = true;
         }
         $this->permissions = $finalPermissions;
@@ -76,13 +79,13 @@ class RolesList extends Component
         $this->validate([
             'name' => 'required',
         ]);
-        
+
         $userRole = new UserRole();
         $userRole->name = $this->name;
         $userRole->save();
 
-        foreach($this->selected_permissions as $permission => $value){
-            if($value === true){
+        foreach ($this->selected_permissions as $permission => $value) {
+            if ($value === true) {
                 $rolePermission  = new UserRolePermission();
                 $rolePermission->role_id = $userRole->id;
                 $rolePermission->permission_id = Permission::where('name', $permission)->first()->id;
@@ -102,10 +105,10 @@ class RolesList extends Component
     /* set the content for edit */
     public function edit($id)
     {
-        $this->editRole = UserRole::where('id',$id)->first();
-        $permissions = UserRolePermission::where('role_id',$id)->get();
+        $this->editRole = UserRole::where('id', $id)->first();
+        $permissions = UserRolePermission::where('role_id', $id)->get();
         $this->selected_permissions = [];
-        foreach($permissions as $permission){
+        foreach ($permissions as $permission) {
             $this->selected_permissions[$permission->permission_name] = true;
         }
         $this->name = $this->editRole->name;
@@ -121,8 +124,8 @@ class RolesList extends Component
         $this->editRole->save();
 
         UserRolePermission::whereRoleId($this->editRole->id)->delete();
-        foreach($this->selected_permissions as $permission => $value){
-            if($value === true){
+        foreach ($this->selected_permissions as $permission => $value) {
+            if ($value === true) {
                 $rolePermission  = new UserRolePermission();
                 $rolePermission->role_id = $this->editRole->id;
                 $rolePermission->permission_id = Permission::where('name', $permission)->first()->id;
@@ -139,7 +142,7 @@ class RolesList extends Component
         $this->dispatch('closemodal');
     }
 
-    
+
     /* process while change the content*/
     public function updated($name, $value)
     {
@@ -149,12 +152,12 @@ class RolesList extends Component
     }
     /* reset input fields */
     public function resetFields()
-    {   
+    {
         $this->resetErrorBag();
         $this->name = '';
         $this->editRole = null;
         $permissions = Permission::get();
-        foreach($permissions as $permission){
+        foreach ($permissions as $permission) {
             $this->selected_permissions[$permission->name] = true;
         }
     }
@@ -162,8 +165,8 @@ class RolesList extends Component
     //delete role
     public function delete($id)
     {
-        UserRole::where('id',$id)->delete();
-        UserRolePermission::where('role_id',$id)->delete();
+        UserRole::where('id', $id)->delete();
+        UserRolePermission::where('role_id', $id)->delete();
         $this->dispatch('alert', [
             'type' => 'success',
             'message' => 'Role deleted successfully!'
@@ -172,11 +175,12 @@ class RolesList extends Component
     }
 
     //handle checkbox change
-    public function handleCheckChange($categoryName,$permissionName,$targetValue){
-        if($targetValue == false){
+    public function handleCheckChange($categoryName, $permissionName, $targetValue)
+    {
+        if ($targetValue == false) {
             $currentCategoryPermissions = $this->permissions[$categoryName];
-            foreach($currentCategoryPermissions as $categoryPermission){
-                if(isset($this->selected_permissions[$categoryPermission['name']])){
+            foreach ($currentCategoryPermissions as $categoryPermission) {
+                if (isset($this->selected_permissions[$categoryPermission['name']])) {
                     $this->selected_permissions[$categoryPermission['name']] = false;
                 }
             }

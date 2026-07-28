@@ -16,7 +16,7 @@ Route::get('/manifest.webmanifest', [\App\Http\Controllers\PwaManifestController
 Route::get('/manifest.json', [\App\Http\Controllers\PwaManifestController::class, 'generate']);
 Route::get('/install', \App\Livewire\Installer\InstallApp::class)->name('install');
 Route::get('/update', \App\Livewire\Installer\UpdaterApp::class)->name('update');
-Route::get('/reset-password/{token}',\App\Livewire\Auth\ForgotPassword::class);
+Route::get('/reset-password/{token}', \App\Livewire\Auth\ForgotPassword::class);
 
 Route::get('/whatsapp/webhook', [\App\Http\Controllers\WhatsAppWebhookController::class, 'handleVerify']);
 Route::post('/whatsapp/webhook', [\App\Http\Controllers\WhatsAppWebhookController::class, 'handleMessage'])->middleware('throttle:60,1');
@@ -80,7 +80,7 @@ Route::group(['middleware' => [\App\Http\Middleware\InstalledMiddleware::class]]
                 Route::get('order/{from_date}/{to_date}/{status}', \App\Livewire\Reports\DownloadReport\OrderReport::class);
             });
         });
-         /* expense */
+        /* expense */
         Route::group(['prefix' => 'expense/'], function () {
             Route::get('/', \App\Livewire\Expense\ExpenseList::class)->name('expense');
             Route::get('/category', \App\Livewire\Expense\ExpenseCategoryList::class)->name('expense.category');

@@ -14,7 +14,23 @@ use App\Models\Translation;
 
 class PrintOrder extends Component
 {
-    public $order, $orderdetails, $orderaddons, $balance, $total, $customer, $payments, $sitename, $address, $phone, $paid_amount, $payment_type, $zipcode, $tax_number, $store_email, $from_date, $to_date;
+    public $order;
+    public $orderdetails;
+    public $orderaddons;
+    public $balance;
+    public $total;
+    public $customer;
+    public $payments;
+    public $sitename;
+    public $address;
+    public $phone;
+    public $paid_amount;
+    public $payment_type;
+    public $zipcode;
+    public $tax_number;
+    public $store_email;
+    public $from_date;
+    public $to_date;
 
     #[Layout('components.layouts.print-layout')]
     public function render()

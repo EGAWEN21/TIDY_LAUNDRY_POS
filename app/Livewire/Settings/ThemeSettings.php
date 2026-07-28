@@ -15,8 +15,9 @@ class ThemeSettings extends Component
         return view('livewire.settings.theme-settings');
     }
 
-    public function mount(){
-        if(!\Illuminate\Support\Facades\Gate::allows('setting_theme')){
+    public function mount()
+    {
+        if (!\Illuminate\Support\Facades\Gate::allows('setting_theme')) {
             abort(404);
         }
         $settings = new MasterSettings();
@@ -37,6 +38,6 @@ class ThemeSettings extends Component
             'alert',
             ['type' => 'success',  'message' => 'Theme Updated Successfully!']
         );
-        $this->dispatch('reloadpage',true);
+        $this->dispatch('reloadpage', true);
     }
 }

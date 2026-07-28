@@ -1,11 +1,8 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class () extends Migration {
     /**
      * Run the migrations.
      */
@@ -15,7 +12,7 @@ return new class extends Migration
             'report_customer' => 'Customer Report',
             'report_insights' => 'Business Insights',
         ];
-        
+
         foreach ($reports as $name => $displayName) {
             \Illuminate\Support\Facades\DB::table('permissions')->updateOrInsert(
                 ['name' => $name],

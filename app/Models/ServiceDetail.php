@@ -8,7 +8,8 @@ use App\Traits\UpdatesPosSyncTimestamp;
 
 class ServiceDetail extends Model
 {
-    use HasFactory, UpdatesPosSyncTimestamp;
+    use HasFactory;
+    use UpdatesPosSyncTimestamp;
     protected $fillable = [
         'service_id',
         'service_type_id',

@@ -15,7 +15,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        if(User::count() == 0){
+        if (User::count() == 0) {
             User::create([
                 'name'   => 'Admin',
                 'email'  => 'admin@admin.com',
@@ -28,7 +28,7 @@ class DatabaseSeeder extends Seeder
                 CountryControlSeeder::class,
             ]);
         }
-        if(Permission::count() == 0){
+        if (Permission::count() == 0) {
             $this->call(PermissionSeeder::class);
         }
     }

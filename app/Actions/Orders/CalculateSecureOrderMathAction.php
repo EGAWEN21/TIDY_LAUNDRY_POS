@@ -4,7 +4,6 @@ namespace App\Actions\Orders;
 
 use App\DTOs\OrderData;
 use App\Models\User;
-use App\Models\ServiceDetail;
 use App\Models\Addon;
 use Illuminate\Support\Facades\DB;
 
@@ -25,7 +24,7 @@ class CalculateSecureOrderMathAction
             if ($item->service_quantity <= 0) {
                 throw new \Exception("Invalid quantity for item: {$item->service_name}");
             }
-            
+
             if (!$canOverridePrice) {
                 if (!empty($item->service_type_ids) && is_array($item->service_type_ids)) {
                     // COMPOSITE ITEM: Sum up official prices for each service type ID
@@ -35,7 +34,7 @@ class CalculateSecureOrderMathAction
                             ->where('service_id', $item->service_id)
                             ->where('service_type_id', $typeId)
                             ->value('service_price');
-                        
+
                         if ($typePrice === null) {
                             $typeName = DB::table('service_types')->where('id', $typeId)->value('service_type_name') ?? "ID:{$typeId}";
                             throw new \Exception("Invalid service details provided for item: {$typeName}");
@@ -50,7 +49,7 @@ class CalculateSecureOrderMathAction
                         ->where('service_details.service_id', $item->service_id)
                         ->where('service_types.service_type_name', $item->service_name)
                         ->value('service_details.service_price');
-                    
+
                     if ($officialPrice !== null) {
                         $item->service_price = (float) $officialPrice;
                     } else {
@@ -58,7 +57,7 @@ class CalculateSecureOrderMathAction
                     }
                 }
             }
-            
+
             if ($item->service_price < 0) {
                 throw new \Exception("Negative prices are not allowed for item: {$item->service_name}");
             }
@@ -79,11 +78,11 @@ class CalculateSecureOrderMathAction
                         throw new \Exception("Invalid addon provided: ID {$addon->addon_id}");
                     }
                 }
-                
+
                 if ($addon->addon_price < 0) {
                     throw new \Exception("Negative prices are not allowed for addon: {$addon->addon_name}");
                 }
-                
+
                 $secureAddonTotal += $addon->addon_price;
             }
         }

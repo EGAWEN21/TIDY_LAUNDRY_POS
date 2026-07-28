@@ -1,6 +1,5 @@
 <?php
 
-
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
@@ -61,7 +60,7 @@ class PosApiController extends Controller
         $serviceTypes = ServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
         $serviceDetails = ServiceDetail::all();
         $addons = Addon::where('is_active', 1)->latest()->get();
-        
+
         return response()->json([
             'data' => [
                 'services' => $services,
@@ -111,22 +110,22 @@ class PosApiController extends Controller
         $customers = $request->input('customers', []);
         $syncedIds = [];
         $failedIds = [];
-        
+
         foreach ($customers as $cust) {
             try {
                 $uuid = $cust['uuid'] ?? null;
                 $phone = $cust['phone'];
-                
+
                 $customer = null;
-                
+
                 if ($uuid) {
                     $customer = Customer::where('uuid', $uuid)->first();
                 }
-                
+
                 if (!$customer) {
                     $customer = Customer::where('phone', $phone)->first();
                 }
-                
+
                 if ($customer) {
                     if (\Illuminate\Support\Facades\Auth::user()->hasPermission('customer_edit')) {
                         $customer->update([
@@ -150,11 +149,11 @@ class PosApiController extends Controller
                         'is_active' => 1
                     ]);
                 }
-                if(isset($cust['uuid'])) {
+                if (isset($cust['uuid'])) {
                     $syncedIds[$cust['uuid']] = $customer->id;
                 }
             } catch (\Exception $e) {
-                if(isset($cust['uuid'])) {
+                if (isset($cust['uuid'])) {
                     $failedIds[$cust['uuid']] = "Customer Sync Error: " . $e->getMessage();
                 }
             }
@@ -173,7 +172,7 @@ class PosApiController extends Controller
         if (count($orders) > 50) {
             return response()->json([
                 'data' => [
-                    'synced_orders' => [], 
+                    'synced_orders' => [],
                     'failed' => ['bulk' => 'Payload exceeds maximum limit of 50 orders per request']
                 ],
                 'message' => 'Payload limit exceeded'
@@ -192,7 +191,7 @@ class PosApiController extends Controller
         $rejectedRequests = \App\Models\OrderRequest::where('status', 2)
             ->where('created_by', Auth::id())
             ->get();
-            
+
         return response()->json([
             'data' => [
                 'rejected_orders' => $rejectedRequests

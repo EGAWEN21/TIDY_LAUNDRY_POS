@@ -17,8 +17,7 @@ class CheckFinancialYearComponent extends Component
     {
         $settings = new MasterSettings();
         $site = $settings->siteData();
-        if(!isset($site['default_financial_year']) || !$site['default_financial_year'] || $site['default_financial_year'] == '')
-        {
+        if (!isset($site['default_financial_year']) || !$site['default_financial_year'] || $site['default_financial_year'] == '') {
             $this->no_financial_year = true;
         }
     }

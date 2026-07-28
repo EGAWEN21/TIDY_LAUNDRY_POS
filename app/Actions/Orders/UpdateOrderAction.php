@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Class UpdateOrderAction
- * 
+ *
  * Securely updates an existing order in the database using strict DTO contracts.
  * Synchronizes the ledger by matching the UI state.
  */
@@ -24,7 +24,7 @@ class UpdateOrderAction
     public static function execute(OrderData $dto, Order $order, int $userId): Order
     {
         return DB::transaction(function () use ($dto, $order, $userId) {
-            
+
             $order->update([
                 'customer_id' => $dto->customer_id,
                 'customer_name' => $dto->customer_name,

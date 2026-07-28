@@ -12,31 +12,33 @@ class ExpenseCategoryList extends Component
 {
     #[Title('Expense Category')]
     public $expense_category_name;
-    public $expense_category_type,$categories,$search,$lang,$category;
+    public $expense_category_type;
+    public $categories;
+    public $search;
+    public $lang;
+    public $category;
     public $editMode = false;
-     /* validation rules */
+    /* validation rules */
     protected $rules = [
         'expense_category_name' => 'required',
         'expense_category_type' => 'required',
     ];
     /* called before render */
-    public function mount(){
-        if(!\Illuminate\Support\Facades\Gate::allows('expense_category_list')){
+    public function mount()
+    {
+        if (!\Illuminate\Support\Facades\Gate::allows('expense_category_list')) {
             abort(404);
         }
-        if(Auth::user()->user_type==1)
-        {
+        if (Auth::user()->user_type == 1) {
             $this->categories = ExpenseCategory::latest()->get();
         } else {
-            $this->categories = ExpenseCategory::latest()->where('created_by',Auth::user()->id)->get();
+            $this->categories = ExpenseCategory::latest()->where('created_by', Auth::user()->id)->get();
         }
 
-        if(session()->has('selected_language'))
-        { /* if session has selected_language */
-            $this->lang = Translation::where('id',session()->get('selected_language'))->first();
-        }
-        else{
-            $this->lang = Translation::where('default',1)->first();
+        if (session()->has('selected_language')) { /* if session has selected_language */
+            $this->lang = Translation::where('id', session()->get('selected_language'))->first();
+        } else {
+            $this->lang = Translation::where('default', 1)->first();
         }
     }
     /* render the page */
@@ -45,7 +47,8 @@ class ExpenseCategoryList extends Component
         return view('livewire.expense.expense-category-list');
     }
     /* reset input fields */
-    public function resetInputFields(){
+    public function resetInputFields()
+    {
         $this->expense_category_name = '';
         $this->expense_category_type = '';
         $this->resetErrorBag();
@@ -54,63 +57,61 @@ class ExpenseCategoryList extends Component
     public function store()
     {
         /* if editmode is false */
-        if($this->editMode == false)
-        {
+        if ($this->editMode == false) {
             $this->validate();
             $category = new ExpenseCategory();
             $category->expense_category_name = $this->expense_category_name;
             $category->expense_category_type = $this->expense_category_type;
             $category->created_by = Auth::user()->id;
             $category->save();
-            if(Auth::user()->user_type==1)
-            {
+            if (Auth::user()->user_type == 1) {
                 $this->categories = ExpenseCategory::latest()->get();
             } else {
-                $this->categories = ExpenseCategory::latest()->where('created_by',Auth::user()->id)->get();
+                $this->categories = ExpenseCategory::latest()->where('created_by', Auth::user()->id)->get();
             }
             $this->resetInputFields();
             $this->dispatch('closemodal');
             $this->dispatch(
-                'alert', ['type' => 'success',  'message' => 'Expense Category has been created!']);
+                'alert',
+                ['type' => 'success',  'message' => 'Expense Category has been created!']
+            );
         }
     }
     /* set category type value while change the category type */
-    public function changeCategoryType() {
+    public function changeCategoryType()
+    {
         $this->expense_category_type = $this->expense_category_type;
     }
     /* process when update the element */
-    public function updated($name,$value)
+    public function updated($name, $value)
     {
         /* if the updated element is search */
-        if($name == 'search' && $value != '')
-        {
-            if(Auth::user()->user_type==1)
-        {
-            
-            $this->categories = ExpenseCategory::where(function($query) use ($value) { 
-                $query->where('expense_category_name', 'like', '%' . sanitize_search($value) . '%');
-            })->get();   
+        if ($name == 'search' && $value != '') {
+            if (Auth::user()->user_type == 1) {
+
+                $this->categories = ExpenseCategory::where(function ($query) use ($value) {
+                    $query->where('expense_category_name', 'like', '%' . sanitize_search($value) . '%');
+                })->get();
+            } else {
+                $this->categories = ExpenseCategory::where('created_by', Auth::user()->id)->where(function ($query) use ($value) {
+                    $query->where('expense_category_name', 'like', '%' . sanitize_search($value) . '%');
+                })->get();
+            }
+
         } else {
-            $this->categories = ExpenseCategory::where('created_by',Auth::user()->id)->where(function($query) use ($value) { 
-                $query->where('expense_category_name', 'like', '%' . sanitize_search($value) . '%');
-            })->get();   
-        }
-            
-        } else {
-            if(Auth::user()->user_type==1)
-            {
+            if (Auth::user()->user_type == 1) {
                 $this->categories = ExpenseCategory::latest()->get();
             } else {
-                $this->categories = ExpenseCategory::latest()->where('created_by',Auth::user()->id)->get();
+                $this->categories = ExpenseCategory::latest()->where('created_by', Auth::user()->id)->get();
             }
         }
     }
-      /* set the content to edit */
+    /* set the content to edit */
     public function edit($id)
     {
         $this->resetErrorBag();
         $this->editMode = true;
-        $this->category = ExpenseCategory::where('id',$id)->first();
+        $this->category = ExpenseCategory::where('id', $id)->first();
         $this->expense_category_name = $this->category->expense_category_name;
         $this->expense_category_type = $this->category->expense_category_type;
     }
@@ -118,42 +119,45 @@ class ExpenseCategoryList extends Component
     public function update()
     {
         $this->validate();
-        if($this->editMode == true)
-        {
+        if ($this->editMode == true) {
             $this->category->expense_category_name = $this->expense_category_name;
             $this->category->expense_category_type = $this->expense_category_type;
             $this->category->save();
-            if(Auth::user()->user_type==1)
-            {
+            if (Auth::user()->user_type == 1) {
                 $this->categories = ExpenseCategory::latest()->get();
             } else {
-                $this->categories = ExpenseCategory::latest()->where('created_by',Auth::user()->id)->get();
+                $this->categories = ExpenseCategory::latest()->where('created_by', Auth::user()->id)->get();
             }
             $this->resetInputFields();
             $this->editMode = false;
             $this->dispatch('closemodal');
             $this->dispatch(
-                'alert', ['type' => 'success',  'message' => 'Expense Category has been updated!']);
+                'alert',
+                ['type' => 'success',  'message' => 'Expense Category has been updated!']
+            );
         }
     }
     /* expense category delete */
     public function delete($id)
-    {   
+    {
         if (\App\Models\Expense::where('expense_category_id', $id)->doesntExist()) {
             /* if expense category has any children */
-            $this->category = ExpenseCategory::where('id',$id)->delete();
+            $this->category = ExpenseCategory::where('id', $id)->delete();
             $this->dispatch(
-                'alert', ['type' => 'success',  'message' => 'Expense Category deleted Successfully!']);
+                'alert',
+                ['type' => 'success',  'message' => 'Expense Category deleted Successfully!']
+            );
         } else {
             /* if expense category has no child */
-                $this->dispatch(
-                'alert', ['type' => 'error',  'message' => 'Expense Category deletion restricted!']);
+            $this->dispatch(
+                'alert',
+                ['type' => 'error',  'message' => 'Expense Category deletion restricted!']
+            );
         }
-        if(Auth::user()->user_type==1)
-        {
+        if (Auth::user()->user_type == 1) {
             $this->categories = ExpenseCategory::latest()->get();
         } else {
-            $this->categories = ExpenseCategory::latest()->where('created_by',Auth::user()->id)->get();
+            $this->categories = ExpenseCategory::latest()->where('created_by', Auth::user()->id)->get();
         }
     }
 }

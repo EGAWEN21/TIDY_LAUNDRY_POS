@@ -8,11 +8,14 @@ use App\Models\ServiceType;
 
 trait ManagesCart
 {
-    public function editItem($row){
+    public function editItem($row)
+    {
         $this->add($this->inputi);
         $service = Service::whereId($row->service_id)->first();
 
-        if (!$service) return;
+        if (!$service) {
+            return;
+        }
 
         // Support composite items (service_type_ids) and legacy items (service_name lookup)
         $typeIds = $row->service_type_ids; // Already cast to array by model
@@ -57,7 +60,7 @@ trait ManagesCart
         if ($this->service) {
             $servicedetails = ServiceDetail::where('service_id', $id)->get();
             $serviceTypeIds = $servicedetails->pluck('service_type_id')->toArray();
-            
+
             $serviceTypes = ServiceType::whereIn('id', $serviceTypeIds)
                 ->orderBy('position', 'ASC')
                 ->orderBy('id', 'ASC')

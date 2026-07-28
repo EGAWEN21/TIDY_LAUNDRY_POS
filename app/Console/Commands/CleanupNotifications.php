@@ -28,12 +28,12 @@ class CleanupNotifications extends Command
     public function handle()
     {
         $cutoffDate = Carbon::now()->subDays(60);
-        
+
         $deleted = DB::table('notifications')
             ->whereNotNull('read_at')
             ->where('created_at', '<', $cutoffDate)
             ->delete();
-            
+
         $this->info("Successfully deleted {$deleted} old notifications.");
     }
 }

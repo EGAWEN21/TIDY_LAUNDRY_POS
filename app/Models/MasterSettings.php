@@ -8,9 +8,9 @@ use Illuminate\Database\Eloquent\Model;
 class MasterSettings extends Model
 {
     use HasFactory;
-    protected $fillable=['master_title','master_value'];
+    protected $fillable = ['master_title','master_value'];
     public $timestamps = false;
-    
+
     protected static function booted()
     {
         $clearCache = function () {
@@ -21,10 +21,11 @@ class MasterSettings extends Model
     }
 
     /* master settings value update settings */
-    public function siteData(){
+    public function siteData()
+    {
         return \Illuminate\Support\Facades\Cache::rememberForever('master_settings', function () {
             $siteInfo = array();
-            foreach($this->get() as $key=>$value){
+            foreach ($this->get() as $key => $value) {
                 $siteInfo[$value['master_title']] = $value['master_value'];
             }
             return $siteInfo;
