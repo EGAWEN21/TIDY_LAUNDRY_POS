@@ -217,22 +217,21 @@ export const usePosStore = defineStore('pos', {
                 this.lastSyncTimestamp = data.timestamp || 0;
                 
                 // Clear old data and save new
-                await db.transaction('rw', db.services, db.serviceTypes, db.serviceDetails, db.addons, db.customers, db.settings, async () => {
+                await db.transaction('rw', db.services, db.serviceTypes, db.serviceDetails, db.addons, db.settings, async () => {
                     await db.services.clear();
                     await db.serviceTypes.clear();
                     await db.serviceDetails.clear();
                     await db.addons.clear();
-                    await db.customers.clear();
                     await db.settings.clear();
 
                     await db.services.bulkAdd(data.services);
                     await db.serviceTypes.bulkAdd(data.service_types);
                     await db.serviceDetails.bulkAdd(data.service_details);
                     await db.addons.bulkAdd(data.addons);
-                    await db.customers.bulkAdd(data.customers);
                     await db.settings.put({ id: 1, ...data.settings });
                 });
 
+                await this.fetchCustomers();
                 await this.loadFromLocal();
             } catch (error) {
                 console.error("Failed to fetch from server", error);
@@ -240,6 +239,29 @@ export const usePosStore = defineStore('pos', {
                     this.needsReAuth = true;
                 }
                 await this.loadFromLocal();
+            }
+        },
+
+        async fetchCustomers() {
+            let cursor = null;
+            let hasMore = true;
+            
+            // Clear customers once before paginated fetch
+            await db.customers.clear();
+            
+            while (hasMore) {
+                const url = cursor 
+                    ? `/api/pos/sync-catalog?cursor=${cursor}` 
+                    : '/api/pos/sync-catalog';
+                const response = await axios.get(url);
+                const page = response.data.data ?? response.data;
+                
+                if (page.customers && page.customers.length > 0) {
+                    await db.customers.bulkAdd(page.customers);
+                }
+                
+                cursor = page.next_cursor;
+                hasMore = page.has_more === true && cursor !== null;
             }
         },
 

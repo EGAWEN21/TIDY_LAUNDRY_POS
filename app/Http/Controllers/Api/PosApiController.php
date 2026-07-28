@@ -61,7 +61,6 @@ class PosApiController extends Controller
         $serviceTypes = ServiceType::orderBy('position', 'asc')->orderBy('id', 'asc')->get();
         $serviceDetails = ServiceDetail::all();
         $addons = Addon::where('is_active', 1)->latest()->get();
-        $customers = Customer::where('is_active', 1)->latest()->get();
         
         return response()->json([
             'data' => [
@@ -69,7 +68,6 @@ class PosApiController extends Controller
                 'service_types' => $serviceTypes,
                 'service_details' => $serviceDetails,
                 'addons' => $addons,
-                'customers' => $customers,
                 'settings' => [
                     'tax_percentage' => getTaxPercentage(),
                     'tax_type' => getTaxType(),
@@ -79,6 +77,22 @@ class PosApiController extends Controller
                 'timestamp' => time()
             ],
             'message' => 'Data initialized'
+        ]);
+    }
+
+    public function syncCatalog(Request $request)
+    {
+        $customers = Customer::where('is_active', 1)
+            ->orderBy('id')
+            ->cursorPaginate(500);
+
+        return response()->json([
+            'data' => [
+                'customers' => $customers->items(),
+                'next_cursor' => $customers->nextCursor()?->encode(),
+                'has_more' => $customers->hasMorePages(),
+            ],
+            'message' => 'Catalog page retrieved'
         ]);
     }
 

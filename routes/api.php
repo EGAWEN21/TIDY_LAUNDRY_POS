@@ -13,6 +13,7 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\AuthorizePosAccess::clas
     
     Route::get('/pos/init', [PosApiController::class, 'init']);
     Route::get('/pos/check-update', [PosApiController::class, 'checkUpdates']);
+    Route::get('/pos/sync-catalog', [PosApiController::class, 'syncCatalog']);
     Route::post('/pos/sync-customers', [PosApiController::class, 'syncCustomers'])->middleware('throttle:10,1');
     Route::post('/pos/sync-orders', [PosApiController::class, 'syncOrders'])->middleware('throttle:10,1');
     Route::get('/pos/rejected-orders', [PosApiController::class, 'getRejectedOrders']);
