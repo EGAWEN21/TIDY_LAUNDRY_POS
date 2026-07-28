@@ -124,7 +124,7 @@
             stroke: { width: 1, colors: ['#fff'] },
             xaxis: { categories: ['Expenses'], labels: { show: false }, axisBorder: {show: false}, axisTicks: {show: false} },
             yaxis: { show: false },
-            tooltip: { y: { formatter: function(val) { return "₦" + val.toFixed(2) } } },
+            tooltip: { y: { formatter: function(val) { return "{{ getCurrency() }}" + val.toFixed(2) } } },
             fill: { opacity: 1 },
             legend: { position: 'bottom' },
             colors: ['#dc3545', '#fd7e14', '#ffc107', '#20c997', '#0dcaf0', '#0d6efd', '#6f42c1']

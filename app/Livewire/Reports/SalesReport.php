@@ -8,9 +8,11 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Translation;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Livewire\WithPagination;
 
 class SalesReport extends Component
 {
+    use WithPagination;
     public $from_date, $to_date, $lang;
     
     // New Metrics
@@ -125,6 +127,6 @@ class SalesReport extends Component
               ->whereDate('order_date', '<=', $this->to_date)
               ->where('status', 3)
               ->latest()
-              ->get();
+              ->paginate(50);
       }
 }

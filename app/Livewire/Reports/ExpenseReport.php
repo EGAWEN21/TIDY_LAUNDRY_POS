@@ -99,6 +99,7 @@ class ExpenseReport extends Component
      {
          return \App\Models\Expense::whereDate('expense_date', '>=', $this->from_date)
              ->whereDate('expense_date', '<=', $this->to_date)
+             ->with('expenseCategory')
              ->latest()
              ->get();
      }

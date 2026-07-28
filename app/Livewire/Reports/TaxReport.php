@@ -54,7 +54,7 @@ class TaxReport extends Component
          }
          
          if ($this->category == 2) {
-             return \App\Models\Expense::whereDate('expense_date', '>=', $this->from_date)->whereDate('expense_date', '<=', $this->to_date)->latest()->get();
+             return \App\Models\Expense::whereDate('expense_date', '>=', $this->from_date)->whereDate('expense_date', '<=', $this->to_date)->with('expenseCategory')->latest()->get();
          }
 
          return collect();

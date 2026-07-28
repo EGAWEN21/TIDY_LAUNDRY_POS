@@ -132,11 +132,11 @@
                 categories: ['0-30 Days', '31-60 Days', '61-90 Days', '90+ Days (Critical)'],
             },
             yaxis: {
-                title: { text: 'Amount (₦)' }
+                title: { text: 'Amount ({{ getCurrency() }})' }
             },
             colors: ['#28a745', '#ffc107', '#fd7e14', '#dc3545'],
             tooltip: {
-                y: { formatter: function (val) { return "₦" + val.toFixed(2) } }
+                y: { formatter: function (val) { return "{{ getCurrency() }}" + val.toFixed(2) } }
             },
             legend: { show: false }
         };

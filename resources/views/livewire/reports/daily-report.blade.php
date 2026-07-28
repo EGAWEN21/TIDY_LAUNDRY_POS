@@ -94,7 +94,7 @@
             stroke: { width: 1, colors: ['#fff'] },
             xaxis: { categories: ['Payments'], labels: { show: false }, axisBorder: {show: false}, axisTicks: {show: false} },
             yaxis: { show: false },
-            tooltip: { y: { formatter: function(val) { return "₦" + val.toFixed(2) } } },
+            tooltip: { y: { formatter: function(val) { return "{{ getCurrency() }}" + val.toFixed(2) } } },
             fill: { opacity: 1 },
             legend: { position: 'bottom' },
             colors: ['#28a745', '#0dcaf0', '#ffc107', '#dc3545', '#6610f2']

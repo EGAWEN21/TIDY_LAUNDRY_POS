@@ -104,6 +104,9 @@
                         @endforelse
                     </tbody>
                 </table>
+                <div class="mt-4 tw-px-4">
+                    {{ $this->orders->links() }}
+                </div>
             </div>
         </div>
     </div>
@@ -134,7 +137,7 @@
             stroke: { width: 1, colors: ['#fff'] },
             xaxis: { categories: ['Revenue'], labels: { show: false }, axisBorder: {show: false}, axisTicks: {show: false} },
             yaxis: { show: false },
-            tooltip: { y: { formatter: function(val) { return "₦" + val.toFixed(2) } } },
+            tooltip: { y: { formatter: function(val) { return "{{ getCurrency() }}" + val.toFixed(2) } } },
             fill: { opacity: 1 },
             legend: { position: 'bottom' },
             colors: ['#0d6efd', '#20c997', '#ffc107', '#fd7e14', '#dc3545', '#6f42c1', '#0dcaf0']

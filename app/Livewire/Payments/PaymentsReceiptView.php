@@ -71,7 +71,6 @@ class PaymentsReceiptView extends Component
                 $query->where('name', 'like', '%' . sanitize_search($value) . '%')->orWhere('phone', 'like', '%' . sanitize_search($value) . '%');
             })->pluck('id')->toArray();
 
-            $this->payments = Payment::whereIn('customer_id', $customer)->latest()->get();
             $this->reloadPayments();
         } elseif ($name == 'search' && $value == '') {
 

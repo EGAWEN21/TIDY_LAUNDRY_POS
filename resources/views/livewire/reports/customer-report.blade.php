@@ -54,7 +54,7 @@
                                 @if($row['outstanding'] > 0)
                                     <p class="text-sm font-weight-bold text-danger mb-0">{{getFormattedCurrency($row['outstanding'])}}</p>
                                 @else
-                                    <p class="text-sm text-muted mb-0">₦0.00</p>
+                                    <p class="text-sm text-muted mb-0">{{ getFormattedCurrency(0) }}</p>
                                 @endif
                             </td>
                             <td><p class="text-sm mb-0">{{$row['last_visit']}}</p></td>
