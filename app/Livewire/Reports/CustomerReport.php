@@ -48,6 +48,7 @@ class CustomerReport extends Component
 
         // Aggregate Orders per customer (excluding Returned orders status = 4)
         $customersAggregates = DB::table('customers')
+            ->whereNull('customers.deleted_at')
             ->select(
                 'customers.id',
                 'customers.name',
@@ -61,7 +62,8 @@ class CustomerReport extends Component
             ->selectRaw("COALESCE(SUM(CASE WHEN orders.order_date >= ? THEN orders.total ELSE 0 END), 0) as spend_7", [$sevenDaysAgo])
             ->leftJoin('orders', function($join) {
                 $join->on('customers.id', '=', 'orders.customer_id')
-                     ->where('orders.status', '!=', 4); // Exclude returned orders
+                     ->where('orders.status', '!=', 4) // Exclude returned orders
+                     ->whereNull('orders.deleted_at');
             })
             ->groupBy('customers.id', 'customers.name', 'customers.phone', 'customers.created_at')
             ->having('total_orders', '>', 0) // Only show customers who actually have orders
@@ -69,6 +71,7 @@ class CustomerReport extends Component
             
         // Aggregate Payments per customer for Outstanding Balances
         $payments = DB::table('payments')
+            ->whereNull('payments.deleted_at')
             ->select('customer_id', DB::raw('SUM(received_amount) as total_paid'))
             ->groupBy('customer_id')
             ->get()

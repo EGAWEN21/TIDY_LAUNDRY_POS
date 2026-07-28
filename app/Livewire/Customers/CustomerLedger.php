@@ -40,10 +40,10 @@ class CustomerLedger extends Component
         }
         $this->data = array_map(function($row) { return (array) $row; }, DB::select("
             SELECT order_date as date, 'debit' as type, order_number, total, 0 as received_amount, id, NULL as order_id
-            FROM orders WHERE customer_id = ?
+            FROM orders WHERE customer_id = ? AND status != 4 AND deleted_at IS NULL
             UNION ALL
-            SELECT created_at as date, 'credit' as type, NULL as order_number, 0 as total, received_amount, NULL as id, order_id
-            FROM payments WHERE customer_id = ?
+            SELECT payment_date as date, 'credit' as type, NULL as order_number, 0 as total, received_amount, NULL as id, order_id
+            FROM payments WHERE customer_id = ? AND deleted_at IS NULL
             ORDER BY date ASC
         ", [$this->customer->id, $this->customer->id]));
     }

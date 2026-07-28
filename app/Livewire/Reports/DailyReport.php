@@ -40,7 +40,7 @@ class DailyReport extends Component
     /*processed on update of the element */
     public function updated($name,$value) {
         /* any updated on $today model */
-        if(($name="today") && ($value!=""))
+        if(($name == "today") && ($value!=""))
          {
              $this->today = $value;
         }

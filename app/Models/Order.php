@@ -67,6 +67,11 @@ class Order extends Model
         return $this->hasMany(\App\Models\Payment::class, 'order_id', 'id');
     }
 
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Customer::class, 'customer_id', 'id')->withTrashed();
+    }
+
     protected static function booted()
     {
         static::updating(function ($order) {

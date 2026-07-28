@@ -43,10 +43,12 @@ class LedgerReport extends Component
         $today = Carbon::today();
         
         $paymentsSub = DB::table('payments')
+            ->whereNull('payments.deleted_at')
             ->select('order_id', DB::raw('SUM(received_amount) as total_paid'))
             ->groupBy('order_id');
 
         $orders = DB::table('orders')
+            ->whereNull('orders.deleted_at')
             ->leftJoinSub($paymentsSub, 'paid_orders', function ($join) {
                 $join->on('orders.id', '=', 'paid_orders.order_id');
             })
@@ -123,11 +125,11 @@ class LedgerReport extends Component
         return array_map(function($row) { return (array) $row; }, DB::select("
             SELECT order_date as date, 'debit' as type, order_number, total, 0 as received_amount
             FROM orders 
-            WHERE customer_id = ? AND DATE(order_date) >= ? AND DATE(order_date) <= ? AND status != 4
+            WHERE customer_id = ? AND DATE(order_date) >= ? AND DATE(order_date) <= ? AND status != 4 AND deleted_at IS NULL
             UNION ALL
             SELECT payment_date as date, 'credit' as type, NULL as order_number, 0 as total, received_amount
             FROM payments 
-            WHERE customer_id = ? AND DATE(payment_date) >= ? AND DATE(payment_date) <= ?
+            WHERE customer_id = ? AND DATE(payment_date) >= ? AND DATE(payment_date) <= ? AND deleted_at IS NULL
             ORDER BY date ASC
         ", [$customerId, $startDate, $endDate, $customerId, $startDate, $endDate]));
     }

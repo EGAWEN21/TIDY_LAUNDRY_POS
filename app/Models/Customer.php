@@ -19,4 +19,14 @@ class Customer extends Model
         'is_active',
         'created_by'
     ];
+
+    public function orders(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\Order::class, 'customer_id', 'id');
+    }
+
+    public function payments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\Payment::class, 'customer_id', 'id');
+    }
 }
