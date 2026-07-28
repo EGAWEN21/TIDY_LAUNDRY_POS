@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 
 \Illuminate\Support\Facades\Schedule::command('notifications:cleanup')->daily();
 \Illuminate\Support\Facades\Schedule::command('orders:purge-trashed')->daily();
+\Illuminate\Support\Facades\Schedule::command('pos:backup-db')->daily();

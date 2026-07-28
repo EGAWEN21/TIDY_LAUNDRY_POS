@@ -1,0 +1,307 @@
+openapi: 3.0.0
+info:
+  title: TidyPOS Offline POS API
+  description: API specification for the TidyPOS PWA Offline Point of Sale system sync endpoints.
+  version: 1.0.0
+servers:
+  - url: /api/pos
+    description: Base URL for POS API
+paths:
+  /init:
+    get:
+      summary: Initialize POS data
+      description: Fetches static catalog data required for offline operations (services, service types, addons, and settings). Does not include customers.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Successful initialization
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      services:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Service'
+                      service_types:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ServiceType'
+                      service_details:
+                        type: array
+                        items:
+                          type: object
+                      addons:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Addon'
+                      settings:
+                        type: object
+                        properties:
+                          tax_percentage:
+                            type: number
+                          tax_type:
+                            type: integer
+                          financial_year_id:
+                            type: integer
+                          currency:
+                            type: string
+                      timestamp:
+                        type: integer
+                        description: Epoch timestamp for update checking
+                  message:
+                    type: string
+  /sync-catalog:
+    get:
+      summary: Paginate Customers
+      description: Iteratively fetches customers for the offline POS using cursor-based pagination.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: cursor
+          in: query
+          description: The pagination cursor from the previous response.
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful retrieval
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      customers:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Customer'
+                      next_cursor:
+                        type: string
+                        nullable: true
+                      has_more:
+                        type: boolean
+                  message:
+                    type: string
+  /sync-customers:
+    post:
+      summary: Sync Offline Customers
+      description: Uploads locally created or modified customers to the server.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                customers:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/CustomerSyncPayload'
+      responses:
+        '200':
+          description: Sync completed (may contain partial failures)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      synced_customers:
+                        type: object
+                        additionalProperties:
+                          type: integer
+                        description: Key-Value pair of local UUID to server ID
+                      failed:
+                        type: object
+                        additionalProperties:
+                          type: string
+                        description: Key-Value pair of local UUID to error reason
+                  message:
+                    type: string
+  /sync-orders:
+    post:
+      summary: Sync Offline Orders
+      description: Uploads offline drafted/completed orders to the server. Max 50 orders per batch.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                orders:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/OrderSyncPayload'
+      responses:
+        '200':
+          description: Sync completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      synced_orders:
+                        type: object
+                        additionalProperties:
+                          type: integer
+                      requires_approval:
+                        type: object
+                        additionalProperties:
+                          type: integer
+                      failed:
+                        type: object
+                        additionalProperties:
+                          type: string
+                  message:
+                    type: string
+        '413':
+          description: Payload exceeds 50 orders
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Service:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        is_active:
+          type: integer
+    ServiceType:
+      type: object
+      properties:
+        id:
+          type: integer
+        service_type_name:
+          type: string
+    Addon:
+      type: object
+      properties:
+        id:
+          type: integer
+        addon_name:
+          type: string
+        addon_price:
+          type: number
+    Customer:
+      type: object
+      properties:
+        id:
+          type: integer
+        uuid:
+          type: string
+          nullable: true
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          nullable: true
+    CustomerSyncPayload:
+      type: object
+      required:
+        - phone
+        - name
+      properties:
+        uuid:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        tax_number:
+          type: string
+        address:
+          type: string
+    OrderSyncPayload:
+      type: object
+      required:
+        - uuid
+        - total
+        - items
+      properties:
+        uuid:
+          type: string
+        customer_id:
+          type: integer
+          nullable: true
+        customer_uuid:
+          type: string
+          nullable: true
+        total:
+          type: number
+        tax:
+          type: number
+        discount:
+          type: number
+        status:
+          type: string
+        payment_notes:
+          type: string
+          nullable: true
+        order_date:
+          type: string
+        delivery_date:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              service_id:
+                type: integer
+              service_type_id:
+                type: integer
+              quantity:
+                type: integer
+              price:
+                type: number
+              color_code:
+                type: string
+                nullable: true
+        addons:
+          type: array
+          items:
+            type: object
+            properties:
+              addon_id:
+                type: integer
+              addon_name:
+                type: string
+              price:
+                type: number
+        payments:
+          type: array
+          items:
+            type: object
+            properties:
+              amount:
+                type: number
+              type:
+                type: string
