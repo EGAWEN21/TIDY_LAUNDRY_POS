@@ -19,11 +19,16 @@ use Twilio\Rest\Client;
 if (!function_exists('getSessionTranslation')) {
     /**
      * Get the active Translation model based on session language or default.
+     * Safely checks for session existence to avoid breaking queued background jobs.
      */
     function getSessionTranslation(): ?\App\Models\Translation
     {
-        if (session()->has('selected_language')) {
-            return \App\Models\Translation::where('id', session()->get('selected_language'))->first();
+        try {
+            if (request()->hasSession() && session()->has('selected_language')) {
+                return \App\Models\Translation::where('id', session()->get('selected_language'))->first();
+            }
+        } catch (\Exception $e) {
+            // Silently fall back to default translation in CLI / Queue contexts
         }
         return \App\Models\Translation::where('default', 1)->first();
     }
@@ -269,13 +274,17 @@ function getSiteLogo()
 //Checks if Selected language is RTL
 function isRTL()
 {
-    if (session()->has('selected_language')) {
-        $lang = \App\Models\Translation::where('id', session()->get('selected_language'))->first();
-        if ($lang) {
-            if ($lang->is_rtl) {
-                return true;
+    try {
+        if (request()->hasSession() && session()->has('selected_language')) {
+            $lang = \App\Models\Translation::where('id', session()->get('selected_language'))->first();
+            if ($lang) {
+                if ($lang->is_rtl) {
+                    return true;
+                }
             }
         }
+    } catch (\Exception $e) {
+        // Fallback for CLI/Queue Context
     }
     return false;
 }
