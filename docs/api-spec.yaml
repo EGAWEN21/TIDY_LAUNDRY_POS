@@ -1,0 +1,126 @@
+openapi: '3.0.3'
+info:
+  title: TidyPOS API
+  version: '1.0.0'
+  description: API for the TidyPOS Offline PWA synchronization system.
+
+servers:
+  - url: /api
+    description: Default server
+
+paths:
+  /login:
+    post:
+      summary: Authenticate a POS user
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          description: Invalid credentials
+
+  /pos/init:
+    get:
+      summary: Initialize POS with catalog data (excludes customers)
+      tags: [POS Sync]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Catalog data for offline use
+
+  /pos/sync-catalog:
+    get:
+      summary: Paginated customer catalog sync
+      tags: [POS Sync]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: A page of customers
+
+  /pos/sync-customers:
+    post:
+      summary: Sync offline customer changes to server
+      tags: [POS Sync]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customers]
+              properties:
+                customers:
+                  type: array
+                  maxItems: 50
+                  items:
+                    type: object
+                    required: [name, phone]
+                    properties:
+                      name: { type: string, maxLength: 255 }
+                      phone: { type: string, maxLength: 20 }
+                      email: { type: string, format: email, nullable: true }
+                      uuid: { type: string, format: uuid, nullable: true }
+      responses:
+        '200':
+          description: Sync results
+
+  /pos/sync-orders:
+    post:
+      summary: Sync offline orders to server
+      tags: [POS Sync]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Sync results with accepted/rejected orders
+
+  /pos/check-update:
+    get:
+      summary: Check if server data has been updated
+      tags: [POS Sync]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Timestamp of last update
+
+  /pos/rejected-orders:
+    get:
+      summary: Get list of rejected order requests
+      tags: [POS Sync]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: List of rejected orders
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum Token
+
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        data: { type: object }
+        message: { type: string }
