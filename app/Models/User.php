@@ -54,6 +54,13 @@ class User extends Authenticatable
         ];
     }
 
+    /**
+     * Check if the user has a specific permission.
+     * Admin users (user_type == 1) bypass all permission checks.
+     *
+     * @param string $permission The permission name to check (e.g., 'order_create')
+     * @return bool
+     */
     public function hasPermission($permission)
     {
         if ($this->user_type == 1) {

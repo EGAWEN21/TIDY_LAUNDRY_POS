@@ -19,7 +19,7 @@ Route::get('/update', \App\Livewire\Installer\UpdaterApp::class)->name('update')
 Route::get('/reset-password/{token}',\App\Livewire\Auth\ForgotPassword::class);
 
 Route::get('/whatsapp/webhook', [\App\Http\Controllers\WhatsAppWebhookController::class, 'handleVerify']);
-Route::post('/whatsapp/webhook', [\App\Http\Controllers\WhatsAppWebhookController::class, 'handleMessage']);
+Route::post('/whatsapp/webhook', [\App\Http\Controllers\WhatsAppWebhookController::class, 'handleMessage'])->middleware('throttle:60,1');
 Route::get('/receipt/{uuid}', \App\Livewire\Orders\PrintOrder::class)->name('receipt.view');
 
 Route::group(['middleware' => [\App\Http\Middleware\InstalledMiddleware::class]], function () {

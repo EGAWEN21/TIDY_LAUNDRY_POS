@@ -1,4 +1,14 @@
 <?php
+/**
+ * Global Helper Functions for TidyPOS.
+ *
+ * This file is autoloaded via composer.json and provides globally available
+ * utility functions for settings retrieval, SMS/email dispatch, tax calculation,
+ * currency formatting, and order status mapping.
+ *
+ * @see composer.json autoload.files
+ */
+
 /* get expense category type */
 
 use App\Models\Customer;
