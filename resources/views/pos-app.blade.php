@@ -32,7 +32,52 @@
     
     <!-- PWA Manifest & Theme Color -->
     <meta name="theme-color" content="#ffffff">
-    <link rel="manifest" href="/build/manifest.webmanifest">
+    <link rel="manifest" href="{{ url('/manifest.json?v=' . time()) }}">
+    
+    <!-- iOS / Apple Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="apple-touch-icon" href="{{ asset('assets/images/apple-touch-icon.png') }}">
+    <link rel="apple-touch-startup-image" href="{{ asset('assets/images/logo-512.png') }}">
+    
+    <style>
+        #pwa-splash {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #ffffff;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s ease-out;
+        }
+        #pwa-splash img {
+            width: 120px;
+            height: 120px;
+            animation: pulse 2s infinite;
+        }
+        #pwa-splash h2 {
+            margin-top: 20px;
+            font-family: 'Inter', sans-serif;
+            color: #333;
+            font-weight: 600;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+        body[data-theme="dark"] #pwa-splash {
+            background-color: #111827;
+        }
+        body[data-theme="dark"] #pwa-splash h2 {
+            color: #f3f4f6;
+        }
+    </style>
     
     <title>Offline POS</title>
     <script>
@@ -91,8 +136,25 @@
 </head>
 
 <body>
+    <!-- Splash Screen -->
+    <div id="pwa-splash">
+        <img src="{{ asset('assets/images/logo-192.png') }}" alt="Logo">
+        <h2>{{ getApplicationName() }}</h2>
+    </div>
+
     <div id="pos-app" class="tw-font-sans"></div>
     
+    <script>
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                var splash = document.getElementById('pwa-splash');
+                if (splash) {
+                    splash.style.opacity = '0';
+                    setTimeout(function() { splash.style.display = 'none'; }, 500);
+                }
+            }, 800);
+        });
+    </script>
     <script src="{{ asset('assets/js/lib/jquery-3.7.1.min.js') }}"></script>
     <!-- Bootstrap js -->
     <script src="{{ asset('assets/js/lib/bootstrap.bundle.min.js') }}"></script>

@@ -156,32 +156,47 @@ class MasterSetting extends Component
                 @unlink($tempPath);
 
                 $site['default_logo'] = '/storage/logo/' . $filename;
+
+                // --- NEW PWA LOGIC ---
+                // Generate perfectly squared icons for PWA and replace the static ones in public/assets/images
+                $imgPwa192 = Image::decodePath($this->default_logo->getRealPath());
+                $imgPwa192->contain(192, 192, '0000')->save(public_path('assets/images/logo-192.png'));
+
+                $imgPwa512 = Image::decodePath($this->default_logo->getRealPath());
+                $imgPwa512->contain(512, 512, '0000')->save(public_path('assets/images/logo-512.png'));
             } catch (\Exception $e) {
                 \Illuminate\Support\Facades\Log::error("Logo upload failed: " . $e->getMessage());
             }
         }
 
-        /* if default_favicon exists */
         if ($this->default_favicon) {
             try {
-                ini_set('memory_limit', '512M');
                 $filename = 'favicon_' . time() . '.' . $this->default_favicon->getClientOriginalExtension();
                 $tempPath = sys_get_temp_dir() . '/' . $filename;
-
-                if (isset($site['default_favicon'])) {
-                    $oldPath = str_replace('/storage/', '', $site['default_favicon']);
-                    if (\Illuminate\Support\Facades\Storage::disk('public')->exists($oldPath)) {
-                        \Illuminate\Support\Facades\Storage::disk('public')->delete($oldPath);
-                    }
-                }
 
                 $imgFile = Image::decodePath($this->default_favicon->getRealPath());
                 $imgFile->scaleDown(width: 100)->save($tempPath);
 
                 \Illuminate\Support\Facades\Storage::disk('public')->putFileAs('favicon', new \Illuminate\Http\File($tempPath), $filename);
-                @unlink($tempPath);
+                
+                if (file_exists(public_path($this->old_favicon))) {
+                    @unlink(public_path($this->old_favicon));
+                }
 
                 $site['default_favicon'] = '/storage/favicon/' . $filename;
+
+                // --- NEW PWA LOGIC ---
+                // Generate favicon and apple-touch-icon
+                $imgFav = Image::decodePath($this->default_favicon->getRealPath());
+                $imgFav->contain(180, 180, '0000')->save(public_path('assets/images/apple-touch-icon.png'));
+                
+                $imgFavIco = Image::decodePath($this->default_favicon->getRealPath());
+                $imgFavIco->contain(32, 32, '0000')->save(public_path('favicon.ico'));
+                
+                // Keep the standard favicon.png too
+                $imgFavPng = Image::decodePath($this->default_favicon->getRealPath());
+                $imgFavPng->contain(32, 32, '0000')->save(public_path('assets/images/favicon.png'));
+
             } catch (\Exception $e) {
                 \Illuminate\Support\Facades\Log::error("Favicon upload failed: " . $e->getMessage());
             }

@@ -24,20 +24,21 @@ class PwaManifestController extends Controller
         $manifest = [
             'name' => $appName,
             'short_name' => $shortName,
-            'start_url' => '/pos',
+            'start_url' => '/admin/pos/',
             'display' => 'standalone',
             'background_color' => '#ffffff',
             'theme_color' => '#1b2a47',
             'icons' => [
                 [
-                    'src' => url($favicon),
+                    'src' => url('/assets/images/logo-192.png'),
                     'sizes' => '192x192',
                     'type' => 'image/png'
                 ],
                 [
-                    'src' => url($logo),
+                    'src' => url('/assets/images/logo-512.png'),
                     'sizes' => '512x512',
-                    'type' => 'image/png'
+                    'type' => 'image/png',
+                    'purpose' => 'any maskable'
                 ]
             ]
         ];
