@@ -204,13 +204,20 @@ class SyncOfflineOrdersAction
                 });
             } catch (ValidationException|\InvalidArgumentException $exception) {
                 $failedIds[$uuid] = 'Validation/Sync Error: '.$exception->getMessage();
+            } catch (\Illuminate\Database\QueryException $exception) {
+                Log::critical('Offline order sync failed due to database error.', [
+                    'uuid' => $uuid,
+                    'user_id' => $user->id,
+                    'exception' => $exception->getMessage(),
+                ]);
+                $failedIds[$uuid] = 'System Error: A database error occurred during sync. Please contact support.';
             } catch (\Throwable $exception) {
                 Log::error('Offline order synchronization failed.', [
                     'uuid' => $uuid,
                     'user_id' => $user->id,
-                    'exception' => $exception,
+                    'exception' => $exception->getMessage(),
                 ]);
-                $failedIds[$uuid] = 'Validation/Sync Error: The order could not be synchronized.';
+                $failedIds[$uuid] = 'System Error: An unexpected server error prevented synchronization.';
             }
         }
 
