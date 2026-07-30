@@ -213,6 +213,11 @@ onMounted(async () => {
   checkDetached();
   window.addEventListener('resize', checkDetached);
   await pos.initialize();
+
+  // Dismiss the splash screen immediately now that the UI is ready
+  if (typeof window.hidePwaSplash === 'function') {
+      window.hidePwaSplash();
+  }
 });
 
 onUnmounted(() => {

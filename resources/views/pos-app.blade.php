@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <link rel="icon" type="image/png" href="{{ getFavIcon() }}" sizes="16x16">
     <link rel="stylesheet" href="{{ asset('assets/css/remixicon.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/lib/bootstrap.min.css') }}">
@@ -41,7 +41,8 @@
         $appleTouchVersion = file_exists(public_path('assets/images/apple-touch-icon.png')) ? filemtime(public_path('assets/images/apple-touch-icon.png')) : time();
     @endphp
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="{{ asset('assets/images/apple-touch-icon.png') }}?v={{ $appleTouchVersion }}">
     <link rel="apple-touch-startup-image" href="{{ asset('assets/images/logo-512.png') }}?v={{ $logo512Version }}">
     
@@ -158,15 +159,17 @@
     <div id="pos-app" class="tw-font-sans"></div>
     
     <script>
+        window.hidePwaSplash = function() {
+            var splash = document.getElementById('pwa-splash');
+            if (splash && !splash.classList.contains('splash-hidden')) {
+                splash.style.opacity = '0';
+                splash.classList.add('splash-hidden');
+                setTimeout(function() { splash.remove(); }, 500);
+            }
+        };
+        // Fallback in case Vue fails to mount
         window.addEventListener('load', function() {
-            setTimeout(function() {
-                var splash = document.getElementById('pwa-splash');
-                if (splash) {
-                    splash.style.opacity = '0';
-                    splash.classList.add('splash-hidden');
-                    setTimeout(function() { splash.remove(); }, 500);
-                }
-            }, 800);
+            setTimeout(window.hidePwaSplash, 3000);
         });
     </script>
     <script src="{{ asset('assets/js/lib/jquery-3.7.1.min.js') }}"></script>
