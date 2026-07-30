@@ -126,12 +126,16 @@ export const usePosStore = defineStore('pos', {
 
             await claimLegacyQueueRecords();
 
+            // ALWAYS load from local immediately so the UI is instantly usable
+            await this.loadFromLocal();
+
             if(this.isOnline) {
-                // FLUSH OFFLINE QUEUE FIRST before overwriting catalog to prevent App Boot data rot!
-                await this.syncOfflineData();
-                await this.fetchFromServer();
-            } else {
-                await this.loadFromLocal();
+                // Fire and forget background sync to prevent blocking the UI on slow/dead networks
+                this.syncOfflineData().then(() => {
+                    return this.fetchFromServer();
+                }).catch(err => {
+                    console.warn("Background boot sync failed:", err);
+                });
             }
 
             // Background Auto-Updater Engine
