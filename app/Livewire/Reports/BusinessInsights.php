@@ -81,8 +81,15 @@ class BusinessInsights extends Component
 
         // 2. Churn & Customer Health (At-Risk > 21 days)
         $atRiskThreshold = Carbon::today()->subDays(21)->toDateString();
-        $allCustomers = DB::table('customers')
-            ->leftJoin('orders', 'customers.id', '=', 'orders.customer_id')
+        $allCustomersQuery = DB::table('customers')
+            ->leftJoin('orders', 'customers.id', '=', 'orders.customer_id');
+
+        $viewable_ids = \Illuminate\Support\Facades\Auth::user()->getViewableCustomerUserIds();
+        if ($viewable_ids !== 'all') {
+            $allCustomersQuery->whereIn('customers.created_by', $viewable_ids);
+        }
+
+        $allCustomers = $allCustomersQuery
             ->select('customers.id', DB::raw('MAX(orders.order_date) as last_visit'))
             ->groupBy('customers.id')
             ->get();

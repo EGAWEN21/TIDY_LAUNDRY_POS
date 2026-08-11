@@ -47,9 +47,15 @@ class CustomerReport extends Component
         $atRiskThreshold = Carbon::today()->subDays(21); // 21 Days as requested by user
 
         // Aggregate Orders per customer (excluding Returned orders status = 4)
-        $customersAggregates = DB::table('customers')
-            ->whereNull('customers.deleted_at')
-            ->select(
+        $query = DB::table('customers')
+            ->whereNull('customers.deleted_at');
+        
+        $viewable_ids = \Illuminate\Support\Facades\Auth::user()->getViewableCustomerUserIds();
+        if ($viewable_ids !== 'all') {
+            $query->whereIn('customers.created_by', $viewable_ids);
+        }
+
+        $customersAggregates = $query->select(
                 'customers.id',
                 'customers.name',
                 'customers.phone',
