@@ -32,6 +32,7 @@ class User extends Authenticatable
         'is_active',
         'current_session_id',
         'viewable_staff_orders',
+        'viewable_staff_customers',
     ];
 
     /**
@@ -86,6 +87,19 @@ class User extends Authenticatable
     //roles relation
     public function role(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\UserRole::class, 'role_id', 'id');
+        return $this->belongsTo(UserRole::class, 'role_id');
+    }
+
+    public function getViewableCustomerUserIds()
+    {
+        if ($this->user_type == 1 || $this->viewable_staff_customers === 'all') {
+            return 'all';
+        }
+        $viewable_ids = [$this->id];
+        if (!empty($this->viewable_staff_customers)) {
+            $extra_ids = explode(',', $this->viewable_staff_customers);
+            $viewable_ids = array_merge($viewable_ids, $extra_ids);
+        }
+        return $viewable_ids;
     }
 }

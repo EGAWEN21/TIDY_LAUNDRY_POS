@@ -143,6 +143,17 @@
                                     <label class="form-check-label line-height-1 fw-medium text-secondary-light" for="switch1">{{ $lang->data['is_active'] ?? 'Is Active' }} ?</label>
                                 </div>
                             </div>
+                            @if(\Illuminate\Support\Facades\Auth::user()->user_type == 1)
+                            <div class="col-12 tw-mt-6">
+                                <label class="form-label fw-semibold text-primary-light text-sm mb-8">Assign to Staff</label>
+                                <select class="form-select radius-8" wire:model="created_by">
+                                    <option value="">-- Select Staff --</option>
+                                    @foreach($staffs as $staff)
+                                        <option value="{{ $staff->id }}">{{ $staff->name }} ({{ $staff->role?->name ?? 'Admin' }})</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            @endif
                             <div class="d-flex align-items-start justify-content-end gap-3 mt-24">
                                 <button type="reset" class="border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-40 py-11 radius-8" wire:click.prevent="$dispatch('closemodal')">
                                     {{ $lang->data['cancel'] ?? 'Cancel' }}
@@ -198,10 +209,21 @@
                             </div>
                             <div class="col-12 tw-mt-6">
                                 <div class="form-switch switch-primary d-flex align-items-center gap-3">
-                                    <input class="form-check-input" type="checkbox" role="switch" id="switch1" checked="" wire:model="is_active">
-                                    <label class="form-check-label line-height-1 fw-medium text-secondary-light" for="switch1">{{ $lang->data['is_active'] ?? 'Is Active' }} ?</label>
+                                    <input class="form-check-input" type="checkbox" role="switch" id="switch2" checked="" wire:model="is_active">
+                                    <label class="form-check-label line-height-1 fw-medium text-secondary-light" for="switch2">{{ $lang->data['is_active'] ?? 'Is Active' }} ?</label>
                                 </div>
                             </div>
+                            @if(\Illuminate\Support\Facades\Auth::user()->user_type == 1)
+                            <div class="col-12 tw-mt-6">
+                                <label class="form-label fw-semibold text-primary-light text-sm mb-8">Assign to Staff</label>
+                                <select class="form-select radius-8" wire:model="created_by">
+                                    <option value="">-- Select Staff --</option>
+                                    @foreach($staffs as $staff)
+                                        <option value="{{ $staff->id }}">{{ $staff->name }} ({{ $staff->role?->name ?? 'Admin' }})</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            @endif
                             <div class="d-flex align-items-start justify-content-end gap-3 mt-24">
                                 <button type="reset" class="border border-danger-600 bg-hover-danger-200 text-danger-600 text-md px-40 py-11 radius-8" wire:click.prevent="$dispatch('closemodal')">
                                     {{ $lang->data['cancel'] ?? 'Cancel' }}

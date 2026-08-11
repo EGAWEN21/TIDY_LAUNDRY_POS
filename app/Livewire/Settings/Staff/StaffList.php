@@ -64,6 +64,8 @@ class StaffList extends Component
         $this->is_active = 1;
         $this->can_view_all_orders = false;
         $this->viewable_staff_ids = [];
+        $this->can_view_all_customers = false;
+        $this->viewable_staff_customers_ids = [];
         $this->staff = null;
         if (count($this->roles) > 0) {
             $this->user_role = $this->roles->first()->id;
@@ -86,6 +88,13 @@ class StaffList extends Component
             $viewable_staff_orders = implode(',', $this->viewable_staff_ids);
         }
 
+        $viewable_staff_customers = null;
+        if ($this->can_view_all_customers) {
+            $viewable_staff_customers = 'all';
+        } elseif (!empty($this->viewable_staff_customers_ids)) {
+            $viewable_staff_customers = implode(',', $this->viewable_staff_customers_ids);
+        }
+
         User::create([
             'name'  => $this->name,
             'phone' => $this->phone,
@@ -94,7 +103,8 @@ class StaffList extends Component
             'user_type' => 2,
             'role_id' => $this->user_role,
             'is_active' => $this->is_active ?? 0,
-            'viewable_staff_orders' => $viewable_staff_orders
+            'viewable_staff_orders' => $viewable_staff_orders,
+            'viewable_staff_customers' => $viewable_staff_customers
         ]);
         $this->dispatch('closemodal');
         $this->resetFields();
@@ -153,6 +163,11 @@ class StaffList extends Component
         $this->viewable_staff_ids = ($this->staff->viewable_staff_orders && $this->staff->viewable_staff_orders !== 'all')
             ? explode(',', $this->staff->viewable_staff_orders)
             : [];
+
+        $this->can_view_all_customers = $this->staff->viewable_staff_customers === 'all';
+        $this->viewable_staff_customers_ids = ($this->staff->viewable_staff_customers && $this->staff->viewable_staff_customers !== 'all')
+            ? explode(',', $this->staff->viewable_staff_customers)
+            : [];
     }
 
     public function update()
@@ -183,6 +198,14 @@ class StaffList extends Component
             $viewable_staff_orders = implode(',', $this->viewable_staff_ids);
         }
         $this->staff->viewable_staff_orders = $viewable_staff_orders;
+
+        $viewable_staff_customers = null;
+        if ($this->can_view_all_customers) {
+            $viewable_staff_customers = 'all';
+        } elseif (!empty($this->viewable_staff_customers_ids)) {
+            $viewable_staff_customers = implode(',', $this->viewable_staff_customers_ids);
+        }
+        $this->staff->viewable_staff_customers = $viewable_staff_customers;
 
         if ($this->password != '') {
             $this->staff->password = Hash::make($this->password);

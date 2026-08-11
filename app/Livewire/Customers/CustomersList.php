@@ -33,6 +33,8 @@ class CustomersList extends Component
     public $nextCursor;
     protected $currentCursor;
     public $hasMorePages;
+    public $created_by;
+    public $staffs;
 
     /* called before render */
     public function mount()
@@ -41,6 +43,7 @@ class CustomersList extends Component
             abort(404);
         }
         $this->customers = new EloquentCollection();
+        $this->staffs = \App\Models\User::latest()->get();
         $this->loadCustomers();
 
         if (session()->has('selected_language')) { /* if session has selected laugage*/
@@ -64,6 +67,7 @@ class CustomersList extends Component
         $this->address = '';
         $this->name = '';
         $this->is_active = 1;
+        $this->created_by = \Illuminate\Support\Facades\Auth::id();
         $this->resetErrorBag();
     }
     /* store customer data */
@@ -86,8 +90,8 @@ class CustomersList extends Component
             address: empty($this->address) ? null : $this->address,
             is_active: $this->is_active ? 1 : 0
         );
-
-        CreateCustomerAction::execute($dto, Auth::id());
+        $userId = \Illuminate\Support\Facades\Auth::user()->user_type == 1 ? $this->created_by : \Illuminate\Support\Facades\Auth::id();
+        CreateCustomerAction::execute($dto, $userId);
 
         $this->reloadCustomers();
         $this->resetInputFields();
@@ -120,6 +124,7 @@ class CustomersList extends Component
         $this->address = $this->customer->address;
         $this->name = $this->customer->name;
         $this->is_active = $this->customer->is_active;
+        $this->created_by = $this->customer->created_by;
     }
     /* update customer details */
     public function update()
@@ -139,8 +144,8 @@ class CustomersList extends Component
             address: empty($this->address) ? null : $this->address,
             is_active: $this->is_active ? 1 : 0
         );
-
-        UpdateCustomerAction::execute($this->customer, $dto);
+        $userId = \Illuminate\Support\Facades\Auth::user()->user_type == 1 ? $this->created_by : null;
+        UpdateCustomerAction::execute($this->customer, $dto, $userId);
         $this->refresh();
         $this->resetInputFields();
         $this->editMode = false;
@@ -174,6 +179,11 @@ class CustomersList extends Component
     {
         $query = \App\Models\Customer::query();
 
+        $viewable_ids = \Illuminate\Support\Facades\Auth::user()->getViewableCustomerUserIds();
+        if ($viewable_ids !== 'all') {
+            $query->whereIn('created_by', $viewable_ids);
+        }
+
         if ($this->search && $this->search != '') {
             $query->where('name', 'like', '%' . sanitize_search($this->search) . '%');
         }
@@ -195,10 +205,10 @@ class CustomersList extends Component
         }
         $this->currentCursor = $customers->cursor();
     }
-    /* export to excel */
     public function downloadFile()
     {
-        return Excel::download(new CustomersExport(), 'customers_list.xlsx');
+        $viewable_ids = \Illuminate\Support\Facades\Auth::user()->getViewableCustomerUserIds();
+        return Excel::download(new CustomersExport($viewable_ids), 'customers_list.xlsx');
     }
     /* delete the service */
     public function delete($id)

@@ -226,9 +226,16 @@ class PosScreen extends Component
         }
         /* if the updated value is customer_query */
         if ($name == 'customer_query' && $value != '') {
-            $this->customers = Customer::where(function ($query) use ($value) {
+            $query = Customer::where(function ($query) use ($value) {
                 $query->where('name', 'like', '%' . sanitize_search($value) . '%')->orWhere('phone', 'like', '%' . sanitize_search($value) . '%');
-            })->latest()->limit(5)->get();
+            });
+            
+            $viewable_ids = \Illuminate\Support\Facades\Auth::user()->getViewableCustomerUserIds();
+            if ($viewable_ids !== 'all') {
+                $query->whereIn('created_by', $viewable_ids);
+            }
+            
+            $this->customers = $query->latest()->limit(5)->get();
         } elseif ($name == 'customer_query' && $value == '') {
             $this->customers = collect();
         }

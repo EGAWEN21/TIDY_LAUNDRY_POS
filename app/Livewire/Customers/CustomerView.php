@@ -45,6 +45,11 @@ class CustomerView extends Component
         if (!($this->customer)) {
             abort(404);
         }
+
+        $viewable_ids = \Illuminate\Support\Facades\Auth::user()->getViewableCustomerUserIds();
+        if ($viewable_ids !== 'all' && !in_array($this->customer->created_by, $viewable_ids)) {
+            abort(403, 'Unauthorized access to this customer.');
+        }
         if (session()->has('selected_language')) { /* if session has selected laugage*/
             $this->lang = Translation::where('id', session()->get('selected_language'))->first();
         } else {

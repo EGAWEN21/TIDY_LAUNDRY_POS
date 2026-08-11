@@ -125,9 +125,14 @@ class PosApiController extends Controller
 
     public function syncCatalog(Request $request)
     {
-        $customers = Customer::where('is_active', 1)
-            ->orderBy('id')
-            ->cursorPaginate(500);
+        $query = Customer::where('is_active', 1);
+
+        $viewable_ids = $request->user()->getViewableCustomerUserIds();
+        if ($viewable_ids !== 'all') {
+            $query->whereIn('created_by', $viewable_ids);
+        }
+
+        $customers = $query->orderBy('id')->cursorPaginate(500);
 
         return response()->json([
             'data' => [
@@ -190,7 +195,8 @@ class PosApiController extends Controller
                         'email' => $cust['email'] ?? null,
                         'tax_number' => $cust['tax_number'] ?? null,
                         'address' => $cust['address'] ?? null,
-                        'is_active' => 1
+                        'is_active' => 1,
+                        'created_by' => \Illuminate\Support\Facades\Auth::id()
                     ]);
                 }
                 if (isset($cust['uuid'])) {

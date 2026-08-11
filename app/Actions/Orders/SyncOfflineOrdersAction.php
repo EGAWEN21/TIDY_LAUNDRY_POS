@@ -103,14 +103,15 @@ class SyncOfflineOrdersAction
                                 $offlinePayload['note'] = empty($offlinePayload['note']) ? $conflictMsg : $offlinePayload['note'] . " | " . $conflictMsg;
                             }
                         } else {
-                            $customer = Customer::create([
+                        $customer = Customer::create([
                                 'phone' => $custData['phone'],
                                 'uuid' => $custData['uuid'] ?? null,
                                 'name' => $custData['name'],
                                 'email' => $custData['email'] ?? null,
                                 'tax_number' => $custData['tax_number'] ?? null,
                                 'address' => $custData['address'] ?? null,
-                                'is_active' => 1
+                                'is_active' => 1,
+                                'created_by' => $user->id
                             ]);
                         }
                         $offlinePayload['customer_id'] = $customer->id;
