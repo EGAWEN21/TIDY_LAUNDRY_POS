@@ -90,7 +90,8 @@ class CustomersList extends Component
             address: empty($this->address) ? null : $this->address,
             is_active: $this->is_active ? 1 : 0
         );
-        $userId = \Illuminate\Support\Facades\Auth::user()->user_type == 1 ? $this->created_by : \Illuminate\Support\Facades\Auth::id();
+        $adminAssigned = $this->created_by ? (int)$this->created_by : null;
+        $userId = \Illuminate\Support\Facades\Auth::user()->user_type == 1 ? $adminAssigned : \Illuminate\Support\Facades\Auth::id();
         CreateCustomerAction::execute($dto, $userId);
 
         $this->reloadCustomers();
@@ -118,6 +119,14 @@ class CustomersList extends Component
         $this->resetErrorBag();
         $this->editMode = true;
         $this->customer = Customer::where('id', $id)->first();
+        if (!$this->customer) {
+            return;
+        }
+        $viewable_ids = \Illuminate\Support\Facades\Auth::user()->getViewableCustomerUserIds();
+        if ($viewable_ids !== 'all' && !in_array($this->customer->created_by, $viewable_ids)) {
+            abort(403, 'Unauthorized access to edit this customer.');
+        }
+
         $this->phone = $this->customer->phone;
         $this->email = $this->customer->email;
         $this->tax_number = $this->customer->tax_number;
@@ -144,7 +153,8 @@ class CustomersList extends Component
             address: empty($this->address) ? null : $this->address,
             is_active: $this->is_active ? 1 : 0
         );
-        $userId = \Illuminate\Support\Facades\Auth::user()->user_type == 1 ? $this->created_by : null;
+        $adminAssigned = $this->created_by ? (int)$this->created_by : null;
+        $userId = \Illuminate\Support\Facades\Auth::user()->user_type == 1 ? $adminAssigned : null;
         UpdateCustomerAction::execute($this->customer, $dto, $userId);
         $this->refresh();
         $this->resetInputFields();
@@ -216,6 +226,11 @@ class CustomersList extends Component
         $customer = Customer::find($id);
         if (!$customer) {
             return;
+        }
+
+        $viewable_ids = \Illuminate\Support\Facades\Auth::user()->getViewableCustomerUserIds();
+        if ($viewable_ids !== 'all' && !in_array($customer->created_by, $viewable_ids)) {
+            abort(403, 'Unauthorized access to delete this customer.');
         }
 
         try {
