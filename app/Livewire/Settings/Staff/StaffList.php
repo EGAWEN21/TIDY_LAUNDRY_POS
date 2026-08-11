@@ -26,6 +26,8 @@ class StaffList extends Component
     public $user_role;
     public $can_view_all_orders = false;
     public $viewable_staff_ids = [];
+    public $can_view_all_customers = false;
+    public $viewable_staff_customers_ids = [];
     #[Title('Staff')]
     public function render()
     {
