@@ -66,7 +66,7 @@
         <h1>You are Offline</h1>
         <p>The server cannot be reached. You can continue taking orders using the Offline POS.</p>
         <a href="/admin/pos" class="btn">Launch Offline POS</a>
-        <button onclick="window.location.reload()" class="btn btn-outline">Try to Reconnect</button>
+        <button onclick="this.innerHTML = 'Reconnecting...'; this.style.opacity = '0.7'; setTimeout(() => window.location.reload(), 100);" class="btn btn-outline">Try to Reconnect</button>
     </div>
 </body>
 </html>

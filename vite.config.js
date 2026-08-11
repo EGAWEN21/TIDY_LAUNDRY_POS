@@ -22,10 +22,11 @@ export default defineConfig({
             buildBase: '/build/',
             scope: '/',
             registerType: 'autoUpdate',
-            injectRegister: 'script',
+            injectRegister: false,
+            manifest: false,
             workbox: {
-                navigateFallback: '/offline.html',
-                navigateFallbackDenylist: [/^\/admin\/pos/],
+                navigateFallback: null,
+                importScripts: ['/sw-fallback.js'],
                 globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,ttf,eot}'],
                 runtimeCaching: [
                     {
@@ -75,29 +76,6 @@ export default defineConfig({
                     }
                 ],
                 maximumFileSizeToCacheInBytes: 5000000
-            },
-            manifest: {
-                name: 'TidyPOS Offline',
-                short_name: 'TidyPOS',
-                description: 'Offline capable Point of Sale',
-                theme_color: '#ffffff',
-                background_color: '#ffffff',
-                display: 'standalone',
-                start_url: '/',
-                icons: [
-                    {
-                        src: '/assets/images/logo-192.png',
-                        sizes: '192x192',
-                        type: 'image/png',
-                        purpose: 'any maskable'
-                    },
-                    {
-                        src: '/assets/images/logo-512.png',
-                        sizes: '512x512',
-                        type: 'image/png',
-                        purpose: 'any maskable'
-                    }
-                ]
             }
         })
     ],
