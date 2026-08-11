@@ -35,6 +35,10 @@ class CustomerLedger extends Component
         if (!$this->customer) {
             return abort(404);
         }
+        $viewable_ids = \Illuminate\Support\Facades\Auth::user()->getViewableCustomerUserIds();
+        if ($viewable_ids !== 'all' && !in_array($this->customer->created_by, $viewable_ids)) {
+            abort(403, 'Unauthorized access to this ledger.');
+        }
         $this->data = array_map(function ($row) {
             return (array) $row;
         }, DB::select("

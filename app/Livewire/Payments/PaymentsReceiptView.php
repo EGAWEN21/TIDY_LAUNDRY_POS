@@ -83,23 +83,25 @@ class PaymentsReceiptView extends Component
     /* filter data on search */
     public function filterdata()
     {
-        if ($this->search || $this->search != '') {
-            $search = $this->search;
-            $customer = \App\Models\Customer::where(function ($query) use ($search) {
-                $query->where('name', 'like', '%' . sanitize_search($search) . '%')->orWhere('phone', 'like', '%' . sanitize_search($search) . '%');
-            })->pluck('id')->toArray();
-
-
-            $payments = \App\Models\Payment::whereIn('customer_id', $customer)
-                ->latest()
-                ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
-            return $payments;
-        } else {
-
-            $payments = \App\Models\Payment::latest()
-                ->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
-            return $payments;
+        $query = \App\Models\Payment::query();
+        $viewable_ids = \Illuminate\Support\Facades\Auth::user()->getViewableCustomerUserIds();
+        
+        if ($viewable_ids !== 'all') {
+            $query->whereHas('customer', function ($q) use ($viewable_ids) {
+                $q->whereIn('created_by', $viewable_ids);
+            });
         }
+
+        if ($this->search && $this->search != '') {
+            $search = $this->search;
+            $customerIds = \App\Models\Customer::where(function ($q) use ($search) {
+                $q->where('name', 'like', '%' . sanitize_search($search) . '%')
+                  ->orWhere('phone', 'like', '%' . sanitize_search($search) . '%');
+            })->pluck('id')->toArray();
+            $query->whereIn('customer_id', $customerIds);
+        }
+
+        return $query->latest()->cursorPaginate(10, ['*'], 'cursor', Cursor::fromEncoded($this->nextCursor));
     }
     /* reload payment data */
     public function reloadPayments()

@@ -99,6 +99,10 @@ class RecycleBin extends Component
     public function loadTrashedCustomers()
     {
         $query = Customer::onlyTrashed()->orderBy('deleted_at', 'DESC');
+        $viewable_ids = \Illuminate\Support\Facades\Auth::user()->getViewableCustomerUserIds();
+        if ($viewable_ids !== 'all') {
+            $query->whereIn('created_by', $viewable_ids);
+        }
         if ($this->search_query) {
             $query->where('name', 'like', '%' . sanitize_search($this->search_query) . '%')
                   ->orWhere('phone', 'like', '%' . sanitize_search($this->search_query) . '%');
@@ -156,7 +160,12 @@ class RecycleBin extends Component
                 $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']);
                 return;
             }
-            Customer::onlyTrashed()->whereIn('id', $this->selectedItems)->restore();
+            $query = Customer::onlyTrashed()->whereIn('id', $this->selectedItems);
+            $viewable_ids = \Illuminate\Support\Facades\Auth::user()->getViewableCustomerUserIds();
+            if ($viewable_ids !== 'all') {
+                $query->whereIn('created_by', $viewable_ids);
+            }
+            $query->restore();
         } elseif ($this->currentTab == 'staff') {
             if (!Gate::allows('user_restore')) {
                 $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']);
@@ -197,7 +206,12 @@ class RecycleBin extends Component
                 $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']);
                 return;
             }
-            Customer::onlyTrashed()->whereIn('id', $this->selectedItems)->forceDelete();
+            $query = Customer::onlyTrashed()->whereIn('id', $this->selectedItems);
+            $viewable_ids = \Illuminate\Support\Facades\Auth::user()->getViewableCustomerUserIds();
+            if ($viewable_ids !== 'all') {
+                $query->whereIn('created_by', $viewable_ids);
+            }
+            $query->forceDelete();
         } elseif ($this->currentTab == 'staff') {
             if (!Gate::allows('user_force_delete')) {
                 $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']);
@@ -232,7 +246,12 @@ class RecycleBin extends Component
                 $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']);
                 return;
             }
-            Customer::onlyTrashed()->forceDelete();
+            $query = Customer::onlyTrashed();
+            $viewable_ids = \Illuminate\Support\Facades\Auth::user()->getViewableCustomerUserIds();
+            if ($viewable_ids !== 'all') {
+                $query->whereIn('created_by', $viewable_ids);
+            }
+            $query->forceDelete();
         } elseif ($this->currentTab == 'staff') {
             if (!Gate::allows('user_force_delete')) {
                 $this->dispatch('alert', ['type' => 'error', 'message' => 'Unauthorized!']);
