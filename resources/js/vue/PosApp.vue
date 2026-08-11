@@ -6,8 +6,8 @@
     <pre class="tw-whitespace-pre-wrap tw-text-sm">{{ fatalError }}</pre>
     <button @click="fatalError = null" class="tw-mt-4 tw-px-4 tw-py-2 tw-bg-red-600 tw-text-white tw-rounded">Dismiss</button>
 </div>
-<div :class="[isDarkMode ? 'premium-bg-dark' : 'premium-bg-light', 'tw-w-full tw-min-h-screen tw-transition-colors tw-duration-300']">
-    <div :class="[isDarkMode ? 'glass-panel-dark' : 'glass-panel-light', 'tw-w-full tw-flex tw-justify-between tw-items-center tw-shadow-sm tw-border-b tw-z-10 tw-relative']">
+<div class="premium-bg tw-w-full tw-min-h-screen tw-transition-colors tw-duration-300">
+    <div class="glass-panel tw-w-full tw-flex tw-justify-between tw-items-center tw-shadow-sm tw-border-b tw-z-10 tw-relative">
         <div class="tw-flex tw-gap-2 tw-px-3 tw-py-2 tw-items-center">
             <a href="/admin/orders" class="no-underline">
                 <button

@@ -20,13 +20,23 @@ export default defineConfig({
         VitePWA({
             outDir: 'public',
             buildBase: '/build/',
-            scope: '/admin/pos/',
+            scope: '/',
             registerType: 'autoUpdate',
             injectRegister: 'script',
             workbox: {
-                navigateFallback: '/admin/pos',
+                navigateFallback: '/offline.html',
+                navigateFallbackDenylist: [/^\/admin\/pos/],
                 globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,ttf,eot}'],
                 runtimeCaching: [
+                    {
+                        urlPattern: /\/admin\/pos\/?$/,
+                        handler: 'NetworkFirst',
+                        options: {
+                            cacheName: 'pos-html-cache',
+                            expiration: { maxEntries: 1, maxAgeSeconds: 60 * 60 * 24 * 30 },
+                            cacheableResponse: { statuses: [200] }
+                        }
+                    },
                     {
                         urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
                         handler: 'CacheFirst',
@@ -73,7 +83,7 @@ export default defineConfig({
                 theme_color: '#ffffff',
                 background_color: '#ffffff',
                 display: 'standalone',
-                start_url: '/admin/pos/',
+                start_url: '/',
                 icons: [
                     {
                         src: '/assets/images/logo-192.png',

@@ -63,7 +63,7 @@ const handleReAuth = async () => {
     isLoading.value = true;
     errorMessage.value = '';
     try {
-        const response = await axios.post('/api/login', {
+        const response = await axios.post('/admin/pos/ajax-login', {
             email: userEmail.value,
             password: password.value
         });

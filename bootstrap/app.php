@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->validateCsrfTokens(except: [
             'whatsapp/webhook',
+            'admin/pos/ajax-login',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

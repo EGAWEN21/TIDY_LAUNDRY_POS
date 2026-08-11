@@ -27,7 +27,8 @@ class PwaManifestController extends Controller
         $manifest = [
             'name' => $appName,
             'short_name' => $shortName,
-            'start_url' => '/admin/pos/',
+            'start_url' => '/',
+            'scope' => '/',
             'display' => 'standalone',
             'background_color' => '#ffffff',
             'theme_color' => '#1b2a47',

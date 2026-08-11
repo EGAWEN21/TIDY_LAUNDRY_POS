@@ -53,6 +53,50 @@ class PosApiController extends Controller
         ]);
     }
 
+    public function ajaxWebLogin(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required'
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return response()->json(['data' => [], 'message' => 'Invalid credentials'], 401);
+        }
+
+        if ($user->user_type != 1 && !$user->is_active) {
+            return response()->json(['data' => [], 'message' => 'Account is deactivated.'], 403);
+        }
+
+        if (!$user->hasPermission('order_create')) {
+            return response()->json(['data' => [], 'message' => 'You are not authorized to access the POS.'], 403);
+        }
+
+        // 1. Establish the Laravel Web Session for Dashboard Access
+        Auth::login($user);
+        $request->session()->regenerate();
+        $user->update(['current_session_id' => session()->getId()]);
+
+        // 2. Generate the Sanctum Token for Vue Axios API calls
+        $user->tokens()->where('name', 'pos-pwa')->delete();
+        $token = $user->createToken(
+            'pos-pwa',
+            ['pos:access'],
+            now()->addHours(12)
+        )->plainTextToken;
+        session()->put('pos_api_token', $token);
+
+        return response()->json([
+            'data' => [
+                'user' => $user,
+                'token' => $token
+            ],
+            'message' => 'Global login successful'
+        ]);
+    }
+
     public function init()
     {
         // Serve all static data needed for offline POS

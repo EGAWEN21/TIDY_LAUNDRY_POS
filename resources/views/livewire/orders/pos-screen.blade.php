@@ -1,5 +1,5 @@
-<div x-data="posFunction" class="tw-w-full">
-    <div class="tw-w-full tw-bg-white dark:tw-bg-[#1b2431] tw-flex tw-justify-between tw-items-center ">
+<div x-data="posFunction" class="premium-bg tw-w-full tw-min-h-screen tw-transition-colors tw-duration-300">
+    <div class="glass-panel tw-w-full tw-flex tw-justify-between tw-items-center tw-shadow-sm tw-border-b tw-z-10 tw-relative">
         <div class="tw-flex tw-gap-2 tw-px-3 tw-py-2">
             <a href="{{ route('orders') }}" class="no-underline">
                 <button
@@ -42,7 +42,7 @@
     </div>
 
     <div class="tw-w-[100%] tw-h-full tw-flex lg:tw-flex-row tw-flex-col  tw-relative tw-mt-0.5">
-        <div class="lg:tw-w-5/12 tw-w-full tw-flex-col tw-h-[calc(100vh-4.0rem)]  tw-p-2 tw-bg-white dark:tw-bg-[#1b2431] p-16">
+        <div class="lg:tw-w-5/12 tw-w-full tw-flex-col tw-h-[calc(100vh-4.0rem)] tw-p-2 p-16">
             <div class="tw-flex tw-flex-col">
                 <div class="icon-field has-validation">
                     <span class="icon tw-translate-y-[2px]">
@@ -57,25 +57,23 @@
                 </div>
                 <div
                     class="tw-w-full tw-h-[calc(100vh-9rem)] tw-overflow-y-scroll custom-scroll tw-mt-2 tw-flex tw-p-0.5">
-                    <div class="tw-grid tw-grid-cols-2 lg:tw-grid-cols-4 tw-gap-2 tw-h-fit tw-w-full">
+                    <div class="tw-grid tw-grid-cols-2 lg:tw-grid-cols-3 xl:tw-grid-cols-4 tw-gap-4 tw-h-fit tw-w-full">
                         @foreach ($services as $item)
-                            <a type="button" class=" hover:tw-translate-y-1" data-bs-toggle="modal"
+                            <a type="button" class="tw-block tw-h-full tw-w-full tw-group" data-bs-toggle="modal"
                                 data-bs-target="#servicetype" wire:click="selectService({{ $item->id }})">
-                                <div class="card bg-neutral-100">
-                                    <div
-                                        class="card-body tw-flex tw-items-center tw-justify-center tw-flex-col tw-rounded-md  tw-overflow-clip tw-ring-1 tw-ring-neutral-200">
+                                <div class="tw-bg-white/60 dark:tw-bg-slate-800/60 tw-backdrop-blur-sm tw-border tw-border-white/20 dark:tw-border-white/5 tw-shadow-sm tw-rounded-2xl tw-transition-all tw-duration-300 hover:tw-shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:hover:tw-shadow-[0_8px_30px_rgb(0,0,0,0.4)] hover:-tw-translate-y-1.5 tw-h-full">
+                                    <div class="tw-p-4 tw-flex tw-items-center tw-justify-center tw-flex-col tw-h-full">
                                         @if(str_contains($item->icon, ':'))
-                                            <div class="tw-w-[40%] md:tw-w-24 tw-aspect-square tw-flex tw-items-center tw-justify-center tw-bg-neutral-50 tw-rounded-md tw-p-2 tw-mt-2">
-                                                <iconify-icon icon="{{ $item->icon }}" class="tw-text-5xl text-primary tw-w-full tw-h-full tw-flex tw-items-center tw-justify-center tw-object-contain"></iconify-icon>
+                                            <div class="tw-w-[40%] md:tw-w-20 tw-aspect-square tw-flex tw-items-center tw-justify-center tw-bg-slate-50/50 dark:tw-bg-slate-900/50 tw-rounded-xl tw-transition-colors group-hover:tw-bg-primary-50 dark:group-hover:tw-bg-primary-900/30">
+                                                <iconify-icon icon="{{ $item->icon }}" class="tw-text-4xl text-primary dark:tw-text-primary-400 tw-transition-transform tw-duration-300 group-hover:tw-scale-110"></iconify-icon>
                                             </div>
                                         @else
-                                            <div class="tw-w-[40%] md:tw-w-24 tw-aspect-square tw-flex tw-items-center tw-justify-center tw-bg-neutral-50 tw-rounded-md tw-p-2 tw-mt-2">
-                                                <img src="{{ asset('assets/img/service-icons/' . $item->icon) }}" class="tw-h-full tw-w-full tw-object-contain tw-rounded-md">
+                                            <div class="tw-w-[40%] md:tw-w-20 tw-aspect-square tw-flex tw-items-center tw-justify-center tw-bg-slate-50/50 dark:tw-bg-slate-900/50 tw-rounded-xl tw-overflow-hidden">
+                                                <img src="{{ asset('assets/img/service-icons/' . $item->icon) }}" class="tw-h-full tw-w-full tw-object-contain tw-rounded-xl tw-transition-transform tw-duration-500 group-hover:tw-scale-110">
                                             </div>
                                         @endif
-                                        <div
-                                            class="tw-px-2 tw-py-1.5  tw-w-full tw-flex tw-justify-center tw-items-center">
-                                            <div class="tw-text-sm tw-text-center tw-truncate tw-font-bold tw-w-[90%] ">
+                                        <div class="tw-pt-3 tw-w-full tw-flex tw-justify-center tw-items-center">
+                                            <div class="tw-text-sm tw-text-center tw-truncate tw-font-semibold tw-text-slate-800 dark:tw-text-slate-200 tw-w-[95%]">
                                                 {{ $item->service_name }}</div>
                                         </div>
                                     </div>
@@ -86,8 +84,8 @@
                 </div>
             </div>
         </div>
-        <div class=" tw-h-[calc(100vh-4rem)] tw-flex tw-flex-col tw-bg-white dark:tw-bg-[#1b2431] p-16"
-            :class="shown && detached ? 'tw-absolute tw-inset-0 tw-w-full' :
+        <div class=" tw-h-[calc(100vh-4rem)] tw-flex tw-flex-col p-16"
+            :class="shown && detached ? 'tw-absolute tw-inset-0 tw-w-full tw-bg-white dark:tw-bg-slate-900' :
                 ' tw-hidden lg:tw-block lg:tw-w-7/12 tw-w-full tw-shrink-0 '">
             <div class="tw-flex lg:tw-flex-row tw-flex-col lg:tw-items-center tw-items-start tw-gap-4 lg:tw-gap-8 tw-w-full tw-shrink-0">
                 <div class="tw-flex tw-min-w-fit tw-shrink tw-flex-col" x-data="{}">

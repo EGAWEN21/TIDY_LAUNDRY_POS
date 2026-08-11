@@ -3,25 +3,21 @@
 @tailwind utilities;
 
 @layer utilities {
-  .glass-panel-light {
-    @apply tw-bg-white/80 tw-backdrop-blur-md tw-border tw-border-white/20 tw-shadow-[0_8px_32px_0_rgba(31,38,135,0.07)];
-  }
-  .glass-panel-dark {
-    @apply tw-bg-slate-900/80 tw-backdrop-blur-md tw-border tw-border-white/10 tw-shadow-[0_8px_32px_0_rgba(0,0,0,0.3)];
+  .glass-panel {
+    @apply tw-bg-white/80 dark:tw-bg-slate-900/80 tw-backdrop-blur-md tw-border tw-border-white/20 dark:tw-border-white/10 tw-shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] dark:tw-shadow-[0_8px_32px_0_rgba(0,0,0,0.3)];
   }
   
-  .premium-bg-light {
+  .premium-bg {
     background: radial-gradient(at 0% 0%, hsla(253,16%,7%,0.05) 0, transparent 50%), 
                 radial-gradient(at 50% 0%, hsla(225,39%,30%,0.05) 0, transparent 50%), 
                 radial-gradient(at 100% 0%, hsla(339,49%,30%,0.05) 0, transparent 50%);
-    @apply tw-bg-slate-50;
+    @apply tw-bg-slate-50 dark:tw-bg-slate-950;
   }
   
-  .premium-bg-dark {
+  [data-theme="dark"] .premium-bg, .dark .premium-bg {
     background: radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
                 radial-gradient(at 50% 0%, hsla(225,39%,30%,0.2) 0, transparent 50%), 
                 radial-gradient(at 100% 0%, hsla(339,49%,30%,0.2) 0, transparent 50%);
-    @apply tw-bg-slate-950;
   }
 }
 
@@ -69,4 +65,15 @@
   [data-theme="dark"] .table-responsive table td:first-child {
     background-color: #1b2431;
   }
+}
+
+/* Global Micro-Interactions for BOTH stacks */
+button, .btn, .card, a {
+    transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, background-color 0.2s ease;
+}
+button:active:not(:disabled), .btn:active:not(:disabled) {
+    transform: scale(0.96);
+}
+a:active {
+    transform: scale(0.98);
 }

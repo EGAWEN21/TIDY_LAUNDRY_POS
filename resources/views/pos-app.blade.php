@@ -53,7 +53,9 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: #ffffff;
+            background-color: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             z-index: 99999;
             display: none; /* Hidden by default on website */
             flex-direction: column;
@@ -86,7 +88,7 @@
             100% { transform: scale(0.95); opacity: 0.8; }
         }
         body[data-theme="dark"] #pwa-splash {
-            background-color: #111827;
+            background-color: rgba(17, 24, 39, 0.75);
         }
         body[data-theme="dark"] #pwa-splash h2 {
             color: #f3f4f6;
@@ -108,11 +110,24 @@
     
     @php
         $user = auth()->user();
-        if (!session()->has('pos_api_token')) {
+        $isValid = false;
+        
+        // Ensure the token exists in session AND is mathematically valid in the database
+        if (session()->has('pos_api_token')) {
+            $plainTextToken = session()->get('pos_api_token');
+            $tokenModel = \Laravel\Sanctum\PersonalAccessToken::findToken($plainTextToken);
+            if ($tokenModel && (!$tokenModel->expires_at || $tokenModel->expires_at->isFuture())) {
+                $isValid = true;
+            }
+        }
+        
+        // If the token is missing, corrupted, or expired, instantly regenerate a fresh 12-hour token
+        if (!$isValid) {
             $user->tokens()->where('name', 'pos-pwa')->delete();
             $token = $user->createToken('pos-pwa', ['pos:access'], now()->addHours(12))->plainTextToken;
             session()->put('pos_api_token', $token);
         }
+        
         $posToken = session()->get('pos_api_token');
     @endphp
 
@@ -137,7 +152,7 @@
         // Register PWA Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js', { scope: '/admin/pos/' })
+                navigator.serviceWorker.register('/sw.js', { scope: '/' })
                 .then(registration => {
                     console.log('PWA ServiceWorker registered successfully');
                 })
@@ -162,14 +177,13 @@
         window.hidePwaSplash = function() {
             var splash = document.getElementById('pwa-splash');
             if (splash && !splash.classList.contains('splash-hidden')) {
-                splash.style.opacity = '0';
+                splash.style.display = 'none'; // Instant hide for speed
                 splash.classList.add('splash-hidden');
-                setTimeout(function() { splash.remove(); }, 500);
             }
         };
-        // Fallback in case Vue fails to mount
+        // Fallback in case Vue catastrophically fails
         window.addEventListener('load', function() {
-            setTimeout(window.hidePwaSplash, 3000);
+            setTimeout(window.hidePwaSplash, 5000); 
         });
     </script>
     <script src="{{ asset('assets/js/lib/jquery-3.7.1.min.js') }}"></script>
