@@ -22,6 +22,8 @@ class SecurityAudit extends Command
             'environment' => $this->environmentReport(),
             'privileged_users' => $this->privilegedUsers(),
             'access_artifacts' => $this->accessArtifacts(),
+            'token_inventory' => $this->tokenInventory(),
+            'session_inventory' => $this->sessionInventory(),
             'integration_endpoints' => $this->integrationEndpoints(),
             'credential_presence' => $this->credentialPresence(),
             'deployment_controls' => $this->deploymentControls(),
@@ -50,6 +52,31 @@ class SecurityAudit extends Command
                 $user['deleted'] ? 'yes' : 'no',
                 $user['token_count'],
                 $user['session_count'],
+            ])->all()
+        );
+
+        $this->newLine();
+        $this->line('API tokens:');
+        $this->table(
+            ['Owner', 'Email', 'Token name', 'Last used', 'Expires'],
+            collect($report['token_inventory'])->map(fn (array $token) => [
+                $token['owner_name'] ?? '[orphaned]',
+                $token['owner_email'] ?? '[orphaned]',
+                $token['name'],
+                $token['last_used_at'] ?? 'never',
+                $token['expires_at'] ?? 'never',
+            ])->all()
+        );
+
+        $this->newLine();
+        $this->line('Sessions grouped by owner:');
+        $this->table(
+            ['Owner', 'Email', 'Sessions', 'Last activity'],
+            collect($report['session_inventory'])->map(fn (array $session) => [
+                $session['owner_name'] ?? '[guest/orphaned]',
+                $session['owner_email'] ?? '[guest/orphaned]',
+                $session['count'],
+                $session['last_activity_at'] ?? 'unknown',
             ])->all()
         );
 
@@ -135,6 +162,85 @@ class SecurityAudit extends Command
         ];
     }
 
+    private function tokenInventory(): array
+    {
+        if (! Schema::hasTable('personal_access_tokens')) {
+            return [];
+        }
+
+        $columns = [
+            'personal_access_tokens.name',
+            'personal_access_tokens.tokenable_id',
+            'personal_access_tokens.tokenable_type',
+            'personal_access_tokens.created_at',
+            'personal_access_tokens.last_used_at',
+        ];
+        if (Schema::hasColumn('personal_access_tokens', 'expires_at')) {
+            $columns[] = 'personal_access_tokens.expires_at';
+        }
+
+        $hasUsers = Schema::hasTable('users');
+        if ($hasUsers) {
+            array_push($columns, 'users.name as owner_name', 'users.email as owner_email');
+        }
+
+        $query = DB::table('personal_access_tokens');
+        if ($hasUsers) {
+            $query->leftJoin('users', function ($join) {
+                $join->on('users.id', '=', 'personal_access_tokens.tokenable_id')
+                    ->where('personal_access_tokens.tokenable_type', '=', \App\Models\User::class);
+            });
+        }
+
+        return $query->orderBy('personal_access_tokens.created_at')->get($columns)
+            ->map(fn (object $token) => [
+                'owner_id' => $token->tokenable_id,
+                'owner_type' => $token->tokenable_type,
+                'owner_name' => $token->owner_name ?? null,
+                'owner_email' => $token->owner_email ?? null,
+                'name' => $token->name,
+                'created_at' => $token->created_at,
+                'last_used_at' => $token->last_used_at,
+                'expires_at' => $token->expires_at ?? null,
+                'orphaned' => ! isset($token->owner_email),
+            ])
+            ->all();
+    }
+
+    private function sessionInventory(): array
+    {
+        if (! Schema::hasTable('sessions') || ! Schema::hasColumn('sessions', 'user_id')) {
+            return [];
+        }
+
+        $hasUsers = Schema::hasTable('users');
+        $columns = ['sessions.user_id', DB::raw('count(*) as aggregate'), DB::raw('max(sessions.last_activity) as latest_activity')];
+        if ($hasUsers) {
+            array_push($columns, 'users.name as owner_name', 'users.email as owner_email');
+        }
+
+        $query = DB::table('sessions');
+        if ($hasUsers) {
+            $query->leftJoin('users', 'users.id', '=', 'sessions.user_id')
+                ->groupBy('sessions.user_id', 'users.name', 'users.email');
+        } else {
+            $query->groupBy('sessions.user_id');
+        }
+
+        return $query->orderBy('sessions.user_id')->get($columns)
+            ->map(fn (object $session) => [
+                'owner_id' => $session->user_id,
+                'owner_name' => $session->owner_name ?? null,
+                'owner_email' => $session->owner_email ?? null,
+                'count' => (int) $session->aggregate,
+                'last_activity_at' => $session->latest_activity
+                    ? date(DATE_ATOM, (int) $session->latest_activity)
+                    : null,
+                'guest_or_orphaned' => ! isset($session->owner_email),
+            ])
+            ->all();
+    }
+
     private function integrationEndpoints(): array
     {
         if (! Schema::hasTable('master_settings')) {
@@ -187,6 +293,8 @@ class SecurityAudit extends Command
             'root_license_file' => base_path('.lic'),
             'storage_license_file' => storage_path('.lic'),
             'legacy_license_controller' => app_path('Livewire/Installer/InstallController.php'),
+            'legacy_installer' => app_path('Livewire/Installer/InstallApp.php'),
+            'legacy_updater' => app_path('Livewire/Installer/UpdaterApp.php'),
             'legacy_license_helper' => app_path('ExpenseHelper.php'),
         ];
 

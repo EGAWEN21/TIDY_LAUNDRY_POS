@@ -58,6 +58,12 @@ class SecurityAuditCommandTest extends TestCase
             ->firstWhere('email', 'security-owner@example.com')['token_count']);
         $this->assertSame(1, collect($report['privileged_users'])
             ->firstWhere('email', 'security-owner@example.com')['session_count']);
+        $this->assertSame('security-owner@example.com', collect($report['token_inventory'])
+            ->firstWhere('name', 'audit-test-token')['owner_email']);
+        $this->assertSame(1, collect($report['session_inventory'])
+            ->firstWhere('owner_email', 'security-owner@example.com')['count']);
+        $this->assertFalse($report['deployment_controls']['routes']['install']);
+        $this->assertFalse($report['deployment_controls']['routes']['update']);
 
         $this->assertStringNotContainsString('super-secret-instance-token', $output);
         $this->assertStringNotContainsString('query-secret', $output);

@@ -128,7 +128,7 @@ class StaffList extends Component
         }
         if ($staff->is_active == 1) {
             $staff->is_active = 0;
-            $staff->tokens()->delete(); // Forcefully revoke API tokens
+            $staff->revokeAccessArtifacts();
         } elseif ($staff->is_active == 0) {
             $staff->is_active = 1;
         }
@@ -190,7 +190,7 @@ class StaffList extends Component
         $this->staff->role_id = $this->user_role;
         $this->staff->is_active = $this->is_active_edit ?? 0;
         if ($this->staff->is_active == 0) {
-            $this->staff->tokens()->delete(); // Forcefully revoke API tokens
+            $this->staff->revokeAccessArtifacts();
         }
 
         $viewable_staff_orders = null;
@@ -232,8 +232,9 @@ class StaffList extends Component
             return;
         }
 
-        $staff->tokens()->delete(); // Forcefully revoke API tokens
+        $staff->revokeAccessArtifacts();
         $staff->delete(); // Soft Delete
         $this->dispatch('alert', ['type' => 'success', 'message' => 'Staff moved to Recycle Bin!']);
     }
+
 }

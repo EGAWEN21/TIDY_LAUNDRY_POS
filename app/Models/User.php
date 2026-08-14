@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -56,6 +57,19 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function revokeAccessArtifacts(): void
+    {
+        if ($this->user_type == 1) {
+            return;
+        }
+
+        $this->tokens()->delete();
+        DB::table('sessions')->where('user_id', $this->id)->delete();
+        DB::table('users')->where('id', $this->id)->update(['current_session_id' => null]);
+        $this->current_session_id = null;
+        $this->syncOriginalAttribute('current_session_id');
     }
 
     /**

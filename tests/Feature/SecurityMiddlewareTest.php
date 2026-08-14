@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use Tests\TestCase;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 class SecurityMiddlewareTest extends TestCase
@@ -55,6 +56,59 @@ class SecurityMiddlewareTest extends TestCase
             ->getJson('/api/pos/init')
             ->assertForbidden()
             ->assertJson(['message' => 'Account is deactivated.']);
+    }
+
+    public function test_revoking_staff_access_removes_tokens_and_sessions_without_deactivating_other_staff(): void
+    {
+        $staff = User::create([
+            'name' => 'Revoked Staff',
+            'email' => 'revoked-staff@example.com',
+            'password' => bcrypt('password'),
+            'user_type' => 2,
+            'is_active' => 0,
+            'current_session_id' => 'revoked-current-session',
+        ]);
+        $otherStaff = User::create([
+            'name' => 'Other Staff',
+            'email' => 'other-staff@example.com',
+            'password' => bcrypt('password'),
+            'user_type' => 2,
+            'is_active' => 1,
+            'current_session_id' => 'other-current-session',
+        ]);
+        $staff->createToken('revoked-token');
+        $otherStaff->createToken('other-token');
+        $this->insertSession('revoked-session', $staff->id);
+        $this->insertSession('other-session', $otherStaff->id);
+
+        $staff->revokeAccessArtifacts();
+
+        $this->assertDatabaseMissing('personal_access_tokens', ['tokenable_id' => $staff->id]);
+        $this->assertDatabaseMissing('sessions', ['user_id' => $staff->id]);
+        $this->assertNull($staff->fresh()->current_session_id);
+        $this->assertTrue((bool) $otherStaff->fresh()->is_active);
+        $this->assertDatabaseHas('personal_access_tokens', ['tokenable_id' => $otherStaff->id]);
+        $this->assertDatabaseHas('sessions', ['user_id' => $otherStaff->id]);
+    }
+
+    public function test_revoking_access_artifacts_does_not_affect_a_super_admin(): void
+    {
+        $admin = User::create([
+            'name' => 'Protected Admin',
+            'email' => 'protected-admin@example.com',
+            'password' => bcrypt('password'),
+            'user_type' => 1,
+            'is_active' => 0,
+            'current_session_id' => 'admin-current-session',
+        ]);
+        $admin->createToken('admin-token');
+        $this->insertSession('admin-session', $admin->id);
+
+        $admin->revokeAccessArtifacts();
+
+        $this->assertSame('admin-current-session', $admin->fresh()->current_session_id);
+        $this->assertDatabaseHas('personal_access_tokens', ['tokenable_id' => $admin->id]);
+        $this->assertDatabaseHas('sessions', ['user_id' => $admin->id]);
     }
 
     public function test_it_blocks_pos_api_access_without_order_create_permission(): void
@@ -127,5 +181,17 @@ class SecurityMiddlewareTest extends TestCase
                          ->get('/dummy-protected');
 
         $response->assertRedirect('/');
+    }
+
+    private function insertSession(string $id, int $userId): void
+    {
+        DB::table('sessions')->insert([
+            'id' => $id,
+            'user_id' => $userId,
+            'ip_address' => '192.0.2.1',
+            'user_agent' => 'Test Agent',
+            'payload' => 'test-payload',
+            'last_activity' => now()->timestamp,
+        ]);
     }
 }
