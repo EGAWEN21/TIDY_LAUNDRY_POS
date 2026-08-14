@@ -86,6 +86,11 @@ const generateUUID = () => {
 };
 
 const createCustomer = async () => {
+  const userId = getCurrentPosUserId();
+  if (userId === null) {
+    toast.error('Your POS user identity is unavailable. Reload before creating offline customers.');
+    return;
+  }
   if(!customer_name.value || !customer_phone.value) {
     toast.error("Name and Phone required");
     return;
@@ -108,7 +113,7 @@ const createCustomer = async () => {
   
   // Add to sync queue
   await db.syncQueue.add({
-    user_id: getCurrentPosUserId(),
+    user_id: userId,
     uuid: cust.uuid,
     type: 'customer',
     data: cust,

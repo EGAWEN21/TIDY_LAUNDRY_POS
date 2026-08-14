@@ -1,11 +1,12 @@
 <template>
-<div v-if="pos.needsReAuth" class="reauth-overlay">
+
+<div v-if="pos.needsReAuth" class="reauth-overlay" role="dialog" aria-modal="true" aria-labelledby="reauth-title">
         <div class="reauth-modal">
             <div class="reauth-header">
                 <div class="icon-circle">
                     <iconify-icon icon="mdi:lock-reset" class="lock-icon"></iconify-icon>
                 </div>
-                <h2>Session Expired</h2>
+                <h2 id="reauth-title">Session Expired</h2>
                 <p>Please verify your identity to securely resume synchronization.</p>
             </div>
             
@@ -21,12 +22,15 @@
                 <div v-if="errorMessage" class="auth-error" role="alert">{{ errorMessage }}</div>
 
                 <div class="input-group">
-                    <label>Enter Password</label>
-                    <input 
-                        type="password" 
-                        v-model="password" 
-                        placeholder="••••••••" 
-                        required 
+                    <label for="reauth-password">Enter Password</label>
+                    <input
+                        id="reauth-password"
+                        name="password"
+                        autocomplete="current-password"
+                        type="password"
+                        v-model="password"
+                        placeholder="••••••••"
+                        required
                         autofocus
                     />
                 </div>
@@ -68,7 +72,7 @@ const handleReAuth = async () => {
             password: password.value
         });
 
-        const token = response.data.token;
+        const token = response.data?.data?.token ?? response.data?.token;
         if (!token) throw new Error('The server did not return an authentication token.');
 
         window.PosConfig.apiToken = token;
@@ -94,7 +98,7 @@ const handleReAuth = async () => {
         toast.success('Authentication successful. Synchronization resumed.');
     } catch (error) {
         const status = error.response?.status;
-        const serverMessage = error.response?.data?.message;
+        const serverMessage = error.response?.data?.message ?? error.response?.data?.data?.message;
         errorMessage.value = status === 401
             ? 'Invalid email or password.'
             : status === 403

@@ -117,7 +117,7 @@ const fetchQueue = async () => {
         if (pos.isOnline) {
             try {
                 const response = await axios.get('/api/pos/rejected-orders');
-                const rejected = response.data.rejected_orders || [];
+                const rejected = (response.data?.data ?? response.data)?.rejected_orders || [];
                 
                 const userId = getCurrentPosUserId();
                 if (userId !== null) {

@@ -20,7 +20,9 @@ Route::post('/whatsapp/webhook', [\App\Http\Controllers\WhatsAppWebhookControlle
 Route::get('/receipt/{uuid}', \App\Livewire\Orders\PrintOrder::class)->name('receipt.view');
 
 Route::get('/', \App\Livewire\Auth\Login::class)->name('login');
-Route::post('/admin/pos/ajax-login', [\App\Http\Controllers\Api\PosApiController::class, 'ajaxWebLogin'])->name('pos.ajax-login');
+Route::post('/admin/pos/ajax-login', [\App\Http\Controllers\Api\PosApiController::class, 'ajaxWebLogin'])
+    ->middleware('throttle:login')
+    ->name('pos.ajax-login');
 Route::group(['prefix' => 'admin', 'middleware' => ['auth', 'single.session']], function () {
     Route::get('/dashboard', \App\Livewire\HomePage::class)->name('admin.dashboard');
     Route::get('/notifications', \App\Livewire\System\Notifications::class)->name('notifications.index');

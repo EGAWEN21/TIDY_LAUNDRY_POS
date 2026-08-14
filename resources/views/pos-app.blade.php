@@ -31,7 +31,7 @@
     @vite('resources/css/app.css')
     
     <!-- PWA Manifest & Theme Color -->
-    <meta name="theme-color" content="#ffffff">
+    <meta name="theme-color" content="#1b2a47">
     <link rel="manifest" href="{{ url('/manifest.json') }}">
     
     <!-- iOS / Apple Meta Tags -->
@@ -87,11 +87,18 @@
             50% { transform: scale(1.05); opacity: 1; }
             100% { transform: scale(0.95); opacity: 0.8; }
         }
-        body[data-theme="dark"] #pwa-splash {
+        [data-theme="dark"] #pwa-splash {
             background-color: rgba(17, 24, 39, 0.75);
         }
-        body[data-theme="dark"] #pwa-splash h2 {
+        [data-theme="dark"] #pwa-splash h2 {
             color: #f3f4f6;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #pwa-splash,
+            #pwa-splash img {
+                animation: none;
+                transition: none;
+            }
         }
     </style>
     
@@ -137,30 +144,7 @@
             user: @json($user),
             permissions: @json($user->user_type == 1 ? ['all'] : ($user->role ? $user->role->permissions->pluck('permission_name')->toArray() : []))
         };
-        
-        // Request Persistent Storage to prevent accidental data loss
-        if (navigator.storage && navigator.storage.persist) {
-            navigator.storage.persist().then(persistent => {
-                if (persistent) {
-                    console.log('Storage will not be cleared except by explicit user action');
-                } else {
-                    console.log('Storage may be cleared by the UA under storage pressure.');
-                }
-            });
-        }
-        
-        // Register PWA Service Worker
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js', { scope: '/' })
-                .then(registration => {
-                    console.log('PWA ServiceWorker registered successfully');
-                })
-                .catch(err => {
-                    console.error('PWA ServiceWorker registration failed: ', err);
-                });
-            });
-        }
+
     </script>
 </head>
 

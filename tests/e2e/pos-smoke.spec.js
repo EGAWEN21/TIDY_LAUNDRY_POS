@@ -40,9 +40,9 @@ test.describe('POS route smoke coverage', () => {
         await login(page);
         await page.goto('/admin/pos');
         await expect(page.locator('#pos-app')).toBeVisible();
-        await expect(page.getByPlaceholder('Search Here')).toBeVisible();
+        await expect(page.getByPlaceholder('Search services')).toBeVisible();
 
-        const firstService = page.locator('a[data-bs-target="#servicetype"]').first();
+        const firstService = page.locator('button[data-bs-target="#servicetype"]').first();
         await expect(firstService).toBeVisible();
         await firstService.click();
         await page.locator('#servicetype button[type="submit"]').click();
@@ -99,7 +99,8 @@ test.describe('POS route smoke coverage', () => {
         await page.context().setOffline(false);
         const response = await syncResponse;
         expect(response.ok()).toBeTruthy();
-        const body = await response.json();
+        const responseBody = await response.json();
+        const body = responseBody.data ?? responseBody;
         expect(body.synced_orders).toHaveProperty(uuid);
         const firstServerId = body.synced_orders[uuid];
 
@@ -113,7 +114,8 @@ test.describe('POS route smoke coverage', () => {
                 },
                 body: JSON.stringify({ orders: [order] }),
             });
-            return { status: response.status, body: await response.json() };
+            const responseBody = await response.json();
+            return { status: response.status, body: responseBody.data ?? responseBody };
         }, queuedPayload);
 
         expect(replay.status).toBe(200);
@@ -145,9 +147,9 @@ test.describe('POS route smoke coverage', () => {
         await login(page);
         await page.goto('/admin/pos');
         await expect(page.locator('#pos-app')).toBeVisible();
-        await expect(page.getByPlaceholder('Search Here')).toBeVisible();
+        await expect(page.getByPlaceholder('Search services')).toBeVisible();
 
-        const firstService = page.locator('a[data-bs-target="#servicetype"]').first();
+        const firstService = page.locator('button[data-bs-target="#servicetype"]').first();
         await expect(firstService).toBeVisible();
         await firstService.click();
         await page.locator('#servicetype button[type="submit"]').click();
@@ -336,7 +338,11 @@ test.describe('POS route smoke coverage', () => {
             await route.fulfill({
                 status: 200,
                 contentType: 'application/json',
-                body: JSON.stringify({ synced_orders: syncedOrders, requires_approval: {}, failed })
+                body: JSON.stringify({
+                    success: true,
+                    message: 'Orders synchronized.',
+                    data: { synced_orders: syncedOrders, requires_approval: {}, failed }
+                })
             });
         });
 
@@ -380,9 +386,9 @@ test.describe('POS route smoke coverage', () => {
         await login(page);
         await page.goto('/admin/pos');
         await expect(page.locator('#pos-app')).toBeVisible();
-        await expect(page.getByPlaceholder('Search Here')).toBeVisible();
+        await expect(page.getByPlaceholder('Search services')).toBeVisible();
 
-        const firstService = page.locator('a[data-bs-target="#servicetype"]').first();
+        const firstService = page.locator('button[data-bs-target="#servicetype"]').first();
         await firstService.click();
         await page.locator('#servicetype button[type="submit"]').click();
         await page.context().setOffline(true);
@@ -476,7 +482,7 @@ test.describe('POS route smoke coverage', () => {
         await expect.poll(async () => page.evaluate(async () => {
             if (!('serviceWorker' in navigator)) return false;
             const registrations = await navigator.serviceWorker.getRegistrations();
-            return registrations.some(registration => registration.scope.includes('/admin/pos'));
+            return registrations.some(registration => registration.active?.scriptURL.endsWith('/sw.js'));
         })).toBe(true);
     });
 });

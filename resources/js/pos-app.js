@@ -3,6 +3,7 @@ import { createPinia } from 'pinia';
 import PosApp from './vue/PosApp.vue';
 import Vue3Toastify, { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
+import { registerSW } from 'virtual:pwa-register';
 
 const app = createApp(PosApp);
 const pinia = createPinia();
@@ -14,6 +15,21 @@ app.use(Vue3Toastify, {
   theme: 'colored'
 });
 app.mount('#pos-app');
+
+const updateServiceWorker = registerSW({
+    immediate: true,
+    onNeedRefresh() {
+        window.dispatchEvent(new CustomEvent('pwa-update-ready'));
+    },
+    onOfflineReady() {
+        window.dispatchEvent(new CustomEvent('pwa-offline-ready'));
+    },
+    onRegisterError(error) {
+        console.error('PWA service worker registration failed:', error);
+    }
+});
+
+window.addEventListener('pwa-apply-update', () => updateServiceWorker(true));
 
 // Global Navigation Guard & Premium Transition Bridge
 document.addEventListener('click', function(event) {

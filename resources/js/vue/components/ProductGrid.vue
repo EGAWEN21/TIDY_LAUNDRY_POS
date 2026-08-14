@@ -1,6 +1,6 @@
 <template>
     <div class="tw-flex tw-flex-col">
-        <div class="icon-field has-validation">
+        <div class="icon-field">
             <span class="icon tw-translate-y-[2px]">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
                     class="bi bi-search" viewBox="0 0 16 16">
@@ -8,14 +8,14 @@
                         d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0" />
                 </svg>
             </span>
-            <input type="text" class="form-control" v-model="internalSearch"
-                placeholder="Search Here" required="">
+            <input id="service-search" type="search" class="form-control" v-model="internalSearch"
+                placeholder="Search services" aria-label="Search services" autocomplete="off">
         </div>
         <div
             class="tw-w-full tw-h-[calc(100vh-9rem)] tw-overflow-y-scroll custom-scroll tw-mt-4 tw-flex tw-px-1 tw-pb-4">
             <div class="tw-grid tw-grid-cols-2 lg:tw-grid-cols-3 xl:tw-grid-cols-4 tw-gap-4 tw-h-fit tw-w-full">
                 <template v-for="item in filteredServices" :key="item.id">
-                    <a type="button" class="tw-block tw-h-full tw-w-full tw-group" data-bs-toggle="modal"
+                    <button type="button" class="tw-block tw-h-full tw-w-full tw-group tw-border-0 tw-bg-transparent tw-p-0 tw-text-inherit" data-bs-toggle="modal"
                         data-bs-target="#servicetype" @click="$emit('select-service', item)">
                         <div class="tw-bg-white/60 dark:tw-bg-slate-800/60 tw-backdrop-blur-sm tw-border tw-border-white/20 dark:tw-border-white/5 tw-shadow-sm tw-rounded-2xl tw-transition-all tw-duration-300 hover:tw-shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:hover:tw-shadow-[0_8px_30px_rgb(0,0,0,0.4)] hover:-tw-translate-y-1.5 tw-h-full">
                             <div
@@ -27,7 +27,7 @@
                                 </template>
                                 <template v-else>
                                     <div class="tw-w-[40%] md:tw-w-20 tw-aspect-square tw-flex tw-items-center tw-justify-center tw-bg-slate-50/50 dark:tw-bg-slate-900/50 tw-rounded-xl tw-overflow-hidden">
-                                        <img :src="'/assets/img/service-icons/' + item.icon" class="tw-h-full tw-w-full tw-object-contain tw-rounded-xl tw-transition-transform tw-duration-500 group-hover:tw-scale-110">
+                                        <img :src="'/assets/img/service-icons/' + item.icon" :alt="item.service_name" loading="lazy" class="tw-h-full tw-w-full tw-object-contain tw-rounded-xl tw-transition-transform tw-duration-500 group-hover:tw-scale-110">
                                     </div>
                                 </template>
                                 <div
@@ -37,7 +37,7 @@
                                 </div>
                             </div>
                         </div>
-                    </a>
+                    </button>
                 </template>
             </div>
         </div>

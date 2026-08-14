@@ -21,13 +21,30 @@ export default defineConfig({
             outDir: 'public',
             buildBase: '/build/',
             scope: '/',
-            registerType: 'autoUpdate',
+            registerType: 'prompt',
             injectRegister: false,
             manifest: false,
             workbox: {
                 navigateFallback: null,
                 importScripts: ['/sw-fallback.js'],
-                globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,ttf,eot}'],
+                // Precache only the offline POS shell. Caching the entire admin theme adds
+                // hundreds of unrelated dashboard, editor, chat, and report assets.
+                globPatterns: [
+                    'build/assets/**/*.{js,css}',
+                    'offline.html',
+                    'sw-fallback.js',
+                    'favicon.ico',
+                    'assets/css/{style,custom,remixicon}.css',
+                    'assets/css/lib/bootstrap.min.css',
+                    'assets/plugins/toastr.min.{css,js}',
+                    'assets/js/app.js',
+                    'assets/js/lib/{jquery-3.7.1.min,bootstrap.bundle.min,iconify-icon.min,jquery-ui.min}.js',
+                    'assets/img/service-icons/*.{png,jpg,jpeg,webp,svg}',
+                    'assets/images/{logo-192,logo-512,apple-touch-icon,favicon,arrow-down,times}.png',
+                    'assets/images/payment/upload-image.png',
+                    'assets/images/user-grid/user-grid-img13.png',
+                    'assets/fonts/remixicon.{woff,woff2,ttf,eot,svg}'
+                ],
                 runtimeCaching: [
                     {
                         urlPattern: /\/admin\/pos\/?$/,

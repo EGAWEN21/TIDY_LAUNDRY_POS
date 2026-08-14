@@ -142,6 +142,21 @@ class SecurityMiddlewareTest extends TestCase
         ])->assertTooManyRequests();
     }
 
+    public function test_it_throttles_repeated_pos_reauthentication_failures(): void
+    {
+        for ($attempt = 1; $attempt <= 5; $attempt++) {
+            $this->postJson('/admin/pos/ajax-login', [
+                'email' => 'missing-reauth@example.com',
+                'password' => 'incorrect',
+            ])->assertUnauthorized();
+        }
+
+        $this->postJson('/admin/pos/ajax-login', [
+            'email' => 'missing-reauth@example.com',
+            'password' => 'incorrect',
+        ])->assertTooManyRequests();
+    }
+
     public function test_it_allows_inactive_super_admins(): void
     {
         $admin = User::first(); // Super admin user_type = 1

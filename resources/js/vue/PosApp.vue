@@ -1,23 +1,20 @@
 <template>
 <ReAuthModal />
 <SyncQueueModal />
-<div v-if="fatalError" class="tw-absolute tw-inset-0 tw-z-50 tw-bg-red-50 tw-text-red-900 tw-p-8 tw-overflow-y-auto">
-    <h1 class="tw-text-2xl tw-font-bold tw-mb-4">Fatal UI Error</h1>
-    <pre class="tw-whitespace-pre-wrap tw-text-sm">{{ fatalError }}</pre>
-    <button @click="fatalError = null" class="tw-mt-4 tw-px-4 tw-py-2 tw-bg-red-600 tw-text-white tw-rounded">Dismiss</button>
+<div v-if="fatalError" class="tw-absolute tw-inset-0 tw-z-50 tw-bg-red-50 tw-text-red-900 tw-p-8 tw-overflow-y-auto" role="alert">
+    <h1 class="tw-text-2xl tw-font-bold tw-mb-2">The POS interface hit an unexpected error</h1>
+    <p class="tw-text-sm">Your offline queue remains stored safely. Reload the app, or contact support if this continues.</p>
+    <button @click="reloadPage" class="tw-mt-4 tw-px-4 tw-py-2 tw-bg-red-600 tw-text-white tw-rounded">Reload POS</button>
 </div>
 <div class="premium-bg tw-w-full tw-min-h-screen tw-transition-colors tw-duration-300">
     <div class="glass-panel tw-w-full tw-flex tw-justify-between tw-items-center tw-shadow-sm tw-border-b tw-z-10 tw-relative">
         <div class="tw-flex tw-gap-2 tw-px-3 tw-py-2 tw-items-center">
-            <a href="/admin/orders" class="no-underline">
-                <button
-                    class="bg-primary-600 tw-text-white tw-text-xs radius-8 px-20 tw-py-2 d-flex align-items-center gap-2">
+            <a href="/admin/orders" class="no-underline bg-primary-600 tw-text-white tw-text-xs radius-8 px-20 tw-py-2 d-flex align-items-center gap-2" aria-label="Back to orders">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5"
                         stroke="currentColor" class="tw-size-4">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
                     </svg>
                     <span class="tw-hidden sm:tw-inline">Back</span>
-                </button>
             </a>
             
             <template v-if="detached">
@@ -46,7 +43,7 @@
                 </button>
             </template>
             
-            <div class="tw-ml-4 tw-flex tw-items-center">
+            <div class="tw-ml-4 tw-flex tw-items-center" role="status" aria-live="polite">
                 <span v-if="pos.isOnline" class="tw-bg-green-100 tw-text-green-800 tw-text-xs tw-font-bold tw-px-3 tw-py-1.5 tw-rounded tw-shadow-sm tw-flex tw-items-center tw-gap-1">
                     <span class="tw-w-2 tw-h-2 tw-bg-green-500 tw-rounded-full"></span> <span class="tw-hidden sm:tw-inline">Online</span>
                 </span>
@@ -87,6 +84,14 @@
     </div>
     </div>
 
+    <div v-if="updateReady" class="tw-fixed tw-z-[60] tw-bottom-4 tw-left-1/2 -tw-translate-x-1/2 tw-w-[calc(100%-2rem)] sm:tw-w-auto tw-max-w-xl tw-rounded-2xl tw-border tw-border-blue-200/70 dark:tw-border-blue-700/60 tw-bg-white/95 dark:tw-bg-slate-900/95 tw-backdrop-blur-xl tw-shadow-2xl tw-p-4 tw-flex tw-items-center tw-gap-4" role="status" aria-live="polite">
+        <div class="tw-min-w-0 tw-flex-1">
+            <p class="tw-m-0 tw-font-semibold tw-text-slate-900 dark:tw-text-white">A new POS version is ready</p>
+            <p class="tw-m-0 tw-mt-1 tw-text-xs tw-text-slate-600 dark:tw-text-slate-300">Update now for the latest fixes. Your cart and offline queue are preserved.</p>
+        </div>
+        <button @click="applyUpdate" class="tw-shrink-0 tw-rounded-xl tw-bg-blue-600 hover:tw-bg-blue-700 tw-px-4 tw-py-2 tw-text-sm tw-font-semibold tw-text-white tw-border-0">Update</button>
+        <button @click="updateReady = false" class="tw-shrink-0 tw-rounded-lg tw-p-2 tw-text-slate-500 hover:tw-bg-slate-100 dark:hover:tw-bg-slate-800 tw-border-0 tw-bg-transparent" aria-label="Dismiss update notification">&times;</button>
+    </div>
 
     <Teleport to="body">
         <ServiceTypeModal :availableServiceTypes="availableServiceTypes" :currency="pos.settings.currency" @add-items="addItems" />
@@ -99,7 +104,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch, onErrorCaptured } from 'vue';
+import { ref, computed, onMounted, onUnmounted, onErrorCaptured } from 'vue';
 import { usePosStore } from '../stores/posStore';
 import { db, getCurrentPosUserId } from '../db';
 import PaymentModal from './components/PaymentModal.vue';
@@ -118,7 +123,7 @@ const pos = usePosStore();
 
 const fatalError = ref(null);
 onErrorCaptured((err, instance, info) => {
-    fatalError.value = `${err.name}: ${err.message}\n\nStack:\n${err.stack}\n\nInfo:\n${info}`;
+    fatalError.value = true;
     console.error('Captured Vue Error:', err, info);
     return false; // Prevent further propagation
 });
@@ -136,14 +141,12 @@ const generateUUID = () => {
 const searchQuery = ref('');
 const selected_type = ref(null);
 const shown = ref(false);
-
-
 const detached = ref(false);
-const isMobileCartView = ref(false);
 
 // PWA Install State
 const showInstallButton = ref(false);
 const deferredPrompt = ref(null);
+const updateReady = ref(false);
 
 const installApp = async () => {
   if (!deferredPrompt.value) return;
@@ -159,15 +162,42 @@ const checkDetached = () => {
     detached.value = window.innerWidth < 1024;
 };
 
+const handleStorageChange = (event) => {
+    if (event.key !== 'theme') return;
+    isDarkMode.value = event.newValue === 'dark';
+    document.documentElement.toggleAttribute('data-theme', isDarkMode.value);
+    if (isDarkMode.value) document.documentElement.setAttribute('data-theme', 'dark');
+};
+
+const handleInstallPrompt = (event) => {
+    event.preventDefault();
+    deferredPrompt.value = event;
+    showInstallButton.value = true;
+};
+
+const handleAppInstalled = () => {
+    deferredPrompt.value = null;
+    showInstallButton.value = false;
+    toast.success('POS installed successfully.');
+};
+
+const handleUpdateReady = () => {
+    updateReady.value = true;
+};
+
+const handleOfflineReady = () => {
+    toast.info('Offline mode is ready. You can keep taking orders without a connection.');
+};
+
+const applyUpdate = () => {
+    window.dispatchEvent(new CustomEvent('pwa-apply-update'));
+};
+
+const reloadPage = () => window.location.reload();
+
 // Service Selection State
-const showServiceTypeModal = ref(false);
 const selectedService = ref(null);
 const availableServiceTypes = ref([]);
-
-// Customer State
-const customerQuery = ref('');
-const showNewCustomerModal = ref(false);
-const newCustomer = ref({ name: '', phone: '' });
 
 // Theme Logic
 const isDarkMode = ref(localStorage.getItem('theme') === 'dark');
@@ -186,30 +216,17 @@ onMounted(async () => {
       document.documentElement.setAttribute('data-theme', 'dark');
   }
   
-  // Listen for cross-tab theme changes
-  window.addEventListener('storage', (e) => {
-      if (e.key === 'theme') {
-          isDarkMode.value = e.newValue === 'dark';
-          if (isDarkMode.value) {
-              document.documentElement.setAttribute('data-theme', 'dark');
-          } else {
-              document.documentElement.removeAttribute('data-theme');
-          }
-      }
-  });
+  window.addEventListener('storage', handleStorageChange);
 
   // Check if app is already installed
   if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
       showInstallButton.value = false;
   }
 
-  // Listen for the browser's signal that the PWA can be installed
-  window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt.value = e;
-      showInstallButton.value = true;
-  });
-
+  window.addEventListener('beforeinstallprompt', handleInstallPrompt);
+  window.addEventListener('appinstalled', handleAppInstalled);
+  window.addEventListener('pwa-update-ready', handleUpdateReady);
+  window.addEventListener('pwa-offline-ready', handleOfflineReady);
   checkDetached();
   window.addEventListener('resize', checkDetached);
   await pos.initialize();
@@ -222,6 +239,12 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', checkDetached);
+  window.removeEventListener('storage', handleStorageChange);
+  window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
+  window.removeEventListener('appinstalled', handleAppInstalled);
+  window.removeEventListener('pwa-update-ready', handleUpdateReady);
+  window.removeEventListener('pwa-offline-ready', handleOfflineReady);
+  pos.dispose();
 });
 
 // Computed properties

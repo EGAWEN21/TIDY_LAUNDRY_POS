@@ -77,3 +77,25 @@ button:active:not(:disabled), .btn:active:not(:disabled) {
 a:active {
     transform: scale(0.98);
 }
+
+:where(button, a, input, select, textarea):focus-visible {
+    outline: 3px solid rgba(37, 99, 235, 0.55);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    button:active:not(:disabled),
+    .btn:active:not(:disabled),
+    a:active {
+        transform: none;
+    }
+}

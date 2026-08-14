@@ -10,6 +10,8 @@ import {
 import axios from 'axios';
 import { useSyncEngine } from '../composables/useSyncEngine';
 
+const unwrapApiData = (response) => response?.data?.data ?? response?.data ?? {};
+
 export const usePosStore = defineStore('pos', {
     state: () => ({
         services: [],
@@ -34,6 +36,9 @@ export const usePosStore = defineStore('pos', {
         lastSyncTimestamp: 0,
         needsReAuth: false,
         syncErrors: 0,
+        backgroundUpdateTimer: null,
+        unsubscribeFromPersistence: null,
+        isInitialized: false,
     }),
     
     getters: {
@@ -106,6 +111,9 @@ export const usePosStore = defineStore('pos', {
 
     actions: {
         async initialize() {
+            if (this.isInitialized) return;
+            this.isInitialized = true;
+
             // Request persistent storage to prevent silent eviction
             if (navigator.storage && navigator.storage.persist) {
                 navigator.storage.persist().then(granted => {
@@ -139,7 +147,7 @@ export const usePosStore = defineStore('pos', {
             }
 
             // Background Auto-Updater Engine
-            setInterval(async () => {
+            this.backgroundUpdateTimer = window.setInterval(async () => {
                 if(this.isOnline && !this.isSyncing) {
                     // Pause background polling if cart is active or if there are items in the queue
                     const actionableQueueCount = await db.syncQueue
@@ -155,7 +163,7 @@ export const usePosStore = defineStore('pos', {
 
                     try {
                         const res = await axios.get('/api/pos/check-update');
-                        if(res.data.timestamp > this.lastSyncTimestamp) {
+                        if(unwrapApiData(res).timestamp > this.lastSyncTimestamp) {
                             console.log('Background Sync: Updates detected. Silently updating local database...');
                             await this.fetchFromServer();
                         }
@@ -166,7 +174,7 @@ export const usePosStore = defineStore('pos', {
             }, 60000); // 60 seconds
 
             // Persist cart state to IndexedDB on every mutation
-            this.$subscribe(async (mutation, state) => {
+            this.unsubscribeFromPersistence = this.$subscribe(async (mutation, state) => {
                 if (!window.PosConfig || !window.PosConfig.user) return;
                 
                 try {
@@ -196,13 +204,23 @@ export const usePosStore = defineStore('pos', {
             });
         },
 
-        updateOnlineStatus(e) {
+        dispose() {
+            window.removeEventListener('online', this.updateOnlineStatus);
+            window.removeEventListener('offline', this.updateOnlineStatus);
+            if (this.backgroundUpdateTimer) window.clearInterval(this.backgroundUpdateTimer);
+            if (this.unsubscribeFromPersistence) this.unsubscribeFromPersistence();
+            this.backgroundUpdateTimer = null;
+            this.unsubscribeFromPersistence = null;
+            this.isInitialized = false;
+        },
+
+        updateOnlineStatus() {
             this.isOnline = navigator.onLine;
             if(this.isOnline) {
                 this.syncOfflineData();
                 // Also trigger an immediate check for updates when coming online
                 axios.get('/api/pos/check-update').then(async res => {
-                    if(res.data.timestamp > this.lastSyncTimestamp) {
+                    if(unwrapApiData(res).timestamp > this.lastSyncTimestamp) {
                         const actionableQueueCount = await db.syncQueue
                                                 .filter(item => isOwnedByCurrentPosUser(item) && isSyncEligible(item))
                                                 .count();
@@ -210,7 +228,7 @@ export const usePosStore = defineStore('pos', {
                             this.fetchFromServer();
                         }
                     }
-                }).catch(err => {});
+                }).catch(() => {});
             }
         },
 

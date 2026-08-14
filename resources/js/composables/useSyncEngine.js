@@ -1,6 +1,8 @@
 import { db, acquireSyncLock, classifySyncError, getCurrentPosUserId, getRetryDelay, isOwnedByCurrentPosUser, isSyncEligible } from '../db';
 import axios from 'axios';
 
+const unwrapApiData = (response) => response?.data?.data ?? response?.data ?? {};
+
 export function useSyncEngine() {
     const chunkArray = (array, size) => {
         const result = [];
@@ -108,16 +110,17 @@ export function useSyncEngine() {
                 try {
                     const payload = chunk.map(p => p.data);
                     const response = await axios.post('/api/pos/sync-orders', { orders: payload });
+                    const result = unwrapApiData(response);
                     
-                    if(response.data.synced_orders) {
-                        for(let uuid in response.data.synced_orders) {
-                            syncResult.syncedOrders[uuid] = response.data.synced_orders[uuid];
-                            if (response.data.requires_approval) {
-                                syncResult.requiresApproval[uuid] = response.data.requires_approval[uuid];
+                    if(result.synced_orders) {
+                        for(const uuid in result.synced_orders) {
+                            syncResult.syncedOrders[uuid] = result.synced_orders[uuid];
+                            if (result.requires_approval) {
+                                syncResult.requiresApproval[uuid] = result.requires_approval[uuid];
                             }
                             const item = chunk.find(p => p.data.uuid === uuid);
                             if (item) {
-                                const requiresApproval = response.data.requires_approval?.[uuid];
+                                const requiresApproval = result.requires_approval?.[uuid];
                                 if (requiresApproval) {
                                     await db.syncQueue.update(item.id, {
                                         status: 'pending_approval',
@@ -133,16 +136,16 @@ export function useSyncEngine() {
                         }
                     }
 
-                    if (response.data.failed) {
-                        for(let uuid in response.data.failed) {
+                    if (result.failed && Object.keys(result.failed).length > 0) {
+                        for(const uuid in result.failed) {
                             const item = chunk.find(p => p.data.uuid === uuid);
                             if (item) {
-                                await markPermanentItemFailure(item, response.data.failed[uuid]);
+                                await markPermanentItemFailure(item, result.failed[uuid]);
                             }
                         }
                         syncResult.success = false;
                         syncResult.outcome = 'partial_failure';
-                        Object.assign(syncResult.failed, response.data.failed);
+                        Object.assign(syncResult.failed, result.failed);
                     }
                 } catch (error) {
                     const failureStatus = await updateChunkFailure(
@@ -168,9 +171,10 @@ export function useSyncEngine() {
                 try {
                     const payload = chunk.map(p => p.data);
                     const response = await axios.post('/api/pos/sync-customers', { customers: payload });
+                    const result = unwrapApiData(response);
                     
-                    if(response.data.synced_customers) {
-                        for(let uuid in response.data.synced_customers) {
+                    if(result.synced_customers) {
+                        for(const uuid in result.synced_customers) {
                             const item = chunk.find(p => p.data.uuid === uuid);
                             if(item) {
                                 await db.syncQueue.delete(item.id);
@@ -180,14 +184,14 @@ export function useSyncEngine() {
                         }
                     }
 
-                    if (response.data.failed) {
+                    if (result.failed && Object.keys(result.failed).length > 0) {
                         syncResult.success = false;
                         syncResult.outcome = 'partial_failure';
-                        Object.assign(syncResult.failed, response.data.failed);
-                        for(let uuid in response.data.failed) {
+                        Object.assign(syncResult.failed, result.failed);
+                        for(const uuid in result.failed) {
                             const item = chunk.find(p => p.data.uuid === uuid);
                             if (item) {
-                                await markPermanentItemFailure(item, response.data.failed[uuid]);
+                                await markPermanentItemFailure(item, result.failed[uuid]);
                             }
                         }
                     }
