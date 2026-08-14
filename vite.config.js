@@ -19,9 +19,9 @@ export default defineConfig({
         }),
         VitePWA({
             outDir: 'public',
-            buildBase: '/build/',
+            buildBase: '/',
             scope: '/',
-            registerType: 'prompt',
+            registerType: 'autoUpdate',
             injectRegister: false,
             manifest: false,
             workbox: {

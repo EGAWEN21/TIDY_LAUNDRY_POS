@@ -16,11 +16,8 @@ app.use(Vue3Toastify, {
 });
 app.mount('#pos-app');
 
-const updateServiceWorker = registerSW({
+registerSW({
     immediate: true,
-    onNeedRefresh() {
-        window.dispatchEvent(new CustomEvent('pwa-update-ready'));
-    },
     onOfflineReady() {
         window.dispatchEvent(new CustomEvent('pwa-offline-ready'));
     },
@@ -28,8 +25,6 @@ const updateServiceWorker = registerSW({
         console.error('PWA service worker registration failed:', error);
     }
 });
-
-window.addEventListener('pwa-apply-update', () => updateServiceWorker(true));
 
 // Global Navigation Guard & Premium Transition Bridge
 document.addEventListener('click', function(event) {

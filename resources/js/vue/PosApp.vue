@@ -84,15 +84,6 @@
     </div>
     </div>
 
-    <div v-if="updateReady" class="tw-fixed tw-z-[60] tw-bottom-4 tw-left-1/2 -tw-translate-x-1/2 tw-w-[calc(100%-2rem)] sm:tw-w-auto tw-max-w-xl tw-rounded-2xl tw-border tw-border-blue-200/70 dark:tw-border-blue-700/60 tw-bg-white/95 dark:tw-bg-slate-900/95 tw-backdrop-blur-xl tw-shadow-2xl tw-p-4 tw-flex tw-items-center tw-gap-4" role="status" aria-live="polite">
-        <div class="tw-min-w-0 tw-flex-1">
-            <p class="tw-m-0 tw-font-semibold tw-text-slate-900 dark:tw-text-white">A new POS version is ready</p>
-            <p class="tw-m-0 tw-mt-1 tw-text-xs tw-text-slate-600 dark:tw-text-slate-300">Update now for the latest fixes. Your cart and offline queue are preserved.</p>
-        </div>
-        <button @click="applyUpdate" class="tw-shrink-0 tw-rounded-xl tw-bg-blue-600 hover:tw-bg-blue-700 tw-px-4 tw-py-2 tw-text-sm tw-font-semibold tw-text-white tw-border-0">Update</button>
-        <button @click="updateReady = false" class="tw-shrink-0 tw-rounded-lg tw-p-2 tw-text-slate-500 hover:tw-bg-slate-100 dark:hover:tw-bg-slate-800 tw-border-0 tw-bg-transparent" aria-label="Dismiss update notification">&times;</button>
-    </div>
-
     <Teleport to="body">
         <ServiceTypeModal :availableServiceTypes="availableServiceTypes" :currency="pos.settings.currency" @add-items="addItems" />
         <NotesModal />
@@ -146,7 +137,6 @@ const detached = ref(false);
 // PWA Install State
 const showInstallButton = ref(false);
 const deferredPrompt = ref(null);
-const updateReady = ref(false);
 
 const installApp = async () => {
   if (!deferredPrompt.value) return;
@@ -181,16 +171,8 @@ const handleAppInstalled = () => {
     toast.success('POS installed successfully.');
 };
 
-const handleUpdateReady = () => {
-    updateReady.value = true;
-};
-
 const handleOfflineReady = () => {
     toast.info('Offline mode is ready. You can keep taking orders without a connection.');
-};
-
-const applyUpdate = () => {
-    window.dispatchEvent(new CustomEvent('pwa-apply-update'));
 };
 
 const reloadPage = () => window.location.reload();
@@ -225,7 +207,6 @@ onMounted(async () => {
 
   window.addEventListener('beforeinstallprompt', handleInstallPrompt);
   window.addEventListener('appinstalled', handleAppInstalled);
-  window.addEventListener('pwa-update-ready', handleUpdateReady);
   window.addEventListener('pwa-offline-ready', handleOfflineReady);
   checkDetached();
   window.addEventListener('resize', checkDetached);
@@ -242,7 +223,6 @@ onUnmounted(() => {
   window.removeEventListener('storage', handleStorageChange);
   window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
   window.removeEventListener('appinstalled', handleAppInstalled);
-  window.removeEventListener('pwa-update-ready', handleUpdateReady);
   window.removeEventListener('pwa-offline-ready', handleOfflineReady);
   pos.dispose();
 });

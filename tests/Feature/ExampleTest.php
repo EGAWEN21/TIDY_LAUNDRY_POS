@@ -24,4 +24,27 @@ class ExampleTest extends TestCase
             ->assertHeader('Content-Type', 'application/javascript')
             ->assertHeader('Service-Worker-Allowed', '/');
     }
+
+    public function test_the_offline_pos_uses_the_automatic_service_worker_lifecycle(): void
+    {
+        $viteConfig = file_get_contents(base_path('vite.config.js'));
+        $posSource = file_get_contents(resource_path('js/pos-app.js'));
+        $serviceWorker = file_get_contents(public_path('sw.js'));
+        $manifest = json_decode(file_get_contents(public_path('build/manifest.json')), true, flags: JSON_THROW_ON_ERROR);
+        $posBundle = file_get_contents(public_path('build/'.$manifest['resources/js/pos-app.js']['file']));
+
+        $this->assertStringContainsString("buildBase: '/'", $viteConfig);
+        $this->assertStringContainsString("registerType: 'autoUpdate'", $viteConfig);
+        $this->assertStringNotContainsString('pwa-update-ready', $posSource);
+        $this->assertStringNotContainsString('pwa-apply-update', $posSource);
+
+        $this->assertStringContainsString('new b("/sw.js"', $posBundle);
+        $this->assertStringNotContainsString('new b("/build/sw.js"', $posBundle);
+        $this->assertStringContainsString('window.location.reload()', $posBundle);
+
+        $this->assertStringContainsString('skipWaiting', $serviceWorker);
+        $this->assertStringContainsString('offline.html', $serviceWorker);
+        $this->assertStringContainsString('pos-html-cache', $serviceWorker);
+        $this->assertSame(58, substr_count($serviceWorker, '{url:"'));
+    }
 }
