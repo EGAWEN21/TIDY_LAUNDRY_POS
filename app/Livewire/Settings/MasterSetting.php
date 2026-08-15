@@ -160,10 +160,10 @@ class MasterSetting extends Component
                 // --- NEW PWA LOGIC ---
                 // Generate perfectly squared icons for PWA and replace the static ones in public/assets/images
                 $imgPwa192 = Image::decodePath($this->default_logo->getRealPath());
-                $imgPwa192->scaleDown(110, 110)->pad(192, 192, '#00000000')->save(public_path('assets/images/logo-192.png'));
+                $imgPwa192->scaleDown(110, 110)->resizeCanvas(192, 192, '#00000000')->save(public_path('assets/images/logo-192.png'));
 
                 $imgPwa512 = Image::decodePath($this->default_logo->getRealPath());
-                $imgPwa512->scaleDown(280, 280)->pad(512, 512, '#00000000')->save(public_path('assets/images/logo-512.png'));
+                $imgPwa512->scaleDown(280, 280)->resizeCanvas(512, 512, '#00000000')->save(public_path('assets/images/logo-512.png'));
             } catch (\Exception $e) {
                 \Illuminate\Support\Facades\Log::error("Logo upload failed: " . $e->getMessage());
             }
