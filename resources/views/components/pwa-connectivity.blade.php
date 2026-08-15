@@ -33,10 +33,11 @@
     <div class="offline-card">
         <img src="{{ asset('assets/images/logo-192.png') }}" alt="">
         <h2 id="offline-choice-title">You're offline</h2>
-        <p>This screen needs an internet connection. Reconnect to continue here, or keep taking orders in Offline POS.</p>
+        <p id="offline-desc">This screen needs an internet connection. Reconnect to continue here, or keep taking orders in Offline POS.</p>
         <div class="offline-actions">
             <button id="offline-reconnect" type="button">Reconnect</button>
             <a id="offline-pos-link" href="{{ url('/admin/pos') }}" hidden>Continue in Offline POS</a>
+            <button id="offline-ok" type="button" style="display:none; color: #1d4ed8; background: #eff6ff;">OK</button>
         </div>
         <p id="offline-status" class="offline-status" aria-live="polite"></p>
     </div>
@@ -49,6 +50,8 @@
         var status = document.getElementById('offline-status');
         var reconnect = document.getElementById('offline-reconnect');
         var posLink = document.getElementById('offline-pos-link');
+        var offlineDesc = document.getElementById('offline-desc');
+        var offlineOk = document.getElementById('offline-ok');
         var offlinePosReady = false;
 
         try {
@@ -58,6 +61,18 @@
         if (posLink) posLink.hidden = !offlinePosReady;
 
         function showOfflineChoice(destination) {
+            var isPosPage = window.location.pathname.endsWith('/admin/pos') || window.location.pathname.includes('/admin/pos?');
+            
+            if (isPosPage) {
+                if (offlineDesc) offlineDesc.textContent = "You don't have internet connection. Connect back to the internet to access other screens.";
+                if (posLink) posLink.style.display = 'none';
+                if (offlineOk) offlineOk.style.display = 'flex';
+            } else {
+                if (offlineDesc) offlineDesc.textContent = "This screen needs an internet connection. Reconnect to continue here, or keep taking orders in Offline POS.";
+                if (posLink) posLink.style.display = '';
+                if (offlineOk) offlineOk.style.display = 'none';
+            }
+
             if (destination) {
                 if (offlinePosReady && (destination.endsWith('/admin/pos') || destination.includes('/admin/pos?'))) {
                     window.location.href = destination;
@@ -66,6 +81,12 @@
                 try { localStorage.setItem('offline-destination', destination); } catch (e) {}
             }
             if (dialog) dialog.hidden = false;
+        }
+
+        if (offlineOk) {
+            offlineOk.addEventListener('click', function() {
+                if (dialog) dialog.hidden = true;
+            });
         }
 
         async function serverIsReachable() {
