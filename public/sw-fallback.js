@@ -13,24 +13,23 @@ self.addEventListener('message', (event) => {
 
         try {
             ready = Boolean(await posCache.match('/admin/pos', { ignoreSearch: true }));
+            
+            // Reply immediately so the UI doesn't timeout!
+            const message = { type: 'POS_SHELL_STATUS', ready };
+            if (event.ports[0]) event.ports[0].postMessage(message);
+            else event.source?.postMessage(message);
 
             if (event.data.type === 'CACHE_POS_SHELL') {
                 const response = await fetch('/admin/pos', { credentials: 'same-origin', cache: 'reload' });
                 if (response.ok && !response.redirected) {
                     await posCache.put('/admin/pos', response.clone());
-                    ready = true;
                 }
             }
         } catch (error) {
-            ready = Boolean(await posCache.match('/admin/pos', { ignoreSearch: true }));
+            // Background fetch failed, but we already replied to the UI.
         }
 
-        const message = { type: 'POS_SHELL_STATUS', ready };
-        if (event.ports[0]) {
-            event.ports[0].postMessage(message);
-        } else {
-            event.source?.postMessage(message);
-        }
+        // We already replied, so we do not send another message here.
     })());
 });
 

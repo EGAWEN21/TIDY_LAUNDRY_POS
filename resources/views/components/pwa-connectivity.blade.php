@@ -49,17 +49,21 @@
         var status = document.getElementById('offline-status');
         var reconnect = document.getElementById('offline-reconnect');
         var posLink = document.getElementById('offline-pos-link');
-        var canAccessPos = false;
+        var offlinePosReady = false;
 
         try {
-            canAccessPos = authenticated || localStorage.getItem('pwa-authenticated') === '1';
+            offlinePosReady = localStorage.getItem('offline-pos-ready') === '1';
             if (authenticated) localStorage.setItem('pwa-authenticated', '1');
         } catch (e) {}
-        if (posLink) posLink.hidden = !canAccessPos;
+        if (posLink) posLink.hidden = !offlinePosReady;
 
         function showOfflineChoice(destination) {
             if (destination) {
-                try { sessionStorage.setItem('offline-intended-url', destination); } catch (e) {}
+                if (offlinePosReady && (destination.endsWith('/admin/pos') || destination.includes('/admin/pos?'))) {
+                    window.location.href = destination;
+                    return;
+                }
+                try { localStorage.setItem('offline-destination', destination); } catch (e) {}
             }
             if (dialog) dialog.hidden = false;
         }
@@ -79,13 +83,11 @@
             }
         }
 
-        function setOfflinePosReady(ready) {
-            offlinePosReady = ready;
-            try {
-                if (ready) localStorage.setItem('offline-pos-ready', '1');
-                else localStorage.removeItem('offline-pos-ready');
-            } catch (e) {}
-            if (posLink) posLink.hidden = !ready;
+        function setOfflinePosReady(isReady) {
+            if (isReady === offlinePosReady) return;
+            offlinePosReady = isReady;
+            try { localStorage.setItem('offline-pos-ready', isReady ? '1' : '0'); } catch (e) {}
+            if (posLink) posLink.hidden = !isReady;
         }
 
         function requestPosShellStatus(worker, type) {
