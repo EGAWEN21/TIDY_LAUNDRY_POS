@@ -168,7 +168,7 @@ const handleInstallPrompt = (event) => {
 const handleAppInstalled = () => {
     deferredPrompt.value = null;
     showInstallButton.value = false;
-    toast.success('POS installed successfully.');
+    toast.success('Installation started. The app will be added to your home screen shortly.');
 };
 
 const handleOfflineReady = () => {
