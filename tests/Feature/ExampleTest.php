@@ -48,6 +48,9 @@ class ExampleTest extends TestCase
         $this->assertStringContainsString('offline.html', $serviceWorker);
         $this->assertStringContainsString('pos-html-cache', $navigationFallback);
         $this->assertStringContainsString('CACHE_POS_SHELL', $navigationFallback);
+        $this->assertStringContainsString('CHECK_POS_SHELL', $navigationFallback);
+        $this->assertStringContainsString('POS_SHELL_STATUS', $navigationFallback);
+        $this->assertStringContainsString('new MessageChannel()', $connectivityComponent);
         $this->assertStringContainsString("register('/sw.js', { scope: '/' })", $connectivityComponent);
         $this->assertStringContainsString('/connectivity-check', $connectivityComponent);
         $this->assertStringContainsString('Continue in Offline POS', $connectivityComponent);

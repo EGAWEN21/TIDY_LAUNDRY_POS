@@ -5,17 +5,31 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('message', (event) => {
-    if (!event.data || event.data.type !== 'CACHE_POS_SHELL') return;
+    if (!event.data || !['CACHE_POS_SHELL', 'CHECK_POS_SHELL'].includes(event.data.type)) return;
 
     event.waitUntil((async () => {
+        let ready = false;
+        const posCache = await caches.open('pos-html-cache');
+
         try {
-            const response = await fetch('/admin/pos', { credentials: 'same-origin', cache: 'reload' });
-            if (!response.ok || response.redirected) return;
-            const posCache = await caches.open('pos-html-cache');
-            await posCache.put('/admin/pos', response.clone());
-            event.source?.postMessage({ type: 'POS_SHELL_CACHED' });
+            ready = Boolean(await posCache.match('/admin/pos', { ignoreSearch: true }));
+
+            if (!ready && event.data.type === 'CACHE_POS_SHELL') {
+                const response = await fetch('/admin/pos', { credentials: 'same-origin', cache: 'reload' });
+                if (response.ok && !response.redirected) {
+                    await posCache.put('/admin/pos', response.clone());
+                    ready = true;
+                }
+            }
         } catch (error) {
-            // A later online page load will retry warming the shell.
+            ready = Boolean(await posCache.match('/admin/pos', { ignoreSearch: true }));
+        }
+
+        const message = { type: 'POS_SHELL_STATUS', ready };
+        if (event.ports[0]) {
+            event.ports[0].postMessage(message);
+        } else {
+            event.source?.postMessage(message);
         }
     })());
 });

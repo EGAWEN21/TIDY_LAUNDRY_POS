@@ -79,16 +79,34 @@
             }
         }
 
-        function markOfflinePosReady() {
-            try { localStorage.setItem('offline-pos-ready', '1'); } catch (e) {}
-            offlinePosReady = true;
-            if (posLink) posLink.hidden = false;
+        function setOfflinePosReady(ready) {
+            offlinePosReady = ready;
+            try {
+                if (ready) localStorage.setItem('offline-pos-ready', '1');
+                else localStorage.removeItem('offline-pos-ready');
+            } catch (e) {}
+            if (posLink) posLink.hidden = !ready;
         }
 
-        function warmOfflinePos(registration) {
-            if (!authenticated || !navigator.onLine) return;
+        function requestPosShellStatus(worker, type) {
+            return new Promise(function (resolve) {
+                if (!worker) return resolve(false);
+
+                var channel = new MessageChannel();
+                var timeout = setTimeout(function () { resolve(false); }, 10000);
+                channel.port1.onmessage = function (event) {
+                    clearTimeout(timeout);
+                    resolve(Boolean(event.data && event.data.type === 'POS_SHELL_STATUS' && event.data.ready));
+                };
+                worker.postMessage({ type: type }, [channel.port2]);
+            });
+        }
+
+        async function warmOfflinePos(registration) {
+            if (!authenticated) return setOfflinePosReady(false);
             var worker = navigator.serviceWorker.controller || registration.active;
-            if (worker) worker.postMessage({ type: 'CACHE_POS_SHELL' });
+            var type = navigator.onLine ? 'CACHE_POS_SHELL' : 'CHECK_POS_SHELL';
+            setOfflinePosReady(await requestPosShellStatus(worker, type));
         }
 
         if ('serviceWorker' in navigator) {
@@ -97,7 +115,9 @@
                 if (!refreshing) { refreshing = true; window.location.reload(); }
             });
             navigator.serviceWorker.addEventListener('message', function (event) {
-                if (event.data && event.data.type === 'POS_SHELL_CACHED') markOfflinePosReady();
+                if (event.data && event.data.type === 'POS_SHELL_STATUS') {
+                    setOfflinePosReady(Boolean(event.data.ready));
+                }
             });
             window.addEventListener('load', function () {
                 navigator.serviceWorker.register('/sw.js', { scope: '/' })
