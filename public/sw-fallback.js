@@ -14,7 +14,7 @@ self.addEventListener('message', (event) => {
         try {
             ready = Boolean(await posCache.match('/admin/pos', { ignoreSearch: true }));
 
-            if (!ready && event.data.type === 'CACHE_POS_SHELL') {
+            if (event.data.type === 'CACHE_POS_SHELL') {
                 const response = await fetch('/admin/pos', { credentials: 'same-origin', cache: 'reload' });
                 if (response.ok && !response.redirected) {
                     await posCache.put('/admin/pos', response.clone());
