@@ -36,9 +36,9 @@ if ($setting && $setting->default_logo) {
             $imgPwa512 = clone $image;
             $appleIcon = clone $image;
             
-            $imgPwa192->contain(192, 192, '0000')->save(public_path('assets/images/logo-192.png'));
-            $imgPwa512->contain(512, 512, '0000')->save(public_path('assets/images/logo-512.png'));
-            $appleIcon->contain(180, 180, '0000')->save(public_path('assets/images/apple-touch-icon.png'));
+            $imgPwa192->scaleDown(110, 110)->pad(192, 192, '#00000000')->save(public_path('assets/images/logo-192.png'));
+            $imgPwa512->scaleDown(280, 280)->pad(512, 512, '#00000000')->save(public_path('assets/images/logo-512.png'));
+            $appleIcon->scaleDown(110, 110)->pad(180, 180, '#00000000')->save(public_path('assets/images/apple-touch-icon.png'));
             echo "Successfully generated PWA icons from existing logo.\n";
         } catch (\Exception $e) {
             echo "Error processing image: " . $e->getMessage() . "\n";

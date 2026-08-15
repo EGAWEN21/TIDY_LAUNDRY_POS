@@ -29,7 +29,7 @@ class PwaManifestController extends Controller
             'display' => 'standalone',
             'display_override' => ['window-controls-overlay', 'standalone'],
             'orientation' => 'any',
-            'background_color' => '#f8fafc',
+            'background_color' => '#111827',
             'theme_color' => '#1b2a47',
             'categories' => ['business', 'productivity'],
             'shortcuts' => [
