@@ -3,7 +3,6 @@ import { createPinia } from 'pinia';
 import PosApp from './vue/PosApp.vue';
 import Vue3Toastify from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
-import { registerSW } from 'virtual:pwa-register';
 
 const app = createApp(PosApp);
 const pinia = createPinia();
@@ -22,15 +21,6 @@ try {
     // Storage can be unavailable in private browsing; the POS remains usable for this session.
 }
 
-registerSW({
-    immediate: true,
-    onOfflineReady() {
-        window.dispatchEvent(new CustomEvent('pwa-offline-ready'));
-    },
-    onRegisterError(error) {
-        console.error('PWA service worker registration failed:', error);
-    }
-});
 
 // Global Navigation Guard & Premium Transition Bridge
 document.addEventListener('click', function(event) {

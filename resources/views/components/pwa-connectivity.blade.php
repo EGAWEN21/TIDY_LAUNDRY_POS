@@ -49,13 +49,13 @@
         var status = document.getElementById('offline-status');
         var reconnect = document.getElementById('offline-reconnect');
         var posLink = document.getElementById('offline-pos-link');
-        var offlinePosReady = false;
+        var canAccessPos = false;
 
         try {
-            offlinePosReady = localStorage.getItem('offline-pos-ready') === '1';
+            canAccessPos = authenticated || localStorage.getItem('pwa-authenticated') === '1';
             if (authenticated) localStorage.setItem('pwa-authenticated', '1');
         } catch (e) {}
-        if (posLink) posLink.hidden = !offlinePosReady;
+        if (posLink) posLink.hidden = !canAccessPos;
 
         function showOfflineChoice(destination) {
             if (destination) {
@@ -184,5 +184,21 @@
         });
 
         window.showOfflineChoice = showOfflineChoice;
+
+        // Proactively detect network drops and show the offline modal
+        window.addEventListener('offline', function () {
+            showOfflineChoice(window.location.href);
+        });
+
+        // Auto-dismiss the modal if the network comes back while it's still showing
+        window.addEventListener('online', function () {
+            if (dialog && !dialog.hidden) {
+                status.textContent = 'Connection restored!';
+                setTimeout(function () {
+                    dialog.hidden = true;
+                    status.textContent = '';
+                }, 1500);
+            }
+        });
     })();
 </script>

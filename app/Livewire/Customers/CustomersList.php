@@ -187,7 +187,7 @@ class CustomersList extends Component
     }
     public function filterdata()
     {
-        $query = \App\Models\Customer::query();
+        $query = \App\Models\Customer::with('creator');
 
         $viewable_ids = \Illuminate\Support\Facades\Auth::user()->getViewableCustomerUserIds();
         if ($viewable_ids !== 'all') {

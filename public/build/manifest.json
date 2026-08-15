@@ -3,12 +3,6 @@
     "file": "assets/index-DhXgJQ-f.js",
     "name": "index"
   },
-  "node_modules/workbox-window/build/workbox-window.prod.es5.mjs": {
-    "file": "assets/workbox-window.prod.es5-BBnX5xw4.js",
-    "name": "workbox-window.prod.es5",
-    "src": "node_modules/workbox-window/build/workbox-window.prod.es5.mjs",
-    "isDynamicEntry": true
-  },
   "resources/css/app.css": {
     "file": "assets/app-DjeVNPmp.css",
     "src": "resources/css/app.css",
@@ -24,15 +18,12 @@
     ]
   },
   "resources/js/pos-app.js": {
-    "file": "assets/pos-app-50CJPGoL.js",
+    "file": "assets/pos-app-CrCbqKzX.js",
     "name": "pos-app",
     "src": "resources/js/pos-app.js",
     "isEntry": true,
     "imports": [
       "_index-DhXgJQ-f.js"
-    ],
-    "dynamicImports": [
-      "node_modules/workbox-window/build/workbox-window.prod.es5.mjs"
     ],
     "css": [
       "assets/pos-app-CNa_Vrg8.css"

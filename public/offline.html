@@ -71,9 +71,9 @@
             var reconnect = document.getElementById('reconnect');
             var posLink = document.getElementById('offline-pos');
             var status = document.getElementById('status');
-            var offlinePosReady = false;
-            try { offlinePosReady = localStorage.getItem('offline-pos-ready') === '1'; } catch (e) {}
-            if (!offlinePosReady) posLink.hidden = true;
+            var canAccessPos = false;
+            try { canAccessPos = localStorage.getItem('pwa-authenticated') === '1'; } catch (e) {}
+            if (!canAccessPos) posLink.hidden = true;
 
             reconnect.addEventListener('click', async function () {
                 reconnect.disabled = true;

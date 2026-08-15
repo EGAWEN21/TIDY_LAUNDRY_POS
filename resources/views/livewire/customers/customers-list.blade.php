@@ -23,6 +23,7 @@
                             <th scope="col" class="">{{ $lang->data['customer_name'] ?? 'Customer Name' }}</th>
                             <th scope="col" class="">{{ $lang->data['contact'] ?? 'Contact' }}</th>
                             <th scope="col" class="">{{ $lang->data['address'] ?? 'Address' }}</th>
+                            <th scope="col" class="">{{ $lang->data['assigned_to'] ?? 'Assigned To' }}</th>
                             <th scope="col" class="text-center">{{ $lang->data['action'] ?? 'Action' }}</th>
                         </tr>
                     </thead>
@@ -38,6 +39,17 @@
                             </td>
                             <td class="">
                                 {{$row->address}}
+                            </td>
+                            <td class="">
+                                @if($row->creator)
+                                    <span class="badge text-sm fw-semibold text-info-600 bg-info-100 px-20 py-9 radius-4 text-white">
+                                        {{ $row->creator->name }}
+                                    </span>
+                                @else
+                                    <span class="badge text-sm fw-semibold text-secondary-600 bg-secondary-100 px-20 py-9 radius-4 text-white">
+                                        {{ $lang->data['unassigned'] ?? 'Unassigned' }}
+                                    </span>
+                                @endif
                             </td>
                             <td class="text-center">
                                 <div class="d-flex align-items-center gap-10 justify-content-center">

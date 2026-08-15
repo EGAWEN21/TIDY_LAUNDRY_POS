@@ -31,4 +31,9 @@ class Customer extends Model
     {
         return $this->hasMany(\App\Models\Payment::class, 'customer_id', 'id');
     }
+
+    public function creator(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class, 'created_by');
+    }
 }
