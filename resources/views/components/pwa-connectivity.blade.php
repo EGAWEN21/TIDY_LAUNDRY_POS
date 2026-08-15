@@ -139,7 +139,11 @@
             });
             navigator.serviceWorker.addEventListener('message', function (event) {
                 if (event.data && event.data.type === 'POS_SHELL_STATUS') {
+                    var wasReady = offlinePosReady;
                     setOfflinePosReady(Boolean(event.data.ready));
+                    if (!wasReady && event.data.ready) {
+                        window.dispatchEvent(new CustomEvent('pwa-offline-ready'));
+                    }
                 }
             });
             window.addEventListener('load', function () {

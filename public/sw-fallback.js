@@ -4,8 +4,11 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(self.clients.claim());
 });
 
+let isFetchingPos = false;
+let lastPosFetchTime = 0;
+
 self.addEventListener('message', (event) => {
-    if (!event.data || !['CACHE_POS_SHELL', 'CHECK_POS_SHELL'].includes(event.data.type)) return;
+    if (!event.data || !event.data.type) return;
 
     event.waitUntil((async () => {
         let ready = false;
@@ -14,15 +17,32 @@ self.addEventListener('message', (event) => {
         try {
             ready = Boolean(await posCache.match('/admin/pos', { ignoreSearch: true }));
             
-            // Reply immediately so the UI doesn't timeout!
+            // Reply immediately so the UI doesn't timeout
             const message = { type: 'POS_SHELL_STATUS', ready };
             if (event.ports[0]) event.ports[0].postMessage(message);
             else event.source?.postMessage(message);
 
             if (event.data.type === 'CACHE_POS_SHELL') {
-                const response = await fetch('/admin/pos', { credentials: 'same-origin', cache: 'reload' });
-                if (response.ok && !response.redirected) {
-                    await posCache.put('/admin/pos', response.clone());
+                // 30-second debounce to prevent spamming the server
+                if (isFetchingPos || (Date.now() - lastPosFetchTime < 30000)) return;
+                
+                isFetchingPos = true;
+                try {
+                    const response = await fetch('/admin/pos', { credentials: 'same-origin', cache: 'reload' });
+                    if (response.ok && !response.redirected) {
+                        await posCache.put('/admin/pos', response.clone());
+                        lastPosFetchTime = Date.now();
+                        
+                        // Broadcast success to all clients so they can update the UI instantly
+                        if (!ready) {
+                            const clients = await self.clients.matchAll();
+                            for (const client of clients) {
+                                client.postMessage({ type: 'POS_SHELL_STATUS', ready: true });
+                            }
+                        }
+                    }
+                } finally {
+                    isFetchingPos = false;
                 }
             }
         } catch (error) {
