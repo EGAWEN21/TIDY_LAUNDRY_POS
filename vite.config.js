@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+
 import laravel from 'laravel-vite-plugin';
 import vue from '@vitejs/plugin-vue';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -46,15 +47,6 @@ export default defineConfig({
                     'assets/fonts/remixicon.{woff,woff2,ttf,eot,svg}'
                 ],
                 runtimeCaching: [
-                    {
-                        urlPattern: /\/admin\/pos\/?$/,
-                        handler: 'NetworkFirst',
-                        options: {
-                            cacheName: 'pos-html-cache',
-                            expiration: { maxEntries: 1, maxAgeSeconds: 60 * 60 * 24 * 30 },
-                            cacheableResponse: { statuses: [200] }
-                        }
-                    },
                     {
                         urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
                         handler: 'CacheFirst',

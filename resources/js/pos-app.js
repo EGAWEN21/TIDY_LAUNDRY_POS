@@ -1,7 +1,7 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import PosApp from './vue/PosApp.vue';
-import Vue3Toastify, { toast } from 'vue3-toastify';
+import Vue3Toastify from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 import { registerSW } from 'virtual:pwa-register';
 
@@ -15,6 +15,12 @@ app.use(Vue3Toastify, {
   theme: 'colored'
 });
 app.mount('#pos-app');
+
+try {
+    localStorage.setItem('pwa-authenticated', '1');
+} catch (error) {
+    // Storage can be unavailable in private browsing; the POS remains usable for this session.
+}
 
 registerSW({
     immediate: true,
@@ -43,7 +49,9 @@ document.addEventListener('click', function(event) {
             if (!navigator.onLine) {
                 event.preventDefault();
                 event.stopPropagation(); // Stop it from even reaching Vue
-                toast.warning('You are currently offline. Please reconnect to access other screens.');
+                if (typeof window.showOfflineChoice === 'function') {
+                    window.showOfflineChoice(link.href);
+                }
                 return;
             }
 

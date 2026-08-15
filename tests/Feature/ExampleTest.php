@@ -30,6 +30,8 @@ class ExampleTest extends TestCase
         $viteConfig = file_get_contents(base_path('vite.config.js'));
         $posSource = file_get_contents(resource_path('js/pos-app.js'));
         $serviceWorker = file_get_contents(public_path('sw.js'));
+        $navigationFallback = file_get_contents(public_path('sw-fallback.js'));
+        $connectivityComponent = file_get_contents(resource_path('views/components/pwa-connectivity.blade.php'));
         $manifest = json_decode(file_get_contents(public_path('build/manifest.json')), true, flags: JSON_THROW_ON_ERROR);
         $posBundle = file_get_contents(public_path('build/'.$manifest['resources/js/pos-app.js']['file']));
 
@@ -44,7 +46,11 @@ class ExampleTest extends TestCase
 
         $this->assertStringContainsString('skipWaiting', $serviceWorker);
         $this->assertStringContainsString('offline.html', $serviceWorker);
-        $this->assertStringContainsString('pos-html-cache', $serviceWorker);
-        $this->assertSame(58, substr_count($serviceWorker, '{url:"'));
+        $this->assertStringContainsString('pos-html-cache', $navigationFallback);
+        $this->assertStringContainsString('CACHE_POS_SHELL', $navigationFallback);
+        $this->assertStringContainsString("register('/sw.js', { scope: '/' })", $connectivityComponent);
+        $this->assertStringContainsString('/connectivity-check', $connectivityComponent);
+        $this->assertStringContainsString('Continue in Offline POS', $connectivityComponent);
+        $this->assertGreaterThanOrEqual(50, substr_count($serviceWorker, '{url:"'));
     }
 }

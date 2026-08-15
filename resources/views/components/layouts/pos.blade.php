@@ -30,6 +30,7 @@
 
 <body>
     {{ $slot }}
+    <x-pwa-connectivity />
     <script src="{{ asset('assets/js/lib/jquery-3.7.1.min.js') }}"></script>
     <!-- Bootstrap js -->
     <script src="{{ asset('assets/js/lib/bootstrap.bundle.min.js') }}"></script>

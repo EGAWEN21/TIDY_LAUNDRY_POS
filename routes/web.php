@@ -11,6 +11,10 @@ Route::get('/sw.js', function () {
     ]);
 });
 
+Route::get('/connectivity-check', function () {
+    return response()->noContent()->header('Cache-Control', 'no-store, no-cache, must-revalidate');
+});
+
 Route::get('/manifest.webmanifest', [\App\Http\Controllers\PwaManifestController::class, 'generate']);
 Route::get('/manifest.json', [\App\Http\Controllers\PwaManifestController::class, 'generate']);
 Route::get('/reset-password/{token}', \App\Livewire\Auth\ForgotPassword::class);

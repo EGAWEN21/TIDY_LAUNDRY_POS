@@ -261,7 +261,7 @@
             </li>
             @endcan
             <li>
-                <a href="{{route('logout')}}"  wire:click.prevent="logout()">
+                <a href="{{ route('logout') }}" data-logout-warning>
                     <iconify-icon icon="material-symbols:logout" class="menu-icon"></iconify-icon>
                     <span>{{ $lang->data['logout'] ?? 'Logout' }}</span>
                 </a>

@@ -1,29 +1,47 @@
-// TidyPOS Custom Service Worker Fallback Handler
-// This script runs BEFORE Workbox evaluates its routing rules.
+// Root-scoped navigation safety net. Asset and API requests remain managed by Workbox.
+
+self.addEventListener('activate', (event) => {
+    event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener('message', (event) => {
+    if (!event.data || event.data.type !== 'CACHE_POS_SHELL') return;
+
+    event.waitUntil((async () => {
+        try {
+            const response = await fetch('/admin/pos', { credentials: 'same-origin', cache: 'reload' });
+            if (!response.ok || response.redirected) return;
+            const posCache = await caches.open('pos-html-cache');
+            await posCache.put('/admin/pos', response.clone());
+            event.source?.postMessage({ type: 'POS_SHELL_CACHED' });
+        } catch (error) {
+            // A later online page load will retry warming the shell.
+        }
+    })());
+});
 
 self.addEventListener('fetch', (event) => {
-    // We only want to handle page navigations (HTML requests).
-    // CSS, JS, API calls, and images are handled by Workbox.
-    if (event.request.mode !== 'navigate') {
-        return;
-    }
+    if (event.request.mode !== 'navigate') return;
 
-    // Do NOT handle the offline POS route here.
-    // We want Workbox's NetworkFirst strategy (defined in vite.config.js) 
-    // to manage the /admin/pos cache natively.
     const url = new URL(event.request.url);
-    if (/^\/admin\/pos/.test(url.pathname)) {
-        return;
-    }
+    if (url.origin !== self.location.origin) return;
 
-    // For all other page navigations (like the Login page or Dashboard),
-    // we attempt to fetch them directly from the network.
-    // If the network completely fails (due to being offline),
-    // we intercept the TypeError and serve the offline.html page from the precache.
-    event.respondWith(
-        fetch(event.request).catch((error) => {
-            console.warn('Network request failed, serving offline fallback.', error);
-            return caches.match('/offline.html', { ignoreSearch: true });
-        })
-    );
+    event.respondWith((async () => {
+        try {
+            const response = await fetch(event.request);
+            if (/^\/admin\/pos\/?$/.test(url.pathname) && response.ok && !response.redirected) {
+                const posCache = await caches.open('pos-html-cache');
+                await posCache.put('/admin/pos', response.clone());
+            }
+            return response;
+        } catch (error) {
+            if (/^\/admin\/pos\/?$/.test(url.pathname)) {
+                const posCache = await caches.open('pos-html-cache');
+                const cachedPos = await posCache.match('/admin/pos', { ignoreSearch: true });
+                if (cachedPos) return cachedPos;
+            }
+
+            return (await caches.match('/offline.html', { ignoreSearch: true })) || Response.error();
+        }
+    })());
 });

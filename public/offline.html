@@ -9,9 +9,11 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
+            box-sizing: border-box;
             margin: 0;
-            background-color: #f8fafc;
+            padding: 1.25rem;
+            background: radial-gradient(circle at top, #dbeafe 0, #f8fafc 42%);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             color: #1e293b;
         }
@@ -19,13 +21,15 @@
             text-align: center;
             padding: 2rem;
             background: #ffffff;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border-radius: 20px;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18);
             max-width: 400px;
             width: 90%;
         }
+        img { width: 76px; height: 76px; object-fit: contain; margin-bottom: 1rem; }
         h1 { margin-top: 0; font-size: 1.5rem; }
-        p { color: #64748b; margin-bottom: 2rem; }
+        p { color: #64748b; line-height: 1.6; margin-bottom: 1.5rem; }
+        .actions { display: grid; gap: .75rem; }
         .btn {
             display: inline-block;
             background-color: #3b82f6;
@@ -35,7 +39,7 @@
             text-decoration: none;
             font-weight: 600;
             transition: background-color 0.2s;
-            margin: 0.5rem;
+            margin: 0;
             border: none;
             cursor: pointer;
             font-size: 1rem;
@@ -52,21 +56,47 @@
     </style>
 </head>
 <body>
-    <script>
-        // Intelligent Auto-Routing
-        document.addEventListener('DOMContentLoaded', () => {
-            // If genuinely offline, instantly redirect to the cached POS to avoid manual clicks.
-            // If online (but the server is down/502), do not auto-redirect to prevent infinite loops.
-            if (!navigator.onLine) {
-                window.location.replace('/admin/pos');
-            }
-        });
-    </script>
     <div class="container">
-        <h1>You are Offline</h1>
-        <p>The server cannot be reached. You can continue taking orders using the Offline POS.</p>
-        <a href="/admin/pos" class="btn">Launch Offline POS</a>
-        <button onclick="this.innerHTML = 'Reconnecting...'; this.style.opacity = '0.7'; setTimeout(() => window.location.reload(), 100);" class="btn btn-outline">Try to Reconnect</button>
+        <img src="/assets/images/logo-192.png" alt="">
+        <h1>You're offline</h1>
+        <p>This screen needs an internet connection. Reconnect to continue here, or keep taking orders in Offline POS.</p>
+        <div class="actions">
+            <button id="reconnect" class="btn">Reconnect</button>
+            <a id="offline-pos" href="/admin/pos" class="btn btn-outline">Continue in Offline POS</a>
+        </div>
+        <p id="status" role="status" aria-live="polite"></p>
     </div>
+    <script>
+        (function () {
+            var reconnect = document.getElementById('reconnect');
+            var posLink = document.getElementById('offline-pos');
+            var status = document.getElementById('status');
+            var offlinePosReady = false;
+            try { offlinePosReady = localStorage.getItem('offline-pos-ready') === '1'; } catch (e) {}
+            if (!offlinePosReady) posLink.hidden = true;
+
+            reconnect.addEventListener('click', async function () {
+                reconnect.disabled = true;
+                status.textContent = 'Checking connection…';
+                var controller = new AbortController();
+                var timeout = setTimeout(function () { controller.abort(); }, 6000);
+                try {
+                    var response = await fetch('/connectivity-check?t=' + Date.now(), {
+                        cache: 'no-store', credentials: 'same-origin', signal: controller.signal
+                    });
+                    if (response.status === 204) {
+                        status.textContent = 'Connected. Returning to your screen…';
+                        window.location.reload();
+                        return;
+                    }
+                } catch (e) {
+                } finally {
+                    clearTimeout(timeout);
+                }
+                status.textContent = 'The server still cannot be reached. Check your connection and try again.';
+                reconnect.disabled = false;
+            });
+        })();
+    </script>
 </body>
 </html>

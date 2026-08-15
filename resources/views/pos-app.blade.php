@@ -156,6 +156,7 @@
     </div>
 
     <div id="pos-app" class="tw-font-sans"></div>
+    <x-pwa-connectivity />
     
     <script>
         window.hidePwaSplash = function() {

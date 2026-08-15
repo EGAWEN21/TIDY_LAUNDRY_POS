@@ -84,6 +84,7 @@
         <livewire:components.navbar :title="$title ?? ''"/>
         {{ $slot }}
     </main>
+    <x-pwa-connectivity />
 
     <script src="{{ asset('assets/plugins/dragula/dragula.min.js') }}"></script>
     <script src="{{ asset('assets/js/lib/jquery-3.7.1.min.js') }}"></script>
