@@ -267,10 +267,9 @@ export const usePosStore = defineStore('pos', {
         async fetchCustomers() {
             let cursor = null;
             let hasMore = true;
+            const freshCustomers = [];
             
-            // Clear customers once before paginated fetch
-            await db.customers.clear();
-            
+            // Fetch ALL pages into memory first (don't touch IndexedDB yet)
             while (hasMore) {
                 const url = cursor 
                     ? `/api/pos/sync-catalog?cursor=${cursor}` 
@@ -279,11 +278,25 @@ export const usePosStore = defineStore('pos', {
                 const page = response.data.data ?? response.data;
                 
                 if (page.customers && page.customers.length > 0) {
-                    await db.customers.bulkAdd(page.customers);
+                    freshCustomers.push(...page.customers);
                 }
                 
                 cursor = page.next_cursor;
                 hasMore = page.has_more === true && cursor !== null;
+            }
+            
+            // Preserve any pending offline-created customers before clearing
+            const pendingCustomers = await db.customers
+                .where('sync_status').equals('pending')
+                .toArray();
+            
+            // Atomic swap: clear and write in one go
+            await db.customers.clear();
+            if (freshCustomers.length > 0) {
+                await db.customers.bulkAdd(freshCustomers);
+            }
+            if (pendingCustomers.length > 0) {
+                await db.customers.bulkPut(pendingCustomers);
             }
         },
 
