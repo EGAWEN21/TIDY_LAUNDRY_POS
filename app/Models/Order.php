@@ -36,7 +36,8 @@ class Order extends Model
         'order_type',
         'created_by',
         'financial_year_id',
-        'uuid'
+        'uuid',
+        'requested_at'
     ];
 
     /* user relation */

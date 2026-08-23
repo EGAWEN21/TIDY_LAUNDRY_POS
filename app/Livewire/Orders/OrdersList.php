@@ -37,6 +37,8 @@ class OrdersList extends Component
     public $date_preset;
     public $collapsedGroups = [];
     public $selectedOrders = [];
+    public $staff_filter = null;
+    public $staffList = [];
 
     #[Title('Orders')]
     public function render()
@@ -52,6 +54,7 @@ class OrdersList extends Component
         }
         $this->orders = new EloquentCollection();
 
+        $this->loadStaffList();
         $this->loadOrders();
         if (session()->has('selected_language')) {   /* if session has selected language */
             $this->lang = Translation::where('id', session()->get('selected_language'))->first();
@@ -237,14 +240,55 @@ class OrdersList extends Component
     private function getBaseOrderQuery()
     {
         if (Auth::user()->user_type == 1 || Auth::user()->viewable_staff_orders === 'all') {
-            return \App\Models\Order::withSum('payments', 'received_amount');
+            $query = \App\Models\Order::withSum('payments', 'received_amount');
+        } else {
+            $viewable_ids = [Auth::user()->id];
+            if (!empty(Auth::user()->viewable_staff_orders)) {
+                $extra_ids = explode(',', Auth::user()->viewable_staff_orders);
+                $viewable_ids = array_merge($viewable_ids, $extra_ids);
+            }
+            $query = \App\Models\Order::withSum('payments', 'received_amount')->whereIn('created_by', $viewable_ids);
         }
-        $viewable_ids = [Auth::user()->id];
-        if (!empty(Auth::user()->viewable_staff_orders)) {
-            $extra_ids = explode(',', Auth::user()->viewable_staff_orders);
-            $viewable_ids = array_merge($viewable_ids, $extra_ids);
+
+        // Apply staff filter if set (only for users with accept_reject_order permission)
+        if ($this->staff_filter && Auth::user()->hasPermission('accept_reject_order')) {
+            $query = $query->where('created_by', $this->staff_filter);
         }
-        return \App\Models\Order::withSum('payments', 'received_amount')->whereIn('created_by', $viewable_ids);
+
+        return $query;
+    }
+
+    /**
+     * Load the list of staff members for the staff filter dropdown.
+     * Only populated for users with accept_reject_order permission.
+     */
+    public function loadStaffList()
+    {
+        if (Auth::user()->hasPermission('accept_reject_order')) {
+            $this->staffList = \App\Models\User::select('id', 'name')
+                ->whereNull('deleted_at')
+                ->orderBy('name')
+                ->get()
+                ->toArray();
+        }
+    }
+
+    /**
+     * Filter orders by a specific staff member.
+     */
+    public function filterByStaff($userId)
+    {
+        $this->staff_filter = $userId ? (int) $userId : null;
+        $this->reloadOrders();
+    }
+
+    /**
+     * Clear the staff filter to show all orders.
+     */
+    public function clearStaffFilter()
+    {
+        $this->staff_filter = null;
+        $this->reloadOrders();
     }
 
     public function updated($name, $value)

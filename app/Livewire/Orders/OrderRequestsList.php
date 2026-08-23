@@ -49,7 +49,15 @@ class OrderRequestsList extends Component
         $req = OrderRequest::findOrFail($id);
 
         $dto = \App\DTOs\OrderData::from($req->payload);
-        $order = \App\Actions\Orders\CreateOrderAction::execute($dto, $req->created_by);
+
+        // Use today (acceptance date) as the order date, not the original request date.
+        // Preserve the original request creation timestamp for audit trail.
+        $order = \App\Actions\Orders\CreateOrderAction::execute(
+            $dto,
+            $req->created_by,
+            now()->toDateTimeString(),
+            $req->created_at->toDateTimeString()
+        );
 
         // Preserve UUID for idempotency
         if (!empty($req->uuid)) {

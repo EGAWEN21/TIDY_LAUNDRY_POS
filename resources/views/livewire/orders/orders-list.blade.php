@@ -18,36 +18,89 @@
 
         {{-- Quick Period Filter Pills --}}
         <div class="tw-py-2 tw-px-3 bg-base d-flex align-items-center flex-wrap justify-content-between" style="border-top: 1px solid #e5e7eb;">
-            <div class="order-period-pills">
-                <button type="button" wire:click="applyDatePreset('today')" class="order-period-pill {{ $date_preset === 'today' ? 'active' : '' }}">
-                    <iconify-icon icon="lucide:calendar-check"></iconify-icon>
-                    {{ $lang->data['today'] ?? 'Today' }}
-                </button>
-                <button type="button" wire:click="applyDatePreset('yesterday')" class="order-period-pill {{ $date_preset === 'yesterday' ? 'active' : '' }}">
-                    <iconify-icon icon="lucide:calendar-minus"></iconify-icon>
-                    {{ $lang->data['yesterday'] ?? 'Yesterday' }}
-                </button>
-                <button type="button" wire:click="applyDatePreset('this_week')" class="order-period-pill {{ $date_preset === 'this_week' ? 'active' : '' }}">
-                    <iconify-icon icon="lucide:calendar-range"></iconify-icon>
-                    {{ $lang->data['this_week'] ?? 'This Week' }}
-                </button>
-                <button type="button" wire:click="applyDatePreset('this_month')" class="order-period-pill {{ $date_preset === 'this_month' ? 'active' : '' }}">
-                    <iconify-icon icon="lucide:calendar-days"></iconify-icon>
-                    {{ $lang->data['this_month'] ?? 'This Month' }}
-                </button>
-                <button type="button" 
-                    @click="$wire.set('date_preset', $wire.date_preset === 'custom' ? null : 'custom')"
-                    class="order-period-pill {{ $date_preset === 'custom' ? 'active' : '' }}">
-                    <iconify-icon icon="lucide:calendar-search"></iconify-icon>
-                    {{ $lang->data['custom'] ?? 'Custom' }}
-                </button>
+            <div class="d-flex align-items-center flex-wrap gap-2">
+                <div class="order-period-pills">
+                    <button type="button" wire:click="applyDatePreset('today')" class="order-period-pill {{ $date_preset === 'today' ? 'active' : '' }}">
+                        <iconify-icon icon="lucide:calendar-check"></iconify-icon>
+                        {{ $lang->data['today'] ?? 'Today' }}
+                    </button>
+                    <button type="button" wire:click="applyDatePreset('yesterday')" class="order-period-pill {{ $date_preset === 'yesterday' ? 'active' : '' }}">
+                        <iconify-icon icon="lucide:calendar-minus"></iconify-icon>
+                        {{ $lang->data['yesterday'] ?? 'Yesterday' }}
+                    </button>
+                    <button type="button" wire:click="applyDatePreset('this_week')" class="order-period-pill {{ $date_preset === 'this_week' ? 'active' : '' }}">
+                        <iconify-icon icon="lucide:calendar-range"></iconify-icon>
+                        {{ $lang->data['this_week'] ?? 'This Week' }}
+                    </button>
+                    <button type="button" wire:click="applyDatePreset('this_month')" class="order-period-pill {{ $date_preset === 'this_month' ? 'active' : '' }}">
+                        <iconify-icon icon="lucide:calendar-days"></iconify-icon>
+                        {{ $lang->data['this_month'] ?? 'This Month' }}
+                    </button>
+                    <button type="button" 
+                        @click="$wire.set('date_preset', $wire.date_preset === 'custom' ? null : 'custom')"
+                        class="order-period-pill {{ $date_preset === 'custom' ? 'active' : '' }}">
+                        <iconify-icon icon="lucide:calendar-search"></iconify-icon>
+                        {{ $lang->data['custom'] ?? 'Custom' }}
+                    </button>
+                </div>
+
+                {{-- Staff Filter Dropdown - only for users with accept_reject_order permission --}}
+                @if(Auth::user()->hasPermission('accept_reject_order') && count($staffList) > 0)
+                <div class="position-relative" x-data="{ staffDropdownOpen: false }" @click.outside="staffDropdownOpen = false">
+                    <button type="button" 
+                        @click="staffDropdownOpen = !staffDropdownOpen" 
+                        class="order-period-pill {{ $staff_filter ? 'active' : '' }}" style="white-space: nowrap;">
+                        <iconify-icon icon="lucide:users"></iconify-icon>
+                        @if($staff_filter)
+                            @php $selectedStaffName = collect($staffList)->firstWhere('id', $staff_filter)['name'] ?? 'Staff'; @endphp
+                            {{ $selectedStaffName }}
+                        @else
+                            {{ $lang->data['filter_by_staff'] ?? 'Filter by Staff' }}
+                        @endif
+                        <iconify-icon icon="lucide:chevron-down" style="font-size: 0.75rem; margin-left: 2px;"></iconify-icon>
+                    </button>
+                    <div x-show="staffDropdownOpen" x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 transform scale-95" x-transition:enter-end="opacity-100 transform scale-100" x-transition:leave="transition ease-in duration-75" x-transition:leave-start="opacity-100 transform scale-100" x-transition:leave-end="opacity-0 transform scale-95"
+                         class="position-absolute bg-white shadow rounded-3 mt-1 py-2" 
+                         style="z-index: 50; min-width: 220px; max-height: 300px; overflow-y: auto; left: 0;">
+                        @if($staff_filter)
+                        <a href="javascript:void(0)" 
+                           wire:click="clearStaffFilter" @click="staffDropdownOpen = false"
+                           class="dropdown-item d-flex align-items-center gap-2 tw-text-xs" style="color: #dc3545;">
+                            <iconify-icon icon="lucide:x-circle"></iconify-icon>
+                            {{ $lang->data['show_all_staff'] ?? 'Show All Staff' }}
+                        </a>
+                        <hr class="my-1">
+                        @endif
+                        @foreach($staffList as $staff)
+                        <a href="javascript:void(0)" 
+                           wire:click="filterByStaff({{ $staff['id'] }})" @click="staffDropdownOpen = false"
+                           class="dropdown-item d-flex align-items-center gap-2 tw-text-xs {{ $staff_filter == $staff['id'] ? 'fw-semibold text-primary-600' : '' }}">
+                            <iconify-icon icon="lucide:user"></iconify-icon>
+                            {{ $staff['name'] }}
+                            @if($staff_filter == $staff['id'])
+                            <iconify-icon icon="lucide:check" class="ms-auto text-primary-600"></iconify-icon>
+                            @endif
+                        </a>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
             </div>
-            @if($date_from && $date_to && $date_preset)
-            <button type="button" wire:click="clearDateFilter" class="order-period-pill" style="border-color: #dc3545; color: #dc3545;">
-                <iconify-icon icon="lucide:x"></iconify-icon>
-                {{ $lang->data['clear_filter'] ?? 'Clear' }}
-            </button>
-            @endif
+
+            <div class="d-flex align-items-center gap-2">
+                @if($staff_filter)
+                <button type="button" wire:click="clearStaffFilter" class="order-period-pill" style="border-color: #dc3545; color: #dc3545;">
+                    <iconify-icon icon="lucide:user-x"></iconify-icon>
+                    {{ $lang->data['clear_staff'] ?? 'Clear Staff' }}
+                </button>
+                @endif
+                @if($date_from && $date_to && $date_preset)
+                <button type="button" wire:click="clearDateFilter" class="order-period-pill" style="border-color: #dc3545; color: #dc3545;">
+                    <iconify-icon icon="lucide:x"></iconify-icon>
+                    {{ $lang->data['clear_filter'] ?? 'Clear' }}
+                </button>
+                @endif
+            </div>
         </div>
 
         {{-- Custom Date Range Picker (shown when Custom is active) --}}

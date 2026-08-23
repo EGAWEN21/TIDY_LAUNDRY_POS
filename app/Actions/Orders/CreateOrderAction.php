@@ -21,10 +21,18 @@ class CreateOrderAction
 {
     /**
      * Execute the secure creation of an order.
+     *
+     * @param OrderData    $dto               The order data transfer object.
+     * @param int          $userId            The user ID creating the order.
+     * @param string|null  $orderDateOverride  When accepting a request, pass the acceptance date
+     *                                         to override the original request's order_date.
+     * @param string|null  $requestedAt        The original request creation timestamp (audit trail).
+     *                                         Stored on the order when it originates from a REQ.
      */
-    public static function execute(OrderData $dto, int $userId): Order
+    public static function execute(OrderData $dto, int $userId, ?string $orderDateOverride = null, ?string $requestedAt = null): Order
     {
-        return DB::transaction(function () use ($dto, $userId) {
+        return DB::transaction(function () use ($dto, $userId, $orderDateOverride, $requestedAt) {
+            $effectiveOrderDate = $orderDateOverride ?? $dto->order_date;
             $order_number = self::generateOrderID();
 
             $order = Order::create([
@@ -32,7 +40,7 @@ class CreateOrderAction
                 'customer_id' => $dto->customer_id,
                 'customer_name' => $dto->customer_name,
                 'phone_number' => $dto->phone_number,
-                'order_date' => Carbon::parse($dto->order_date)->toDateTimeString(),
+                'order_date' => Carbon::parse($effectiveOrderDate)->toDateTimeString(),
                 'delivery_date' => Carbon::parse($dto->delivery_date)->toDateTimeString(),
                 'sub_total' => $dto->sub_total,
                 'addon_total' => $dto->addon_total,
@@ -46,7 +54,8 @@ class CreateOrderAction
                 'status' => 0, // Hardcoded to 0 to prevent status spoofing from API payload
                 'order_type' => 1,
                 'created_by' => $userId,
-                'financial_year_id' => resolveFinancialYearId($dto->order_date)
+                'financial_year_id' => resolveFinancialYearId($effectiveOrderDate),
+                'requested_at' => $requestedAt,
             ]);
 
             foreach ($dto->details as $detail) {
@@ -87,14 +96,14 @@ class CreateOrderAction
                 }
 
                 Payment::create([
-                    'payment_date' => $dto->order_date,
+                    'payment_date' => $effectiveOrderDate,
                     'customer_id' => $dto->customer_id,
                     'customer_name' => $dto->customer_name,
                     'order_id' => $order->id,
                     'payment_type' => $payment->payment_type,
                     'received_amount' => $payment->amount,
                     'payment_note' => $payment->notes ?? null,
-                    'financial_year_id' => resolveFinancialYearId($dto->order_date),
+                    'financial_year_id' => resolveFinancialYearId($effectiveOrderDate),
                     'created_by' => $userId,
                 ]);
             }
