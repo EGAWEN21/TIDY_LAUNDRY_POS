@@ -63,52 +63,54 @@
                                     @php
                                         $tax_amount_total_expense = 0;
                                         $tax_amount_total_sales = 0;
-                                        $tax_amount_sales = 0;
-                                        $tax_amount_expense = 0;
+                                        $total_amount_sales = 0;
+                                        $total_amount_expense = 0;
                                         $i = 1;
                                     @endphp
                                     @foreach ($reports as $row)
+                                        @php
+                                            if ($category == 1) {
+                                                $tax_amount = $row->tax_amount;
+                                                $before_tax = $row->taxable_amount > 0 ? $row->taxable_amount : ($row->total - $row->tax_amount);
+                                                $row_total = $row->total;
+                                                $tax_amount_total_sales += $tax_amount;
+                                                $total_amount_sales += $row_total;
+                                            } else {
+                                                $tax_pct = (float) ($row->tax_percentage ?? 0);
+                                                if ($row->tax_included == 1) {
+                                                    $tax_amount = $tax_pct > 0 ? ($row->expense_amount - ($row->expense_amount / (1 + ($tax_pct / 100)))) : 0;
+                                                    $before_tax = $row->expense_amount - $tax_amount;
+                                                    $row_total = $row->expense_amount;
+                                                } else {
+                                                    $tax_amount = $row->expense_amount * ($tax_pct / 100);
+                                                    $before_tax = $row->expense_amount;
+                                                    $row_total = $before_tax + $tax_amount;
+                                                }
+                                                $tax_amount_total_expense += $tax_amount;
+                                                $total_amount_expense += $row_total;
+                                            }
+                                        @endphp
                                         <tr>
                                             <td>
-                                                <p class="text-xs px-3  mb-0">
+                                                <p class="text-xs px-3 mb-0">
                                                     {{ $i++ }}
                                                 </p>
                                             </td>
                                             <td>
-                                                <p class="text-xs px-3  mb-0">
-                                                    {{-- sales --}}
+                                                <p class="text-xs px-3 mb-0">
                                                     @if ($category == 1)
                                                         {{ \Carbon\Carbon::parse($row->order_date)->format('d/m/Y') }}
-                                                    @endif
-                                                    {{-- expense --}}
-                                                    @if ($category == 2)
+                                                    @else
                                                         {{ \Carbon\Carbon::parse($row->expense_date)->format('d/m/Y') }}
                                                     @endif
                                                 </p>
                                             </td>
-                                            {{-- sales --}}
-                                            @if ($category == 1)
-                                                @php
-                                                    $tax_amount_sales = $row->total * ($row->tax_percentage / 100);
-                                                    $tax_amount_total_sales += $tax_amount_sales;
-                                                @endphp
-                                            @endif
-                                            {{-- expense --}}
-                                            @if ($category == 2)
-                                                @php
-                                                    $tax_amount_expense = $row->expense_amount * ($row->tax_percentage / 100);
-                                                    $tax_amount_total_expense += $tax_amount_expense;
-                                                @endphp
-                                            @endif
                                             <td>
                                                 <p class="text-xs px-3 mb-0">
                                                     <span class="font-weight-bold">
-                                                        {{-- sales --}}
                                                         @if ($category == 1)
                                                             {{ $row->order_number }}
-                                                        @endif
-                                                        {{-- expense --}}
-                                                        @if ($category == 2)
+                                                        @else
                                                             {{ $row->expenseCategory->expense_category_name ?? '' }}
                                                         @endif
                                                     </span>
@@ -116,37 +118,17 @@
                                             </td>
                                             <td>
                                                 <p class="text-xs px-3 font-weight-bold mb-0">
-                                                    {{-- sales --}}
-                                                    @if ($category == 1)
-                                                        {{getFormattedCurrency($row->total - $tax_amount_sales )}}
-                                                    @endif
-                                                    {{-- expense --}}
-                                                    @if ($category == 2)
-                                                        {{getFormattedCurrency($row->expense_amount - $tax_amount_expense)}}
-                                                    @endif
-                                            </td>
-                                            <td>
-                                                <p class="text-xs px-3 font-weight-bold mb-0">
-                                                    {{-- sales --}}
-                                                    @if ($category == 1)
-                                                        {{getFormattedCurrency($tax_amount_sales)}}
-                                                    @endif
-                                                    {{-- expense --}}
-                                                    @if ($category == 2)
-                                                        {{getFormattedCurrency($tax_amount_expense)}}
-                                                    @endif
+                                                    {{ getFormattedCurrency($before_tax) }}
                                                 </p>
                                             </td>
                                             <td>
                                                 <p class="text-xs px-3 font-weight-bold mb-0">
-                                                    {{-- sales --}}
-                                                    @if ($category == 1)
-                                                        {{getFormattedCurrency($row->total)}}
-                                                    @endif
-                                                    {{-- expense --}}
-                                                    @if ($category == 2)
-                                                        {{getFormattedCurrency($row->expense_amount)}}
-                                                    @endif
+                                                    {{ getFormattedCurrency($tax_amount) }}
+                                                </p>
+                                            </td>
+                                            <td>
+                                                <p class="text-xs px-3 font-weight-bold mb-0">
+                                                    {{ getFormattedCurrency($row_total) }}
                                                 </p>
                                             </td>
                                         </tr>
@@ -158,25 +140,19 @@
                             <div class="col">
                                 <span class="text-sm mb-0 fw-500">{{$lang->data['total_amount'] ?? 'Total Amount'}}:</span>
                                 <span class="text-sm text-dark ms-2 fw-600 mb-0">
-                                    {{-- sales --}}
                                     @if ($category == 1)
-                                        {{getFormattedCurrency($reports->sum('total'))}}
-                                    @endif
-                                    {{-- expense --}}
-                                    @if ($category == 2)
-                                        {{getFormattedCurrency($reports->sum('expense_amount'))}}
+                                        {{getFormattedCurrency($total_amount_sales)}}
+                                    @else
+                                        {{getFormattedCurrency($total_amount_expense)}}
                                     @endif
                                 </span>
                             </div>
                             <div class="col">
                                 <span class="text-sm mb-0 fw-500">{{$lang->data['total_tax_amount'] ?? 'Total Tax Amount'}}:</span>
                                 <span class="text-sm text-dark ms-2 fw-600 mb-0">
-                                    {{-- sales --}}
                                     @if ($category == 1)
                                         {{getFormattedCurrency($tax_amount_total_sales)}}
-                                    @endif
-                                    {{-- expense --}}
-                                    @if ($category == 2)
+                                    @else
                                         {{getFormattedCurrency($tax_amount_total_expense)}}
                                     @endif
                                 </span>
