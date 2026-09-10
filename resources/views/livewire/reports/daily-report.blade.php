@@ -95,10 +95,10 @@
                             <tbody>
                                 @foreach($unpaidDeliveries as $unpaid)
                                     <tr>
-                                        <td>{{ $unpaid->customer_name }}</td>
-                                        <td>{{ $unpaid->phone_number }}</td>
-                                        <td>{{ $unpaid->order_number }}</td>
-                                        <td class="tw-text-danger tw-font-semibold">{{ getFormattedCurrency($unpaid->amount_owed) }}</td>
+                                        <td>{{ $unpaid['customer_name'] }}</td>
+                                        <td>{{ $unpaid['phone_number'] }}</td>
+                                        <td>{{ $unpaid['order_number'] }}</td>
+                                        <td class="tw-text-danger tw-font-semibold">{{ getFormattedCurrency($unpaid['amount_owed']) }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -129,11 +129,11 @@
                             <tbody>
                                 @foreach($overdueOrders as $overdue)
                                     <tr>
-                                        <td>{{ $overdue->customer_name }}</td>
-                                        <td>{{ $overdue->phone_number }}</td>
-                                        <td>{{ $overdue->order_number }}</td>
-                                        <td>{{ \Carbon\Carbon::parse($overdue->delivery_date)->format('d/m/Y') }}</td>
-                                        <td class="tw-text-danger tw-font-semibold">{{ $overdue->days_overdue }} days</td>
+                                        <td>{{ $overdue['customer_name'] }}</td>
+                                        <td>{{ $overdue['phone_number'] }}</td>
+                                        <td>{{ $overdue['order_number'] }}</td>
+                                        <td>{{ \Carbon\Carbon::parse($overdue['delivery_date'])->format('d/m/Y') }}</td>
+                                        <td class="tw-text-danger tw-font-semibold">{{ $overdue['days_overdue'] }} days</td>
                                     </tr>
                                 @endforeach
                             </tbody>

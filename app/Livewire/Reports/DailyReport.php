@@ -106,7 +106,7 @@ class DailyReport extends Component
         $this->cash_collected = \App\Models\Payment::whereDate('payment_date', '>=', $this->from_date)->whereDate('payment_date', '<=', $this->to_date)->sum('received_amount');
         $this->pending_orders = \App\Models\Order::whereIn('status', [0, 1, 2])->whereNull('deleted_at')->count();
 
-        $this->unpaidDeliveries = DB::table('orders')
+        $this->unpaidDeliveries = json_decode(json_encode(DB::table('orders')
             ->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')
             ->select('customers.name as customer_name', 'customers.phone as phone_number', 'orders.order_number', 'orders.total', 
                 DB::raw('orders.total - COALESCE((SELECT SUM(received_amount) FROM payments WHERE order_id = orders.id), 0) as amount_owed'))
@@ -115,7 +115,7 @@ class DailyReport extends Component
             ->where('orders.status', 3)
             ->whereNull('orders.deleted_at')
             ->whereRaw('orders.total > COALESCE((SELECT SUM(received_amount) FROM payments WHERE order_id = orders.id), 0)')
-            ->get()->toArray();
+            ->get()), true);
 
         $overdueOrdersRaw = DB::table('orders')
             ->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')
