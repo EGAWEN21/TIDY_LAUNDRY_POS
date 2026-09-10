@@ -48,9 +48,6 @@
                                                     </button>
                                                 @endif
                                             @endcan
-                                            <a href="{{ route('orders.requests.view', $item->id) }}" class="bg-success-100 text-success-600 bg-hover-success-200 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle" title="{{ $lang->data['view'] ?? 'View' }}">
-                                                <iconify-icon icon="lucide:eye" class="menu-icon"></iconify-icon>
-                                            </a>
                                             @if(Auth::id() == $item->created_by || Auth::user()->hasPermission('edit_pending_requests'))
                                                 <a href="{{ route('orders.requests.edit', $item->id) }}" class="bg-info-100 text-info-600 bg-hover-info-200 fw-medium tw-size-8 d-flex justify-content-center align-items-center rounded-circle">
                                                     <iconify-icon icon="lucide:edit" class="menu-icon"></iconify-icon>

@@ -92,14 +92,6 @@ class OrderRequestsList extends Component
         $req->rejection_note = $this->rejection_note;
         $req->save();
 
-        if ($req->user) {
-            $req->user->notify(new \App\Notifications\SystemNotification(
-                'Order Request Rejected',
-                "Your order request {$req->request_number} has been rejected. Reason: {$req->rejection_note}",
-                'danger'
-            ));
-        }
-
         $this->dispatch('closemodal');
         $this->loadRequests();
         $this->dispatch('alert', ['type' => 'success',  'message' => 'Order Request Rejected.']);

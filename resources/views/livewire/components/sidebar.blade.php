@@ -138,11 +138,18 @@
                                 class="ri-circle-fill circle-icon text-primary-600 w-auto"></i>{{$lang->data['daily_report'] ?? 'Daily Report'}}</a>
                     </li>
                     @endcan
-                    @canany(['report_sales', 'report_order'])
+                    @can('report_order')
                     <li>
-                        <a href="{{ route('reports.sales') }}"><i class="ri-circle-fill circle-icon text-primary-600 w-auto"></i>{{$lang->data['orders_and_revenue'] ?? 'Orders & Revenue'}}</a>
+                        <a href="{{ route('reports.order') }}"><i
+                                class="ri-circle-fill circle-icon text-primary-600 w-auto"></i>{{$lang->data['order_report'] ?? 'Order Report'}}</a>
                     </li>
-                    @endcanany
+                    @endcan
+                    @can('report_sales')
+                    <li>
+                        <a href="{{ route('reports.sales') }}"><i
+                                class="ri-circle-fill circle-icon text-primary-600 w-auto"></i>{{$lang->data['sales_report'] ?? 'Sales Report'}}</a>
+                    </li>
+                    @endcan
                     @can('report_ledger')
                     <li>
                         <a href="{{ route('reports.ledger') }}"><i

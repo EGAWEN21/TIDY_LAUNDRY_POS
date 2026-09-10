@@ -41,18 +41,6 @@
             class="w-40-px h-40-px bg-neutral-200 rounded-circle tw-hidden justify-content-center align-items-center"></button>
     </div>
 
-    @if(isset($request_status) && $request_status == 2 && $rejection_reason)
-        <div class="tw-w-full tw-px-2 tw-pt-2 tw-z-10 tw-relative">
-            <div class="tw-bg-danger-50 tw-border tw-border-danger-200 tw-rounded-lg tw-p-3 tw-flex tw-items-center tw-gap-3 tw-shadow-sm">
-                <iconify-icon icon="lucide:x-circle" class="tw-text-danger-600 tw-text-xl tw-shrink-0"></iconify-icon>
-                <div class="tw-flex tw-items-center tw-gap-2">
-                    <span class="tw-font-bold tw-text-danger-700">{{ $lang->data['rejected'] ?? 'Rejected' }}:</span>
-                    <span class="tw-text-danger-600 tw-text-sm">{{ $rejection_reason }}</span>
-                </div>
-            </div>
-        </div>
-    @endif
-
     <div class="tw-w-[100%] tw-h-full tw-flex lg:tw-flex-row tw-flex-col  tw-relative tw-mt-0.5">
         <div class="lg:tw-w-5/12 tw-w-full tw-flex-col tw-h-[calc(100vh-4.0rem)] tw-p-2 p-16">
             <div class="tw-flex tw-flex-col">

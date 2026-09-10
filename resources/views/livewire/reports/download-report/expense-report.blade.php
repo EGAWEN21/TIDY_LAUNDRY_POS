@@ -57,8 +57,7 @@ $lang = \App\Models\Translation::where('default', 1)->first();
     @php
         $expenses = \App\Models\Expense::whereDate('expense_date', '>=', $from_date)
             ->whereDate('expense_date', '<=', $to_date)
-            ->with('expenseCategory')
-            ->latest('expense_date')
+            ->latest()
             ->get();
     @endphp
     <table id="main" width="100%" cellpadding="0" cellspacing="0">
@@ -86,7 +85,7 @@ $lang = \App\Models\Translation::where('default', 1)->first();
                     <td>
                         <p class="text-xs px-3 mb-0">
                             <span
-                                class="font-weight-bold">{{ $row->expenseCategory->expense_category_name ?? ($lang->data['uncategorized'] ?? 'Uncategorized') }}</span>
+                                class="font-weight-bold">{{ $row->expenseCategory->expense_category_name ?? '' }}</span>
                         </p>
                     </td>
                     <td style="text-align: center">

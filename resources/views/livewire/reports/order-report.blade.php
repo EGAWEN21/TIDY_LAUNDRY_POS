@@ -10,6 +10,17 @@
                 <label class="tw-text-sm tw-font-medium">{{$lang->data['to'] ?? 'To'}}</label>
                 <input type="date" class="form-control bg-base h-40-px w-auto" wire:model.live="to_date">
             </div>
+            <div class="tw-flex tw-items-center tw-gap-2">
+                <label class="tw-text-sm tw-font-medium">{{$lang->data['status'] ?? 'Status'}}</label>
+                <select class="form-select form-select-sm bg-base h-40-px w-auto" wire:model.live="status">
+                    <option value="-1">{{$lang->data['all_orders'] ?? 'All Orders'}}</option>
+                    <option value="0">{{$lang->data['pending'] ?? 'Pending'}}</option>
+                    <option value="1">{{$lang->data['processing'] ?? 'Processing'}}</option>
+                    <option value="2">{{$lang->data['ready_to_deliver'] ?? 'Ready To Deliver'}}</option>
+                    <option value="3">{{$lang->data['delivered'] ?? 'Delivered'}}</option>
+                    <option value="4">{{$lang->data['returned'] ?? 'Returned'}}</option>
+                </select>
+            </div>
         </div>
         <div class="tw-flex tw-items-center tw-gap-2">
             @can('report_download')
@@ -29,43 +40,15 @@
     <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4 tw-mb-6">
         <div class="col">
             <x-dashboard-card 
-                title="{{$lang->data['total_sales'] ?? 'Total Sales (Completed)'}}" 
-                value="{{ getFormattedCurrency($kpi['sales'] ?? 0) }}" 
-                icon="mdi:cash-register" 
-                color="success" 
-                trend="{{ ($kpi['growth'] ?? 0) > 0 ? '+' : '' }}{{ $kpi['growth'] ?? 0 }}% vs previous period"
-                trendUp="{{ ($kpi['growth'] ?? 0) >= 0 ? true : false }}" />
-        </div>
-        <div class="col">
-            <x-dashboard-card 
                 title="{{$lang->data['total_orders'] ?? 'Total Orders'}}" 
                 value="{{ $kpi['orders'] ?? 0 }}" 
                 icon="akar-icons:cart" 
-                color="primary" />
+                color="primary" 
+                trend="{{ ($kpi['growth'] ?? 0) > 0 ? '+' : '' }}{{ $kpi['growth'] ?? 0 }}% vs previous period"
+                trendUp="{{ ($kpi['growth'] ?? 0) >= 0 ? true : false }}" />
         </div>
-        <div class="col">
-            <x-dashboard-card 
-                title="{{$lang->data['aov'] ?? 'Avg Order Value'}}" 
-                value="{{ getFormattedCurrency($kpi['aov'] ?? 0) }}" 
-                icon="mdi:chart-line-variant" 
-                color="info" />
-        </div>
-        <div class="col">
-            <x-dashboard-card 
-                title="{{$lang->data['discount_leakage'] ?? 'Discount Leakage'}}" 
-                value="{{ getFormattedCurrency($kpi['discount'] ?? 0) }}" 
-                icon="mdi:ticket-percent-outline" 
-                color="warning" 
-                trend="Money given away"
-                trendUp="false" />
-        </div>
-    </div>
-
-    <!-- Charts Row -->
-    <div class="row g-4 tw-mb-6">
-        <!-- Service Breakdown (100% Stacked Bar) -->
-        <div class="col-12">
-            <x-chart-container title="{{$lang->data['service_breakdown'] ?? 'Service Revenue Breakdown (100% Stacked)'}}">
+        <div class="col-8">
+            <x-chart-container title="{{$lang->data['service_volume_breakdown'] ?? 'Service Volume Breakdown (Items Processed)'}}">
                 <div id="serviceChart"></div>
             </x-chart-container>
         </div>
@@ -81,8 +64,7 @@
                             <th scope="col">{{ $lang->data['order_id'] ?? 'Order ID' }}</th>
                             <th scope="col">{{ $lang->data['date'] ?? 'Date' }}</th>
                             <th scope="col">{{ $lang->data['customer'] ?? 'Customer' }}</th>
-                            <th scope="col">{{ $lang->data['discount'] ?? 'Discount' }}</th>
-                            <th scope="col">{{ $lang->data['total'] ?? 'Total' }}</th>
+                            <th scope="col">{{ $lang->data['status'] ?? 'Status' }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -92,21 +74,28 @@
                             <td><p class="text-sm mb-0">{{ \Carbon\Carbon::parse($item->order_date)->format('d/m/Y') }}</p></td>
                             <td>
                                 <p class="text-sm font-weight-bold tw-text-black mb-0">{{ $item->customer_name }}</p>
-                                <span class="text-xs text-muted">{{ $item->customer_phone }}</span>
                             </td>
-                            <td><p class="text-sm mb-0 text-danger">{{ getFormattedCurrency($item->discount) }}</p></td>
-                            <td><p class="text-sm font-weight-bold text-success mb-0">{{ getFormattedCurrency($item->total) }}</p></td>
+                            <td>
+                                @if($item->status == 0)
+                                    <span class="badge fw-semibold text-warning-600 bg-warning-100 px-20 py-9 radius-4 text-white">{{ $lang->data['pending'] ?? 'Pending' }}</span>
+                                @elseif($item->status == 1)
+                                    <span class="badge fw-semibold text-info-600 bg-info-100 px-20 py-9 radius-4 text-white">{{ $lang->data['processing'] ?? 'Processing' }}</span>
+                                @elseif($item->status == 2)
+                                    <span class="badge fw-semibold text-primary-600 bg-primary-100 px-20 py-9 radius-4 text-white">{{ $lang->data['ready_to_deliver'] ?? 'Ready To Deliver' }}</span>
+                                @elseif($item->status == 3)
+                                    <span class="badge fw-semibold text-success-600 bg-success-100 px-20 py-9 radius-4 text-white">{{ $lang->data['delivered'] ?? 'Delivered' }}</span>
+                                @elseif($item->status == 4)
+                                    <span class="badge fw-semibold text-danger-600 bg-danger-100 px-20 py-9 radius-4 text-white">{{ $lang->data['returned'] ?? 'Returned' }}</span>
+                                @endif
+                            </td>
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="5" class="text-center py-4 text-muted">No sales found for this period.</td>
+                            <td colspan="4" class="text-center py-4 text-muted">No orders found for this period.</td>
                         </tr>
                         @endforelse
                     </tbody>
                 </table>
-                <div class="mt-4 tw-px-4">
-                    {{ $this->orders->links() }}
-                </div>
             </div>
         </div>
     </div>
@@ -132,12 +121,12 @@
 
         var serviceOptions = {
             series: getServiceSeries(@json($serviceBreakdown)),
-            chart: { type: 'bar', height: 180, stacked: true, stackType: '100%', toolbar: { show: false } },
+            chart: { type: 'bar', height: 120, stacked: true, stackType: '100%', toolbar: { show: false } },
             plotOptions: { bar: { horizontal: true, barHeight: '50%' } },
             stroke: { width: 1, colors: ['#fff'] },
-            xaxis: { categories: ['Revenue'], labels: { show: false }, axisBorder: {show: false}, axisTicks: {show: false} },
+            xaxis: { categories: ['Volume'], labels: { show: false }, axisBorder: {show: false}, axisTicks: {show: false} },
             yaxis: { show: false },
-            tooltip: { y: { formatter: function(val) { return "{{ getCurrency() }}" + val.toFixed(2) } } },
+            tooltip: { y: { formatter: function(val) { return val + " items" } } },
             fill: { opacity: 1 },
             legend: { position: 'bottom' },
             colors: ['#0d6efd', '#20c997', '#ffc107', '#fd7e14', '#dc3545', '#6f42c1', '#0dcaf0']
@@ -146,7 +135,7 @@
         serviceChart.render();
         
         // --- Livewire Re-render on Date Change ---
-        Livewire.on('update-sales-charts', (event) => {
+        Livewire.on('update-order-charts', (event) => {
             const data = event[0];
             if(data && data.services) {
                 serviceChart.updateSeries(getServiceSeries(data.services));

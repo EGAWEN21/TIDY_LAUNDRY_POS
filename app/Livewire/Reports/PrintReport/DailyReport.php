@@ -4,7 +4,6 @@ namespace App\Livewire\Reports\PrintReport;
 
 use Livewire\Component;
 use Livewire\Attributes\Layout;
-use App\Models\Translation;
 
 class DailyReport extends Component
 {
@@ -14,7 +13,6 @@ class DailyReport extends Component
     public $total_payment;
     public $total_expense;
     public $total_sales;
-    public $lang;
 
     /* render the page*/
     #[Layout('components.layouts.print-layout')]
@@ -27,11 +25,6 @@ class DailyReport extends Component
     {
         if (!\Illuminate\Support\Facades\Gate::allows('report_print')) {
             abort(404);
-        }
-        if (session()->has('selected_language')) {
-            $this->lang = Translation::where('id', session()->get('selected_language'))->first();
-        } else {
-            $this->lang = Translation::where('default', 1)->first() ?? Translation::where('id', 1)->first();
         }
         $this->today = $today;
         $this->report();

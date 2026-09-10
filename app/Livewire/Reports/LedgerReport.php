@@ -10,9 +10,6 @@ use App\Models\Payment;
 use App\Models\Translation;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-use Barryvdh\DomPDF\Facade\Pdf;
-use App\Models\MasterSettings;
-use Livewire\Attributes\Computed;
 
 class LedgerReport extends Component
 {
@@ -23,8 +20,6 @@ class LedgerReport extends Component
     public $end_date;
     public $lang;
     public $ageingData = [];
-    public $totalOutstanding = 0;
-
     #[Title('Ledger Report')]
     public function render()
     {
@@ -88,7 +83,6 @@ class LedgerReport extends Component
             $ageing['61_90'],
             $ageing['90_plus']
         ];
-        $this->totalOutstanding = array_sum($this->ageingData);
     }
 
     public function updated($name, $value)
@@ -115,144 +109,16 @@ class LedgerReport extends Component
         $this->customers = collect();
     }
 
-    #[Computed]
-    public function topDebtors()
-    {
-        $paymentsSub = DB::table('payments')
-            ->whereNull('deleted_at')
-            ->select('customer_id', DB::raw('SUM(received_amount) as total_paid'), DB::raw('MAX(payment_date) as last_payment_date'))
-            ->groupBy('customer_id');
-
-        $ordersSub = DB::table('orders')
-            ->whereNull('deleted_at')
-            ->where('status', '!=', 4)
-            ->select('customer_id', DB::raw('SUM(total) as total_ordered'), DB::raw('MAX(order_date) as last_order_date'))
-            ->groupBy('customer_id');
-
-        return DB::table('customers')
-            ->whereNull('customers.deleted_at')
-            ->joinSub($ordersSub, 'o', function($join) {
-                $join->on('customers.id', '=', 'o.customer_id');
-            })
-            ->leftJoinSub($paymentsSub, 'p', function($join) {
-                $join->on('customers.id', '=', 'p.customer_id');
-            })
-            ->select(
-                'customers.id',
-                'customers.name',
-                'customers.phone',
-                DB::raw('COALESCE(o.total_ordered, 0) - COALESCE(p.total_paid, 0) as total_owed'),
-                'p.last_payment_date',
-                'o.last_order_date'
-            )
-            ->having('total_owed', '>', 0)
-            ->orderBy('total_owed', 'desc')
-            ->limit(10)
-            ->get()
-            ->map(function ($debtor) {
-                $lastDate = $debtor->last_payment_date ?? $debtor->last_order_date;
-                $debtor->days_outstanding = $lastDate ? Carbon::parse($lastDate)->diffInDays(Carbon::today()) : 0;
-                return $debtor;
-            });
-    }
-
-    public function downloadStatement()
+    /* get Data */
+    public function getData()
     {
         if (!$this->selected_customer) {
-            $this->dispatch('alert', ['type' => 'error', 'title' => 'Error', 'message' => 'Please select a customer first.']);
+            $this->dispatch(
+                'alert',
+                ['type' => 'error','title' => 'Fetching failed',  'message' => 'You have not selected a customer!']
+            );
             return;
         }
-
-        $master_settings = MasterSettings::first()?->siteData() ?? [];
-        $transactions = $this->data();
-        $firstData = $this->firstData();
-        $customer = $this->selected_customer;
-        $start_date = $this->start_date;
-        $end_date = $this->end_date;
-
-        $pdfContent = Pdf::loadView('livewire.reports.download-report.account-statement', compact(
-            'master_settings', 'transactions', 'firstData', 'customer', 'start_date', 'end_date'
-        ))->output();
-
-        return response()->streamDownload(
-            fn () => print($pdfContent),
-            "Account_Statement_{$customer->name}.pdf"
-        );
-    }
-
-    use \App\Traits\CsvExportable;
-
-    public function downloadCsv()
-    {
-        if (!$this->selected_customer) {
-            $debtors = $this->topDebtors;
-            $filename = 'Top_Debtors_' . date('Ymd_His') . '.csv';
-            $headers = ['Customer', 'Phone', 'Total Owed', 'Last Payment Date', 'Days Outstanding'];
-            $rows = [];
-            foreach ($debtors as $d) {
-                $rows[] = [
-                    $d->name,
-                    $d->phone,
-                    $d->total_owed,
-                    $d->last_payment_date ? Carbon::parse($d->last_payment_date)->format('d/m/Y') : 'N/A',
-                    $d->days_outstanding,
-                ];
-            }
-            return $this->exportCsv($headers, $rows, $filename);
-        }
-
-        $customerName = preg_replace('/[^A-Za-z0-9_\-]/', '_', $this->selected_customer->name);
-        $filename = 'Ledger_' . $customerName . '_' . $this->start_date . '_to_' . $this->end_date . '.csv';
-        $headers = ['Date', 'Type', 'Reference', 'Debit', 'Credit', 'Running Balance'];
-        $rows = [];
-
-        $firstData = $this->firstData();
-        $openingBalance = $firstData['debits'] - $firstData['credits'];
-        $runningBalance = $openingBalance;
-
-        $rows[] = [
-            Carbon::parse($this->start_date)->format('d/m/Y'),
-            'Opening Balance',
-            '-',
-            $openingBalance > 0 ? $openingBalance : 0,
-            $openingBalance < 0 ? abs($openingBalance) : 0,
-            $runningBalance
-        ];
-
-        foreach ($this->data() as $row) {
-            if ($row['type'] == 'debit') {
-                $runningBalance += $row['total'];
-                $rows[] = [
-                    Carbon::parse($row['date'])->format('d/m/Y'),
-                    'Debit (Order)',
-                    'Order #' . $row['order_number'],
-                    $row['total'],
-                    0,
-                    $runningBalance
-                ];
-            } else {
-                $runningBalance -= $row['received_amount'];
-                $rows[] = [
-                    Carbon::parse($row['date'])->format('d/m/Y'),
-                    'Credit (Payment)',
-                    'Payment',
-                    0,
-                    $row['received_amount'],
-                    $runningBalance
-                ];
-            }
-        }
-
-        $rows[] = [
-            Carbon::parse($this->end_date)->format('d/m/Y'),
-            'Closing Balance',
-            '-',
-            '-',
-            '-',
-            $runningBalance
-        ];
-
-        return $this->exportCsv($headers, $rows, $filename);
     }
 
     #[\Livewire\Attributes\Computed]
