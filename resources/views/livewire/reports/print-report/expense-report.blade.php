@@ -4,7 +4,7 @@
     <html xmlns="http://www.w3.org/1999/xhtml">
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-        <title>Print Expense Report</title>
+        <title>{{$lang->data['expense_report'] ?? 'Expense Report'}}</title>
         <link href="https://fonts.googleapis.com/css?family=Calibri:400,700,400italic,700italic">
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -44,7 +44,7 @@
                             <table class="table table-bordered align-items-center mb-0">
                                 <thead class="table-dark">
                                     <tr>
-                                        <th class="text-uppercase text-white text-xs ">{{$lang->data['date'] ?? 'End'}}</th>
+                                        <th class="text-uppercase text-white text-xs ">{{$lang->data['date'] ?? 'Date'}}</th>
                                         <th class="text-uppercase text-white text-xs ">{{$lang->data['towards'] ?? 'Towards'}}</th>
                                         <th class="text-uppercase text-white text-xs ">{{$lang->data['expense_amount'] ?? 'Expense Amount'}}</th>
                                         <th class="text-uppercase text-white text-xs ">{{$lang->data['tax'] ?? 'Tax'}}%</th>
@@ -66,7 +66,7 @@
                                             <td>
                                                 <p class="text-xs px-3 mb-0">
                                                     <span
-                                                        class="font-weight-bold">{{ $row->expenseCategory->expense_category_name ?? '' }}</span>
+                                                        class="font-weight-bold">{{ $row->expenseCategory->expense_category_name ?? ($lang->data['uncategorized'] ?? 'Uncategorized') }}</span>
                                                 </p>
                                             </td>
                                             <td style="text-align: center">
@@ -114,9 +114,8 @@
                 </div>
             </div>
         </div>
-</div>
-</body>
-</html>
+    </body>
+    </html>
 </div>
 <script type="text/javascript">
  "use strict";

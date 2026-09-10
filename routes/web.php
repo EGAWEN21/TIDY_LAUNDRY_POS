@@ -63,7 +63,9 @@ Route::group(['prefix' => 'admin', 'middleware' => ['auth', 'single.session']], 
         Route::get('/daily', \App\Livewire\Reports\DailyReport::class)->name('reports.daily');
         Route::get('/expense', \App\Livewire\Reports\ExpenseReport::class)->name('reports.expense');
         Route::get('/ledger', \App\Livewire\Reports\LedgerReport::class)->name('reports.ledger');
-        Route::get('/order', \App\Livewire\Reports\OrderReport::class)->name('reports.order');
+        Route::get('/order', function () {
+            return redirect()->route('reports.sales', ['tab' => 'operations']);
+        })->name('reports.order');
         Route::get('/sales', \App\Livewire\Reports\SalesReport::class)->name('reports.sales');
         Route::get('/tax', \App\Livewire\Reports\TaxReport::class)->name('reports.tax');
         Route::get('/customer', \App\Livewire\Reports\CustomerReport::class)->name('reports.customer');
@@ -73,7 +75,6 @@ Route::group(['prefix' => 'admin', 'middleware' => ['auth', 'single.session']], 
             Route::get('expense/{from_date}/{to_date}', \App\Livewire\Reports\PrintReport\ExpenseReport::class);
             Route::get('sales/{from_date}/{to_date}', \App\Livewire\Reports\PrintReport\SalesReport::class);
             Route::get('tax/{from_date}/{to_date}/{category}', \App\Livewire\Reports\PrintReport\TaxReport::class);
-            Route::get('order/{from_date}/{to_date}/{status}', \App\Livewire\Reports\PrintReport\OrderReport::class);
             Route::get('daily/{today}', \App\Livewire\Reports\PrintReport\DailyReport::class);
         });
         /* download reports */
@@ -81,7 +82,6 @@ Route::group(['prefix' => 'admin', 'middleware' => ['auth', 'single.session']], 
             Route::get('expense/{from_date}/{to_date}', \App\Livewire\Reports\DownloadReport\ExpenseReport::class);
             Route::get('sales/{from_date}/{to_date}', \App\Livewire\Reports\DownloadReport\SalesReport::class);
             Route::get('tax/{from_date}/{to_date}/{category}', \App\Livewire\Reports\DownloadReport\TaxReport::class);
-            Route::get('order/{from_date}/{to_date}/{status}', \App\Livewire\Reports\DownloadReport\OrderReport::class);
         });
     });
     /* expense */
