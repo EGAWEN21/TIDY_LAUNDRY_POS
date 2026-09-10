@@ -14,7 +14,7 @@
                         <input type="date" class="form-control bg-base h-40-px w-auto" wire:model.live="to_date">
                     </div>
                 </div>
-                <x-report-granularity />
+                <x-report-granularity :lang="$lang" />
                 <div class="d-flex align-items-center flex-wrap gap-3">
                     <div class="d-flex  gap-1 tw-flex-col">
                         <span class="fw-medium">{{ $lang->data['filter'] ?? 'Filter' }}</span>

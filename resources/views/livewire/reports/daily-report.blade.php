@@ -4,7 +4,7 @@
         <div class="tw-flex tw-items-center tw-gap-2">
             <label class="tw-text-sm tw-font-medium">{{$lang->data['date'] ?? 'Date'}}</label>
             <input type="date" class="form-control bg-base h-40-px w-auto" wire:model.live="today">
-            <x-report-granularity />
+            <x-report-granularity :lang="$lang" />
         </div>
         <div class="tw-flex tw-items-center tw-gap-2">
             @can('report_download')

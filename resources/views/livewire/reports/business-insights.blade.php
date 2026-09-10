@@ -10,7 +10,7 @@
                 <label class="tw-text-sm tw-font-medium">{{$lang->data['to'] ?? 'To'}}</label>
                 <input type="date" class="form-control bg-base h-40-px w-auto" wire:model.live="to_date">
             </div>
-            <x-report-granularity />
+            <x-report-granularity :lang="$lang" />
         </div>
         <button type="button" onclick="window.print()" class="btn btn-success-100 text-success-600 radius-8 px-16 py-9 tw-flex tw-items-center tw-gap-2">
             <iconify-icon icon="solar:printer-bold" class="mr-1"></iconify-icon>
