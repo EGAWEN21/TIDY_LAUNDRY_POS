@@ -45,16 +45,18 @@ class ViewOrder extends Component
         if (!\Illuminate\Support\Facades\Gate::allows('order_view')) {
             abort(404);
         }
-        if (Auth::user()->user_type == 1) {
+        if (Auth::user()->user_type == 1 || Auth::user()->viewable_staff_orders === 'all') {
             $this->order = Order::where('id', $id)->first();
-            if ($this->order) {
-                $this->current_delivery_date = \Carbon\Carbon::parse($this->order->delivery_date)->toDateString();
-            }
         } else {
-            $this->order = Order::where('created_by', Auth::user()->id)->where('id', $id)->first();
-            if ($this->order) {
-                $this->current_delivery_date = \Carbon\Carbon::parse($this->order->delivery_date)->toDateString();
+            $viewable_ids = [Auth::user()->id];
+            if (!empty(Auth::user()->viewable_staff_orders)) {
+                $extra_ids = explode(',', Auth::user()->viewable_staff_orders);
+                $viewable_ids = array_merge($viewable_ids, $extra_ids);
             }
+            $this->order = Order::whereIn('created_by', $viewable_ids)->where('id', $id)->first();
+        }
+        if ($this->order) {
+            $this->current_delivery_date = \Carbon\Carbon::parse($this->order->delivery_date)->toDateString();
         }
         if (!$this->order) {
             abort(404);

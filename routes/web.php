@@ -41,6 +41,7 @@ Route::group(['prefix' => 'admin', 'middleware' => ['auth', 'single.session']], 
         Route::get('/view/{id}', \App\Livewire\Orders\ViewOrder::class)->name('order.view');
         Route::get('/print/{id}', \App\Livewire\Orders\PrintOrder::class)->name('order.print');
         Route::get('/requests', \App\Livewire\Orders\OrderRequestsList::class)->name('orders.requests');
+        Route::get('/requests/view/{id}', \App\Livewire\Orders\ViewOrderRequest::class)->name('orders.requests.view');
         Route::get('/requests/edit/{id}', \App\Livewire\Orders\PosScreen::class)->name('orders.requests.edit');
     });
     Route::group(['prefix' => 'customers/'], function () {

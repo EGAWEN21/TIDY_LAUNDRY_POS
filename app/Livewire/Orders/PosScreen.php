@@ -57,6 +57,8 @@ class PosScreen extends Component
     public $tax;
     public $balance;
     public $flag = 0;
+    public $request_status;
+    public $rejection_reason;
     public $lang;
     public $taxamount;
     public $taxable;
@@ -99,6 +101,8 @@ class PosScreen extends Component
             if (!Auth::user()->hasPermission('accept_reject_order') && !Auth::user()->hasPermission('edit_pending_requests') && $req->created_by != Auth::id()) {
                 abort(403);
             }
+            $this->request_status = $req->status;
+            $this->rejection_reason = $req->rejection_reason ?? $req->rejection_note;
             $payload = $req->payload;
 
             if (isset($payload['payments'])) {
@@ -520,6 +524,7 @@ class PosScreen extends Component
                         'payload' => $payload,
                         'status' => 0,
                         'rejection_note' => null,
+                        'rejection_reason' => null,
                         'total_amount' => $orderDto->total,
                         'customer_id' => $this->selected_customer->id ?? null,
                         'customer_name' => $this->selected_customer->name ?? null,
