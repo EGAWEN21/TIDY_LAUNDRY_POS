@@ -12,10 +12,11 @@ use Illuminate\Support\Facades\Auth;
 class ChangeOrderStatusAction
 {
     public const VALID_TRANSITIONS = [
-        1 => [2, 4],    // Pending -> Preparing, Returned/Cancelled
-        2 => [3, 4],    // Preparing -> Ready/Delivered, Returned/Cancelled
-        3 => [4],       // Ready/Delivered -> Returned/Cancelled
-        4 => [],        // Returned/Cancelled -> (Terminal)
+        0 => [1, 2, 3, 4],
+        1 => [0, 2, 3, 4],
+        2 => [0, 1, 3, 4],
+        3 => [4],
+        4 => [],
     ];
     /**
      * Centralized logic for changing an order's status and triggering all related
@@ -28,6 +29,10 @@ class ChangeOrderStatusAction
         $order = Order::find($orderId);
         if (!$order) {
             return ['success' => false, 'message' => 'Order not found.'];
+        }
+
+        if ($order->status == $status) {
+            return ['success' => true, 'message' => 'Status successfully updated!'];
         }
 
         if (!in_array($status, self::VALID_TRANSITIONS[$order->status] ?? [])) {
