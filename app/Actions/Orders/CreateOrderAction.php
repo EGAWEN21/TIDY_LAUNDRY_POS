@@ -111,7 +111,7 @@ class CreateOrderAction
             // 3. Dispatch the Event to handle SMS/WhatsApp asynchronously!
             event(new OrderSuccessfullyCreated($order, $dto->customer_id ?? 0));
 
-            \Illuminate\Support\Facades\Cache::forget('dashboard_order_counts');
+            \App\Models\User::pluck('id')->each(fn($id) => \Illuminate\Support\Facades\Cache::forget("dashboard_order_counts_{$id}"));
             return $order;
         });
     }

@@ -199,6 +199,7 @@ class OrdersList extends Component
 
         $this->selectedOrders = [];
         $this->reloadOrders();
+        \App\Models\User::pluck('id')->each(fn($id) => \Illuminate\Support\Facades\Cache::forget("dashboard_order_counts_{$id}"));
         $this->dispatch('alert', ['type' => 'success',  'message' => 'Selected orders have been moved to Recycle Bin!']);
     }
 
@@ -649,6 +650,7 @@ class OrdersList extends Component
                 $order->delete();
             });
             $this->reloadOrders();
+            \App\Models\User::pluck('id')->each(fn($id) => \Illuminate\Support\Facades\Cache::forget("dashboard_order_counts_{$id}"));
         }
         $this->dispatch(
             'alert',

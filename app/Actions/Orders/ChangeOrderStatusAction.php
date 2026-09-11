@@ -50,7 +50,7 @@ class ChangeOrderStatusAction
 
         $order->status = $status;
         $order->save();
-        \Illuminate\Support\Facades\Cache::forget('dashboard_order_counts');
+        \App\Models\User::pluck('id')->each(fn($id) => \Illuminate\Support\Facades\Cache::forget("dashboard_order_counts_{$id}"));
 
         $response = ['success' => true, 'message' => 'Status successfully updated!'];
 

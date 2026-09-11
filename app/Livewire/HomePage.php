@@ -23,7 +23,7 @@ class HomePage extends Component
     {
         $userId = \Illuminate\Support\Facades\Auth::id();
         $cacheKey = 'dashboard_order_counts_' . $userId;
-        $counts = \Illuminate\Support\Facades\Cache::remember($cacheKey, 300, function () {
+        $counts = \Illuminate\Support\Facades\Cache::remember($cacheKey, 30, function () {
             $query = Order::select('status', \Illuminate\Support\Facades\DB::raw('count(*) as total'));
             
             if (\Illuminate\Support\Facades\Auth::user()->user_type != 1 && \Illuminate\Support\Facades\Auth::user()->viewable_staff_orders !== 'all') {
