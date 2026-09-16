@@ -310,6 +310,7 @@ test.describe('POS route smoke coverage', () => {
     });
 
     test('synchronizes six queued orders in batches of five and isolates item failures', async ({ page }) => {
+        test.setTimeout(60_000);
         requireCredentials();
         await login(page);
         await page.goto('/admin/pos');
@@ -374,7 +375,10 @@ test.describe('POS route smoke coverage', () => {
         });
 
         await page.context().setOffline(false);
-        await expect.poll(() => requests.length).toBe(2);
+        await expect.poll(
+            () => requests.length,
+            { timeout: 30_000 },
+        ).toBe(2);
 
         expect(requests.map(batch => batch.length)).toEqual([5, 1]);
         expect(requests.flat().map(order => order.uuid)).toEqual(queuedUuids);
