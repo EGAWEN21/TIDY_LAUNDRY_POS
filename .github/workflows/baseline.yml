@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up PHP 8.4
         uses: shivammathur/setup-php@v2
@@ -28,7 +28,7 @@ jobs:
           tools: composer:v2
 
       - name: Set up Node.js 20
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '20'
           cache: npm
@@ -43,13 +43,25 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run repeatable baseline
-        run: composer baseline
+        shell: bash
+        run: |
+          set -o pipefail
+          composer baseline 2>&1 | tee baseline.log
 
-      - name: Upload browser failure artifacts
+      - name: Annotate baseline failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        shell: bash
+        run: |
+          message=$(tail -n 80 baseline.log | sed 's/%/%25/g; s/\r/%0D/g' | awk '{printf "%s%%0A", $0}')
+          echo "::error title=Baseline failure::${message}"
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v5
         with:
-          name: playwright-test-results
-          path: test-results/
+          name: baseline-failure-artifacts
+          path: |
+            baseline.log
+            test-results/
           if-no-files-found: ignore
           retention-days: 7
