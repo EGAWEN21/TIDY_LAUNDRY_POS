@@ -20,7 +20,10 @@ class MasterSettingStorageTest extends TestCase
     {
         $this->assertSame(storage_path('app/public'), config('filesystems.disks.public.root'));
         $this->assertStringEndsWith('/storage', config('filesystems.disks.public.url'));
-        $this->assertTrue(file_exists(public_path('storage')));
+        $this->assertSame(
+            storage_path('app/public'),
+            config('filesystems.links.'.public_path('storage')),
+        );
     }
 
     public function test_master_settings_save_persists_logo_and_favicon_storage_urls(): void
