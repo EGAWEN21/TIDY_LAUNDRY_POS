@@ -7,6 +7,7 @@ use App\Models\MasterSettings;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -26,6 +27,14 @@ class MasterSettingStorageTest extends TestCase
     {
         Storage::fake('public');
         $user = User::firstOrFail();
+        $originalPublicPath = $this->app->publicPath();
+        $testPublicPath = storage_path('framework/testing/public-'.str()->uuid());
+        File::ensureDirectoryExists($testPublicPath.'/assets/images');
+        $this->app->usePublicPath($testPublicPath);
+        $this->beforeApplicationDestroyed(function () use ($originalPublicPath, $testPublicPath): void {
+            $this->app->usePublicPath($originalPublicPath);
+            File::deleteDirectory($testPublicPath);
+        });
 
         Livewire::actingAs($user)
             ->test(MasterSetting::class)
@@ -56,5 +65,8 @@ class MasterSettingStorageTest extends TestCase
         $this->assertStringStartsWith('/storage/favicon/', $site['default_favicon']);
         Storage::disk('public')->assertExists(str_replace('/storage/', '', $site['default_logo']));
         Storage::disk('public')->assertExists(str_replace('/storage/', '', $site['default_favicon']));
+        $this->assertFileExists($testPublicPath.'/assets/images/logo-192.png');
+        $this->assertFileExists($testPublicPath.'/assets/images/logo-512.png');
+        $this->assertFileExists($testPublicPath.'/assets/images/apple-touch-icon.png');
     }
 }

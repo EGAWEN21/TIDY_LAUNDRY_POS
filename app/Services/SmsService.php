@@ -13,6 +13,10 @@ class SmsService
 {
     public function send(string $phoneNumber, string $message): bool|string
     {
+        if (app()->environment('testing')) {
+            return true;
+        }
+
         $settings = new MasterSettings();
         $site = $settings->siteData();
 

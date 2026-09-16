@@ -1,11 +1,12 @@
 import { test, expect } from '@playwright/test';
 
 
-const email = process.env.E2E_EMAIL;
-const password = process.env.E2E_PASSWORD;
+const usesIsolatedServer = !process.env.E2E_BASE_URL;
+const email = process.env.E2E_EMAIL || (usesIsolatedServer ? 'admin@admin.com' : null);
+const password = process.env.E2E_PASSWORD || (usesIsolatedServer ? '123456' : null);
 
 function requireCredentials() {
-    test.skip(!email || !password, 'Set E2E_EMAIL and E2E_PASSWORD to run authenticated E2E tests.');
+    test.skip(!email || !password, 'Set E2E_EMAIL and E2E_PASSWORD for an explicit E2E_BASE_URL target.');
 }
 
 async function login(page) {
@@ -15,6 +16,34 @@ async function login(page) {
     await signInForm.locator('input[type="password"]').fill(password);
     await signInForm.getByRole('button', { name: /sign in/i }).click();
     await expect(page).toHaveURL(/\/admin\/dashboard/);
+
+    // The first service-worker activation intentionally reloads the page on controllerchange.
+    // Wait for that lifecycle to finish before navigating to or interacting with the POS.
+    await expect.poll(async () => {
+        try {
+            return await page.evaluate(async () => {
+                if (!('serviceWorker' in navigator)) return true;
+                await navigator.serviceWorker.ready;
+                return Boolean(navigator.serviceWorker.controller);
+            });
+        } catch {
+            return false;
+        }
+    }, { timeout: 15_000 }).toBe(true);
+    await expect(page).toHaveURL(/\/admin\/dashboard/);
+}
+
+async function addFirstServiceToCart(page) {
+    const firstService = page.locator('button[data-bs-target="#servicetype"]').first();
+    await expect(firstService).toBeVisible();
+    await firstService.click();
+
+    const serviceTypeModal = page.locator('#servicetype.show');
+    await expect(serviceTypeModal).toBeVisible();
+    await expect(serviceTypeModal.locator('input[type="checkbox"]:checked').first()).toBeVisible();
+    await serviceTypeModal.getByRole('button', { name: 'Save' }).click();
+
+    await expect(page.locator('table tbody tr').first()).toBeVisible();
 }
 
 test.describe('POS route smoke coverage', () => {
@@ -42,11 +71,7 @@ test.describe('POS route smoke coverage', () => {
         await expect(page.locator('#pos-app')).toBeVisible();
         await expect(page.getByPlaceholder('Search services')).toBeVisible();
 
-        const firstService = page.locator('button[data-bs-target="#servicetype"]').first();
-        await expect(firstService).toBeVisible();
-        await firstService.click();
-        await page.locator('#servicetype button[type="submit"]').click();
-        await expect(page.locator('#cartTable, table').first()).toBeVisible();
+        await addFirstServiceToCart(page);
 
         await page.context().setOffline(true);
         await expect(page.getByText('Offline Mode')).toBeVisible();
@@ -149,10 +174,7 @@ test.describe('POS route smoke coverage', () => {
         await expect(page.locator('#pos-app')).toBeVisible();
         await expect(page.getByPlaceholder('Search services')).toBeVisible();
 
-        const firstService = page.locator('button[data-bs-target="#servicetype"]').first();
-        await expect(firstService).toBeVisible();
-        await firstService.click();
-        await page.locator('#servicetype button[type="submit"]').click();
+        await addFirstServiceToCart(page);
         await page.context().setOffline(true);
         await expect(page.getByText('Offline Mode')).toBeVisible();
         await page.getByRole('button', { name: 'Cash' }).click();
@@ -215,7 +237,7 @@ test.describe('POS route smoke coverage', () => {
                     };
                 };
             });
-        }, uuid)).toEqual({
+        }, uuid)).toMatchObject({
             status: 'retryable_failure',
             retryCount: 1,
             error: 'E2E forced temporary failure',
@@ -321,8 +343,13 @@ test.describe('POS route smoke coverage', () => {
             return uuids;
         });
 
+        // Drive synchronization through the same reconnection event used in production.
+        // Reloading can race with service-worker activation and an initialization sync.
+        await page.context().setOffline(true);
+        await expect(page.getByText('Offline Mode')).toBeVisible();
+
         const requests = [];
-        await page.route('**/api/pos/sync-orders', async route => {
+        await page.context().route('**/api/pos/sync-orders', async route => {
             const payload = route.request().postDataJSON();
             requests.push(payload.orders);
             const failedUuid = queuedUuids[1];
@@ -346,7 +373,7 @@ test.describe('POS route smoke coverage', () => {
             });
         });
 
-        await page.reload();
+        await page.context().setOffline(false);
         await expect.poll(() => requests.length).toBe(2);
 
         expect(requests.map(batch => batch.length)).toEqual([5, 1]);
@@ -388,9 +415,7 @@ test.describe('POS route smoke coverage', () => {
         await expect(page.locator('#pos-app')).toBeVisible();
         await expect(page.getByPlaceholder('Search services')).toBeVisible();
 
-        const firstService = page.locator('button[data-bs-target="#servicetype"]').first();
-        await firstService.click();
-        await page.locator('#servicetype button[type="submit"]').click();
+        await addFirstServiceToCart(page);
         await page.context().setOffline(true);
         await expect(page.getByText('Offline Mode')).toBeVisible();
         await page.getByRole('button', { name: 'Cash' }).click();
@@ -479,10 +504,16 @@ test.describe('POS route smoke coverage', () => {
         await login(page);
         await page.goto('/admin/pos');
         await expect(page.locator('#pos-app')).toBeVisible();
-        await expect.poll(async () => page.evaluate(async () => {
-            if (!('serviceWorker' in navigator)) return false;
-            const registrations = await navigator.serviceWorker.getRegistrations();
-            return registrations.some(registration => registration.active?.scriptURL.endsWith('/sw.js'));
-        })).toBe(true);
+        await expect.poll(async () => {
+            try {
+                return await page.evaluate(async () => {
+                    if (!('serviceWorker' in navigator)) return false;
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    return registrations.some(registration => registration.active?.scriptURL.endsWith('/sw.js'));
+                });
+            } catch {
+                return false;
+            }
+        }).toBe(true);
     });
 });

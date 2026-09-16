@@ -23,4 +23,10 @@ yarn-error.log
 .DS_Store
 __MACOSX
 database/database.sqlite
+database/testing.sqlite
+database/testing.sqlite.lock
+database/e2e.sqlite
+playwright-install.log
+baseline-run.log
+baseline-status.txt
 *.sqlite-journal

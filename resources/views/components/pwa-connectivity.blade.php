@@ -74,7 +74,7 @@
             }
 
             if (destination) {
-                if (offlinePosReady && (destination.endsWith('/admin/pos') || destination.includes('/admin/pos?'))) {
+                if (!isPosPage && offlinePosReady && (destination.endsWith('/admin/pos') || destination.includes('/admin/pos?'))) {
                     window.location.href = destination;
                     return;
                 }
@@ -212,9 +212,11 @@
 
         window.showOfflineChoice = showOfflineChoice;
 
-        // Proactively detect network drops and show the offline modal
+        // The offline POS already exposes connection status and remains fully usable.
+        // Only block other screens when the network drops.
         window.addEventListener('offline', function () {
-            showOfflineChoice(window.location.href);
+            var isPosPage = window.location.pathname.endsWith('/admin/pos');
+            if (!isPosPage) showOfflineChoice(window.location.href);
         });
 
         // Auto-dismiss the modal if the network comes back while it's still showing

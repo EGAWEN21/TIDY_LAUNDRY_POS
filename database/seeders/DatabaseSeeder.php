@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Permission;
 use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -28,8 +27,6 @@ class DatabaseSeeder extends Seeder
                 CountryControlSeeder::class,
             ]);
         }
-        if (Permission::count() == 0) {
-            $this->call(PermissionSeeder::class);
-        }
+        $this->call(PermissionSeeder::class);
     }
 }

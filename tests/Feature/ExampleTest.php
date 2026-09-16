@@ -32,26 +32,24 @@ class ExampleTest extends TestCase
         $serviceWorker = file_get_contents(public_path('sw.js'));
         $navigationFallback = file_get_contents(public_path('sw-fallback.js'));
         $connectivityComponent = file_get_contents(resource_path('views/components/pwa-connectivity.blade.php'));
-        $manifest = json_decode(file_get_contents(public_path('build/manifest.json')), true, flags: JSON_THROW_ON_ERROR);
-        $posBundle = file_get_contents(public_path('build/'.$manifest['resources/js/pos-app.js']['file']));
 
         $this->assertStringContainsString("buildBase: '/'", $viteConfig);
         $this->assertStringContainsString("registerType: 'autoUpdate'", $viteConfig);
+        $this->assertStringContainsString('injectRegister: false', $viteConfig);
         $this->assertStringNotContainsString('pwa-update-ready', $posSource);
         $this->assertStringNotContainsString('pwa-apply-update', $posSource);
 
-        $this->assertStringContainsString('new b("/sw.js"', $posBundle);
-        $this->assertStringNotContainsString('new b("/build/sw.js"', $posBundle);
-        $this->assertStringContainsString('window.location.reload()', $posBundle);
+        $this->assertStringContainsString("register('/sw.js', { scope: '/' })", $connectivityComponent);
+        $this->assertStringNotContainsString("register('/build/sw.js'", $connectivityComponent);
+        $this->assertStringContainsString('window.location.reload()', $connectivityComponent);
 
         $this->assertStringContainsString('skipWaiting', $serviceWorker);
         $this->assertStringContainsString('offline.html', $serviceWorker);
         $this->assertStringContainsString('pos-html-cache', $navigationFallback);
         $this->assertStringContainsString('CACHE_POS_SHELL', $navigationFallback);
-        $this->assertStringContainsString('CHECK_POS_SHELL', $navigationFallback);
         $this->assertStringContainsString('POS_SHELL_STATUS', $navigationFallback);
+        $this->assertStringContainsString('CHECK_POS_SHELL', $connectivityComponent);
         $this->assertStringContainsString('new MessageChannel()', $connectivityComponent);
-        $this->assertStringContainsString("register('/sw.js', { scope: '/' })", $connectivityComponent);
         $this->assertStringContainsString('/connectivity-check', $connectivityComponent);
         $this->assertStringContainsString('Continue in Offline POS', $connectivityComponent);
         $this->assertGreaterThanOrEqual(50, substr_count($serviceWorker, '{url:"'));

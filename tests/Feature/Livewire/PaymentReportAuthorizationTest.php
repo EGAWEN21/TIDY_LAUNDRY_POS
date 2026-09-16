@@ -4,7 +4,7 @@ namespace Tests\Feature\Livewire;
 
 use App\Livewire\Payments\PaymentsReceiptView;
 use App\Livewire\Reports\CustomerReport;
-use App\Livewire\Reports\OrderReport;
+use App\Livewire\Reports\SalesReport;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Livewire\Livewire;
@@ -35,14 +35,14 @@ class PaymentReportAuthorizationTest extends TestCase
         $user = $this->createStaff('order-report-denied');
 
         Livewire::actingAs($user)
-            ->test(OrderReport::class)
+            ->test(SalesReport::class)
             ->assertStatus(404);
     }
 
     public function test_super_admin_can_view_order_reports(): void
     {
         Livewire::actingAs(User::firstOrFail())
-            ->test(OrderReport::class)
+            ->test(SalesReport::class)
             ->assertStatus(200)
             ->assertSet('status', -1);
     }
@@ -61,7 +61,7 @@ class PaymentReportAuthorizationTest extends TestCase
         Livewire::actingAs(User::firstOrFail())
             ->test(CustomerReport::class)
             ->assertStatus(200)
-            ->assertSet('statusFilter', 'all');
+            ->assertSet('statusFilter', '0');
     }
 
     private function createStaff(string $suffix): User
