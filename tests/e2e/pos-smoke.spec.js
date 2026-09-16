@@ -316,6 +316,11 @@ test.describe('POS route smoke coverage', () => {
         await page.goto('/admin/pos');
         await expect(page.locator('#pos-app')).toBeVisible();
 
+        // Go offline before inserting queue records so no background sync can
+        // consume a batch before the route interceptor is installed.
+        await page.context().setOffline(true);
+        await expect(page.getByText('Offline Mode')).toBeVisible();
+
         const queuedUuids = await page.evaluate(async () => {
             const userId = String(window.PosConfig.user.id);
             const uuids = Array.from({ length: 6 }, (_, index) => `e2e-batch-${Date.now()}-${index}`);
@@ -346,9 +351,6 @@ test.describe('POS route smoke coverage', () => {
 
         // Drive synchronization through the same reconnection event used in production.
         // Reloading can race with service-worker activation and an initialization sync.
-        await page.context().setOffline(true);
-        await expect(page.getByText('Offline Mode')).toBeVisible();
-
         const requests = [];
         await page.context().route('**/api/pos/sync-orders', async route => {
             const payload = route.request().postDataJSON();
