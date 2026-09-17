@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\Customers\ReconcileOfflineCustomerAction;
+use App\DTOs\CustomerData;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Service;
@@ -158,59 +160,36 @@ class PosApiController extends Controller
     {
         $customers = $request->input('customers', []);
         $syncedIds = [];
+        $canonicalUuids = [];
         $failedIds = [];
+        $user = $request->user();
 
-        foreach ($customers as $cust) {
+        foreach ($customers as $customerPayload) {
+            $localUuid = $customerPayload['uuid'] ?? null;
+
             try {
-                $uuid = $cust['uuid'] ?? null;
-                $phone = $cust['phone'];
+                $customer = ReconcileOfflineCustomerAction::execute(
+                    CustomerData::from($customerPayload),
+                    $user,
+                );
 
-                $customer = null;
-
-                if ($uuid) {
-                    $customer = Customer::where('uuid', $uuid)->first();
+                if ($localUuid) {
+                    $syncedIds[$localUuid] = $customer->id;
+                    $canonicalUuids[$localUuid] = $customer->uuid;
                 }
-
-                if (!$customer) {
-                    $customer = Customer::where('phone', $phone)->first();
-                }
-
-                if ($customer) {
-                    if (\Illuminate\Support\Facades\Auth::user()->hasPermission('customer_edit')) {
-                        $customer->update([
-                            'uuid' => $uuid ?? $customer->uuid,
-                            'name' => $cust['name'],
-                            'email' => $cust['email'] ?? $customer->email,
-                            'tax_number' => $cust['tax_number'] ?? $customer->tax_number,
-                            'address' => $cust['address'] ?? $customer->address,
-                        ]);
-                    } else {
-                        throw new \Exception("Missing customer_edit permission. Cannot overwrite existing customer profile.");
-                    }
-                } else {
-                    $customer = Customer::create([
-                        'phone' => $phone,
-                        'uuid' => $uuid,
-                        'name' => $cust['name'],
-                        'email' => $cust['email'] ?? null,
-                        'tax_number' => $cust['tax_number'] ?? null,
-                        'address' => $cust['address'] ?? null,
-                        'is_active' => 1,
-                        'created_by' => \Illuminate\Support\Facades\Auth::id()
-                    ]);
-                }
-                if (isset($cust['uuid'])) {
-                    $syncedIds[$cust['uuid']] = $customer->id;
-                }
-            } catch (\Exception $e) {
-                if (isset($cust['uuid'])) {
-                    $failedIds[$cust['uuid']] = "Customer Sync Error: " . $e->getMessage();
+            } catch (\Throwable $exception) {
+                if ($localUuid) {
+                    $failedIds[$localUuid] = 'Customer Sync Error: '.$exception->getMessage();
                 }
             }
         }
 
         return response()->json([
-            'data' => ['synced_customers' => $syncedIds, 'failed' => $failedIds],
+            'data' => [
+                'synced_customers' => $syncedIds,
+                'canonical_customer_uuids' => $canonicalUuids,
+                'failed' => $failedIds,
+            ],
             'message' => 'Customers synced'
         ]);
     }

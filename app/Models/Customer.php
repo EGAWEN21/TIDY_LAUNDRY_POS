@@ -13,13 +13,14 @@ class Customer extends Model
     use UpdatesPosSyncTimestamp;
     use SoftDeletes;
     protected $fillable = [
+        'uuid',
         'name',
         'email',
         'phone',
         'tax_number',
         'address',
         'is_active',
-        'created_by'
+        'created_by',
     ];
 
     public function orders(): \Illuminate\Database\Eloquent\Relations\HasMany

@@ -20,6 +20,7 @@ class CreateCustomerAction
         return DB::transaction(function () use ($data, $userId) {
             $customer = new Customer();
 
+            $customer->uuid = $data->uuid;
             $customer->name = $data->name;
             $customer->phone = $data->phone;
             $customer->email = $data->email;

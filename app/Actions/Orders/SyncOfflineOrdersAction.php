@@ -2,10 +2,11 @@
 
 namespace App\Actions\Orders;
 
+use App\Actions\Customers\ReconcileOfflineCustomerAction;
+use App\DTOs\CustomerData;
 use App\DTOs\OrderData;
 use App\Models\Order;
 use App\Models\OrderRequest;
-use App\Models\Customer;
 use App\Models\User;
 use App\Notifications\SystemNotification;
 use Illuminate\Support\Facades\Cache;
@@ -86,42 +87,12 @@ class SyncOfflineOrdersAction
                         }
                     }
 
-                    // Unified Graph Sync: Handle Offline Customer Creation safely
-                    if (!empty($offlinePayload['new_customer']) && !empty($offlinePayload['new_customer']['phone'])) {
-                        $custData = $offlinePayload['new_customer'];
-                        $customer = Customer::where('phone', $custData['phone'])->first();
-                        if ($customer) {
-                            if ($user->hasPermission('customer_edit')) {
-                                $customer->update([
-                                    'name' => $custData['name'],
-                                    'email' => $custData['email'] ?? null,
-                                    'tax_number' => $custData['tax_number'] ?? null,
-                                    'address' => $custData['address'] ?? null,
-                                ]);
-                            } else {
-                                $conflictMsg = "[AUDIT] Offline sync attempted to overwrite existing customer profile for {$custData['phone']}. Blocked due to missing customer_edit permission.";
-                                $offlinePayload['note'] = empty($offlinePayload['note']) ? $conflictMsg : $offlinePayload['note'] . " | " . $conflictMsg;
-                            }
-                        } else {
-                        $customer = Customer::create([
-                                'phone' => $custData['phone'],
-                                'uuid' => $custData['uuid'] ?? null,
-                                'name' => $custData['name'],
-                                'email' => $custData['email'] ?? null,
-                                'tax_number' => $custData['tax_number'] ?? null,
-                                'address' => $custData['address'] ?? null,
-                                'is_active' => 1,
-                                'created_by' => $user->id
-                            ]);
-                        }
+                    if (! empty($offlinePayload['new_customer']['phone'])) {
+                        $customerData = CustomerData::from($offlinePayload['new_customer']);
+                        $customer = ReconcileOfflineCustomerAction::execute($customerData, $user);
                         $offlinePayload['customer_id'] = $customer->id;
-                        $offlinePayload['phone_number'] = $custData['phone'];
-                    } elseif (!empty($offlinePayload['phone_number'])) {
-                        // Fallback to searching by phone if explicitly passed
-                        $dbCustomer = Customer::where('phone', $offlinePayload['phone_number'])->first();
-                        if ($dbCustomer) {
-                            $offlinePayload['customer_id'] = $dbCustomer->id;
-                        }
+                        $offlinePayload['customer_name'] = $customer->name;
+                        $offlinePayload['phone_number'] = $customer->phone;
                     }
 
                     // Cast the raw array payload into our strictly typed Enterprise DTO

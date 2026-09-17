@@ -1,4 +1,4 @@
-# Governance, Reviewable Batches, Decisions, Evidence, and Definition of Done\n\nLast updated: 2026-09-13\n\n# Reviewable implementation batches\n\n| Batch | Deliverable | Status |\n|---|---|---|\n| 1 | Safe environment, baseline tests, dependency and behavior maps | [~] |\n| 2 | Customer identity reconciliation and durable offline saves | [ ] |\n| 3 | Authorization and shared-device isolation | [ ] |\n| 4 | Financial policies, shared validation, locking, and revisions | [ ] |\n| 5 | Sync outcomes, idempotency, and approval reconciliation | [ ] |
+# Governance, Reviewable Batches, Decisions, Evidence, and Definition of Done\n\nLast updated: 2026-09-13\n\n# Reviewable implementation batches\n\n| Batch | Deliverable | Status |\n|---|---|---|\n| 1 | Safe environment, baseline tests, dependency and behavior maps | [~] |\n| 2 | Customer identity reconciliation and durable offline saves | [~] |\n| 3 | Authorization and shared-device isolation | [ ] |\n| 4 | Financial policies, shared validation, locking, and revisions | [ ] |\n| 5 | Sync outcomes, idempotency, and approval reconciliation | [ ] |
 | 6 | Dedicated online editing APIs | [ ] |
 | 7 | Vue existing-order editor | [ ] |
 | 8 | Vue request editor and Sync Manager integration | [ ] |
@@ -75,7 +75,9 @@ Tests accompany every batch. Financial or authorization changes must not be hidd
 
 | ID | Required decision | Status | Needed before |
 |---|---|---|---|
-| D-001 | Canonical customer UUID and phone-conflict reconciliation policy | Open | Batch 2 |
+| D-001 | Canonical customer UUID and phone-conflict reconciliation policy | Decided 2026-09-17 | Batch 2 |
+D-001 policy: a stored non-null UUID is canonical and cannot be replaced by a different client UUID. A visible phone match may acknowledge an unchanged replay without `customer_edit`; changed profile fields require `customer_edit`. A UUID-null phone match adopts the first valid offline UUID. New profiles require `customer_create`. UUID/phone disagreement, multiple phone matches, and matches outside the actor's customer visibility are rejected rather than linked, changed, or duplicated. Responses retain the legacy local UUID-to-server ID map and add a local UUID-to-canonical UUID map.
+
 | D-002 | Legacy `PosDraft` conversion/export/recovery/retention | Open | Batch 2/removal |
 | D-003 | Supported older client and queued payload window | Open | Batches 2/5/9 |
 | D-004 | Discount/tax ordering | Open | Batch 4 |
@@ -121,6 +123,7 @@ Tests accompany every batch. Financial or authorization changes must not be hidd
 | 2026-09-13 | `herd composer audit` | No known advisories after Livewire 3.8.8 |
 | 2026-09-13 | Targeted Pint | Modified tests pass |
 | 2026-09-13 | Repository Pint baseline | 20 existing issues across 232 files |
+| 2026-09-17 | Customer reconciliation API tests | 11 passed with standalone and embedded permission, visibility, replay, and UUID coverage |
 
 # Final definition of done
 

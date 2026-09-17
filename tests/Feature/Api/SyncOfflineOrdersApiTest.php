@@ -116,7 +116,7 @@ class SyncOfflineOrdersApiTest extends TestCase
     public function test_it_creates_a_numbered_request_when_staff_requires_approval(): void
     {
         $role = UserRole::forceCreate(['name' => 'Cashier']);
-        $this->grantOrderCreatePermission($role);
+        $this->grantPermissions($role, ['order_create', 'customer_create']);
         $user = User::create([
             'name' => 'Cashier',
             'email' => 'cashier@example.com',
@@ -183,10 +183,47 @@ class SyncOfflineOrdersApiTest extends TestCase
         ]);
     }
 
+    public function test_embedded_customer_creation_requires_customer_create_permission(): void
+    {
+        $role = UserRole::forceCreate(['name' => 'Restricted Cashier']);
+        $this->grantPermissions($role, ['order_create']);
+        $user = User::create([
+            'name' => 'Restricted Cashier',
+            'email' => 'restricted-cashier@example.com',
+            'password' => bcrypt('password'),
+            'user_type' => 2,
+            'role_id' => $role->id,
+            'is_active' => 1,
+        ]);
+        $uuid = 'unauthorized-customer-order';
+        $customerUuid = 'unauthorized-customer-uuid';
+
+        $this->withToken($user->createToken('pos-token')->plainTextToken)
+            ->postJson('/api/pos/sync-orders', [
+                'orders' => [[
+                    'uuid' => $uuid,
+                    'new_customer' => [
+                        'uuid' => $customerUuid,
+                        'name' => 'Unauthorized Customer',
+                        'phone' => '5552000',
+                    ],
+                ]],
+            ])
+            ->assertOk()
+            ->assertJsonPath(
+                "failed.{$uuid}",
+                'Validation/Sync Error: Missing customer_create permission.',
+            );
+
+        $this->assertDatabaseMissing('customers', ['uuid' => $customerUuid]);
+        $this->assertDatabaseMissing('orders', ['uuid' => $uuid]);
+        $this->assertDatabaseMissing('order_requests', ['uuid' => $uuid]);
+    }
+
     public function test_it_returns_rejected_requests_with_the_canonical_reason(): void
     {
         $role = UserRole::forceCreate(['name' => 'Rejected Request Cashier']);
-        $this->grantOrderCreatePermission($role);
+        $this->grantPermissions($role, ['order_create']);
         $user = User::create([
             'name' => 'Rejected Request Owner',
             'email' => 'rejected-owner@example.com',
@@ -214,15 +251,17 @@ class SyncOfflineOrdersApiTest extends TestCase
             ->assertJsonPath('data.rejected_orders.0.rejection_reason', 'Correct the customer details');
     }
 
-    private function grantOrderCreatePermission(UserRole $role): void
+    private function grantPermissions(UserRole $role, array $permissionNames): void
     {
-        $permission = Permission::where('name', 'order_create')->firstOrFail();
+        foreach ($permissionNames as $permissionName) {
+            $permission = Permission::where('name', $permissionName)->firstOrFail();
 
-        UserRolePermission::forceCreate([
-            'name' => $permission->name,
-            'permission_name' => $permission->name,
-            'role_id' => $role->id,
-            'permission_id' => $permission->id,
-        ]);
+            UserRolePermission::forceCreate([
+                'name' => $permission->name,
+                'permission_name' => $permission->name,
+                'role_id' => $role->id,
+                'permission_id' => $permission->id,
+            ]);
+        }
     }
 }

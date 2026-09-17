@@ -19,12 +19,14 @@ class CustomerActionsTest extends TestCase
     {
         $user = $this->createUser();
 
+        $uuid = (string) Str::uuid();
         $customer = CreateCustomerAction::execute(
             new CustomerData(
                 name: 'Action Customer',
                 phone: '0800000001',
                 email: 'action@example.com',
                 tax_number: 'TAX-001',
+                uuid: $uuid,
                 address: '1 Action Street',
                 is_active: 1,
             ),
@@ -33,6 +35,7 @@ class CustomerActionsTest extends TestCase
 
         $this->assertDatabaseHas('customers', [
             'id' => $customer->id,
+            'uuid' => $uuid,
             'name' => 'Action Customer',
             'phone' => '0800000001',
             'email' => 'action@example.com',
